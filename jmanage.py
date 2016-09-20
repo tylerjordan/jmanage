@@ -22,6 +22,7 @@ from lxml import etree
 listDict = []
 listDictCSV = ".\\data\\listdict.csv"
 passCSV = ".\\data\\pass.csv"
+config_dir = ".\\data\\configs\\"
 mypwd = ''
 myuser = ''
 port = 22
@@ -134,7 +135,7 @@ def scan_network(iplist):
 
 
 def show_devices():
-    """ Purpose: Display a table showing devices with general facst.
+    """ Purpose: Display a table showing devices with general facts.
         Returns: Nothing
     """
     t = PrettyTable(['IP', 'Hostname', 'Model', 'Current Code', 'Serial Number', 'Last Updated'])
@@ -152,10 +153,37 @@ def add_record(ip):
         now = datetime.datetime.now()
         items['last_update'] = now.strftime("%Y-%m-%d-%H%M")
     except Exception as err:
-        print 'ERROR: Unable to get record information for: {0}'.format(ip)
+        print 'ERROR: Unable to get record information for: {0} : {1}'.format(ip, err)
         return False
     else:
+        if save_config_file(fetch_config(ip), config_dir + items['host_name'] + ".conf"):
+            print "Configuration saved..."
+        else:
+            print "Unable to save configuration"
         listDict.append(items)
+        return True
+
+def change_record(ip, attribute):
+    """ Purpose: Change an attribute of an existing record.
+        Returns: String
+    """
+    for myrecord in listDict:
+        if myrecord['ip'] == ip:
+            listDict.remove()
+
+
+def save_config_file(myconfig, filename):
+    """ Purpose: Creates a file and adds text to the file.
+        Returns: True or False
+    """
+    try:
+        newfile = open(filename, "w+")
+    except Exception as err:
+        print 'ERROR: Unable to open file: {0} : {1}'.format(filename, err)
+        return False
+    else:
+        newfile.write(myconfig)
+        newfile.close()
         return True
 
 
@@ -174,14 +202,15 @@ def check_ip(ip):
         print "Getting current information..."
         remoteDict = run(ip, myuser, mypwd, port)
 
-        # If info could be collected...
+        # If info was collected...
         if remoteDict:
-            # Check if this IP is associated with a record.
+            # If this IP is associated with a record...
             if has_record:
-                # If yes, check that the existing record is up-to-date
+                # Check that the existing record is up-to-date. If not, update.
                 localDict = get_record(ip)
                 if localDict['host_name'] != remoteDict['host_name']:
-                    pass
+                    print "Hostname changed from {0} to {1}!".format(localDict['host_name'], remoteDict['host_name'])
+
                 if localDict['serial_number'] != remoteDict['serial_number']:
                     pass
                 if localDict['model'] != remoteDict['model']:
@@ -214,7 +243,7 @@ def check_ip(ip):
 
 def fetch_config(ip):
     """ Purpose: Get current configuration from device.
-        Returns: Nothing
+        Returns: Text File
     """
     dev = Device(host=ip, user=myuser, passwd=mypwd)
     # Try to open a connection to the device
@@ -231,17 +260,22 @@ def fetch_config(ip):
         # Increase the default RPC timeout to accommodate install operations
         dev.timeout = 600
         # Get config and try to display
+
         # Following command requires 15.1+
         # myconfig = dev.rpc.get_configuration(dict(format='set'))
-        myconfig = dev.rpc.get_config()
-        print etree.tostring(myconfig)
+
+        # myconfig = dev.rpc.get_config()
+        # print etree.tostring(myconfig)
+
+        myconfig = dev.cli('show config | display set')
+        return myconfig
 
 # START OF SCRIPT #
 if __name__ == '__main__':
     passDict = user_pass(passCSV)
     mypwd = passDict['pass']
     myuser = passDict['user']
-    my_options = ['Display Database', 'Scan IPs', 'Save Database', 'Load Database', 'Fetch Config']
+    my_options = ['Display Database', 'Scan Devices', 'Save Database', 'Load Database', 'Fetch Config', 'Refresh Devices']
     while True:
         print "*" * 25 + "\n"
         answer = getOptionAnswerIndex('Choose your poison', my_options)
@@ -251,10 +285,8 @@ if __name__ == '__main__':
         elif answer == "2":
             my_network = getInputAnswer('Enter IP/Mask')
             for myip in IPNetwork(my_network).iter_hosts():
-                output = check_ip(str(myip))
-                # output = run('10.134.227.230', user, pwd, port)
-                print listDict
-                print "Script Ends..."
+                print "Scanning {0} ...".format(myip)
+                check_ip(str(myip))
         elif answer == "3":
             print "Saving Database to CSV..."
             listdict_to_csv(listDict, listDictCSV)
@@ -267,6 +299,10 @@ if __name__ == '__main__':
             ip = getInputAnswer('Enter IP')
             print "Fetching Configuration..."
             fetch_config(ip)
+        elif answer == "6":
+            for myrecord in listDict:
+                print "Refreshing {0} ...".format(myrecord['ip'])
+                check_ip(str(myrecord['ip']))
         else:
             quit()
 
