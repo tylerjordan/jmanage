@@ -163,13 +163,17 @@ def add_record(ip):
         listDict.append(items)
         return True
 
-def change_record(ip, attribute):
+def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
         Returns: String
     """
     for myrecord in listDict:
         if myrecord['ip'] == ip:
-            listDict.remove()
+            del [key]
+            tempDict = {key: value}
+            listDict.update(tempDict)
+            print listDict
+
 
 
 def save_config_file(myconfig, filename):
@@ -210,7 +214,7 @@ def check_ip(ip):
                 localDict = get_record(ip)
                 if localDict['host_name'] != remoteDict['host_name']:
                     print "Hostname changed from {0} to {1}!".format(localDict['host_name'], remoteDict['host_name'])
-
+                    change_record(ip, remoteDict['host_name'], key='host_name')
                 if localDict['serial_number'] != remoteDict['serial_number']:
                     pass
                 if localDict['model'] != remoteDict['model']:
