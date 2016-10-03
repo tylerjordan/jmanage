@@ -16,7 +16,7 @@ from netaddr import *
 from utility import *
 from prettytable import PrettyTable
 from jnpr.junos import *
-from jnpr.junos.exception import ConnectError
+from jnpr.junos.exception import *
 from lxml import etree
 
 listDict = []
@@ -46,7 +46,6 @@ def ping(ip):
             return True
         except subprocess.CalledProcessError:
             return False
-
 
 
 def information(connection, ip, software_info, host_name):
@@ -156,25 +155,37 @@ def add_record(ip):
         print 'ERROR: Unable to get record information for: {0} : {1}'.format(ip, err)
         return False
     else:
-        if save_config_file(fetch_config(ip), config_dir + items['host_name'] + ".conf"):
-            print "Configuration saved..."
+        try:
+            save_config_file(fetch_config(ip), config_dir + items['host_name'] + ".conf")
+        except Exception as err:
+            print 'ERROR: Problem saving configuration: {0}'.format(err)
+            return False
         else:
             print "Unable to save configuration"
-        listDict.append(items)
-        return True
+            listDict.append(items)
+            return True
+
 
 def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
         Returns: String
     """
+    change_dict = { key: value }
     for myrecord in listDict:
+        print "In Loop"
         if myrecord['ip'] == ip:
-            del [key]
-            tempDict = {key: value}
-            listDict.update(tempDict)
+            # Change the value
+            myrecord.update(change_dict)
+
+            # Update the "last updated" field
+            now = datetime.datetime.now()
+            time_dict = { 'last_update': now.strftime("%Y-%m-%d-%H%M") }
+            myrecord.update(time_dict)
+
+            # Print list of dicts
             print listDict
-
-
+            break
+    print "Out of Loop"
 
 def save_config_file(myconfig, filename):
     """ Purpose: Creates a file and adds text to the file.
@@ -199,6 +210,8 @@ def check_ip(ip):
     print "Recalling any stored records..."
     if get_record(ip):
         has_record = True
+    record_attribs = [ 'serial_number', 'model', 'host_name', 'junos_code' ]
+
 
     # If we can ping the IP...
     if ping(ip):
@@ -212,16 +225,10 @@ def check_ip(ip):
             if has_record:
                 # Check that the existing record is up-to-date. If not, update.
                 localDict = get_record(ip)
-                if localDict['host_name'] != remoteDict['host_name']:
-                    print "Hostname changed from {0} to {1}!".format(localDict['host_name'], remoteDict['host_name'])
-                    change_record(ip, remoteDict['host_name'], key='host_name')
-                if localDict['serial_number'] != remoteDict['serial_number']:
-                    pass
-                if localDict['model'] != remoteDict['model']:
-                    pass
-                if localDict['junos_code'] != remoteDict['junos_code']:
-                    pass
-
+                for attrib in record_attribs:
+                    if localDict[attrib] != remoteDict[attrib]:
+                        print attrib + " changed from {0} to {1}!".format(localDict[attrib], remoteDict[attrib])
+                        change_record(ip, remoteDict[attrib], key=attrib)
             else:
                 # If no, this is a device that hasn't been identified yet, create a new record
                 print "Adding new device: {0}".format(ip)
@@ -257,7 +264,7 @@ def fetch_config(ip):
         print "Pass: {0}".format(mypwd)
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
-    except ConnectError as err:
+    except ConnectRefusedError as err:
         print "Cannot connect to device {0} : {1}".format(ip, err)
     # If try arguments succeed...
     else:
@@ -302,11 +309,14 @@ if __name__ == '__main__':
         elif answer == "5":
             ip = getInputAnswer('Enter IP')
             print "Fetching Configuration..."
-            fetch_config(ip)
+            myconfig = fetch_config(ip)
+            if myconfig:
+                print "Got configuration..."
+            else:
+                print "No configuration..."
         elif answer == "6":
             for myrecord in listDict:
                 print "Refreshing {0} ...".format(myrecord['ip'])
                 check_ip(str(myrecord['ip']))
         else:
             quit()
-
