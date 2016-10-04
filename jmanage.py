@@ -133,6 +133,14 @@ def scan_network(iplist):
     pass
 
 
+def get_now_time():
+    """ Purpose: Create a correctly formatted timestamp
+        Returns: Timestamp
+    """
+    now = datetime.datetime.now()
+    return now.strftime("%Y-%m-%d-%H%M")
+
+
 def show_devices():
     """ Purpose: Display a table showing devices with general facts.
         Returns: Nothing
@@ -149,8 +157,7 @@ def add_record(ip):
     """
     try:
         items = run(ip, myuser, mypwd, port)
-        now = datetime.datetime.now()
-        items['last_update'] = now.strftime("%Y-%m-%d-%H%M")
+        items['last_update'] = get_now_time()
     except Exception as err:
         print 'ERROR: Unable to get record information for: {0} : {1}'.format(ip, err)
         return False
@@ -178,8 +185,8 @@ def change_record(ip, value, key):
             myrecord.update(change_dict)
 
             # Update the "last updated" field
-            now = datetime.datetime.now()
-            time_dict = { 'last_update': now.strftime("%Y-%m-%d-%H%M") }
+            now = get_now_time()
+            time_dict = { 'last_update': now }
             myrecord.update(time_dict)
 
             # Print list of dicts
@@ -218,7 +225,6 @@ def check_ip(ip):
         # Try to collect current chassis info
         print "Getting current information..."
         remoteDict = run(ip, myuser, mypwd, port)
-
         # If info was collected...
         if remoteDict:
             # If this IP is associated with a record...
