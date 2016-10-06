@@ -9,6 +9,7 @@ import datetime
 import sys  # for writing to terminal
 import paramiko  # https://github.com/paramiko/paramiko for -c -mc -put -get
 import getpass  # for retrieving password input from the user without echoing back what they are typing.
+import difflib
 
 from ncclient import manager  # https://github.com/ncclient/ncclient
 from ncclient.transport import errors
@@ -173,6 +174,9 @@ def add_record(ip):
             return True
 
 
+def diff_configs(first_cfg, second_cfg):
+    pass
+
 def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
         Returns: String
@@ -193,6 +197,7 @@ def change_record(ip, value, key):
             print listDict
             break
     print "Out of Loop"
+
 
 def save_config_file(myconfig, filename):
     """ Purpose: Creates a file and adds text to the file.
@@ -276,14 +281,6 @@ def fetch_config(ip):
     else:
         # Increase the default RPC timeout to accommodate install operations
         dev.timeout = 600
-        # Get config and try to display
-
-        # Following command requires 15.1+
-        # myconfig = dev.rpc.get_configuration(dict(format='set'))
-
-        # myconfig = dev.rpc.get_config()
-        # print etree.tostring(myconfig)
-
         myconfig = dev.cli('show config | display set')
         return myconfig
 
