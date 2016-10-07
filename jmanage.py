@@ -114,6 +114,7 @@ def get_record(ip='', hostname='', sn=''):
         Returns:
             A dictionary containing the device data or 'False' if no record is found
     """
+    blank_record = {}
     print "Getting record for ip: {0}".format(ip)
     if ip:
         for record in listDict:
@@ -127,7 +128,8 @@ def get_record(ip='', hostname='', sn=''):
         for record in listDict:
             if record['serial_number'] == sn:
                 return record
-    return False
+    else:
+        return blank_record
 
 
 def scan_network(iplist):
@@ -146,9 +148,9 @@ def show_devices():
     """ Purpose: Display a table showing devices with general facts.
         Returns: Nothing
     """
-    t = PrettyTable(['IP', 'Hostname', 'Model', 'Current Code', 'Serial Number', 'Last Updated'])
+    t = PrettyTable(['IP', 'Hostname', 'Model', 'Current Code', 'Serial Number', 'Update Attempt', 'Update Success', 'Config Attempt', 'Config Success'])
     for device in listDict:
-        t.add_row([device['ip'], device['host_name'], device['model'], device['junos_code'], device['serial_number'], device['last_update']])
+        t.add_row([device['ip'], device['host_name'], device['model'], device['junos_code'], device['serial_number'], device['last_update_attempt'], device['last_update_success'], device['last_config_attempt'], device['last_config_success']])
     print t
 
 
@@ -158,24 +160,66 @@ def add_record(ip):
     """
     try:
         items = run(ip, myuser, mypwd, port)
-        items['last_update'] = get_now_time()
     except Exception as err:
         print 'ERROR: Unable to get record information for: {0} : {1}'.format(ip, err)
+        items['last_update_attempt'] = get_now_time()
+        listDict.append(items)
         return False
     else:
-        try:
-            save_config_file(fetch_config(ip), config_dir + items['host_name'] + ".conf")
-        except Exception as err:
-            print 'ERROR: Problem saving configuration: {0}'.format(err)
-            return False
+        items['last_update_attempt'] = get_now_time()
+        items['last_update_success'] = get_now_time()
+        if save_config_file(fetch_config(ip), config_dir + items['host_name'] + ".conf"):
+            items['last_config_success'] = get_now_time()
+            items['last_config_attempt'] = get_now_time()
+            print 'Configuration captured: {0}'.format(ip)
+            listDict.append(items)
+            return True
         else:
-            print "Unable to save configuration"
+            items['last_config_attempt'] = get_now_time()
+            print 'ERROR: Unable to capture configuration: {0}'.format(ip)
             listDict.append(items)
             return True
 
 
-def diff_configs(first_cfg, second_cfg):
-    pass
+def compare_configs(config1, config2):
+    print "*"*10 + "CONFIG1" + "*"*10
+    print config1
+    print "*"*10 + "CONFIG2" + "*"*10
+    print config2
+    if config1 and config2:
+        config1_lines = config1.splitlines(1)
+        config2_lines = config2.splitlines(1)
+
+        diffInstance = difflib.Differ()
+        diffList = list(diffInstance.compare(config1_lines, config2_lines))
+
+        print '-'*50
+        print "Lines different in config1 from config2:"
+        for line in diffList:
+            if line[0] == '-':
+                print line,
+            elif line[0] == '+':
+                print line,
+        print
+    else:
+        print "Errors with compare configs..."
+
+
+def compare_configs_two(config1, config2):
+    diff = difflib.unified_diff(
+        config2.splitlines(1),
+        config1.splitlines(1),
+        fromfile='config2',
+        tofile='config1',
+        n=0,
+    )
+    for line in diff:
+        for prefix in ('---', '+++', '@@'):
+            if line.startswith(prefix):
+                break
+        else:
+            sys.stdout.write(line[1:])
+
 
 def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
@@ -184,19 +228,24 @@ def change_record(ip, value, key):
     change_dict = { key: value }
     for myrecord in listDict:
         print "In Loop"
+        # If we've found the correct record...
         if myrecord['ip'] == ip:
-            # Change the value
-            myrecord.update(change_dict)
-
-            # Update the "last updated" field
-            now = get_now_time()
-            time_dict = { 'last_update': now }
-            myrecord.update(time_dict)
-
-            # Print list of dicts
-            print listDict
-            break
-    print "Out of Loop"
+            try:
+                # Trying to update the record...
+                now = get_now_time()
+                time_dict = {'last_update_attempt': now}
+                myrecord.update(time_dict)
+                myrecord.update(change_dict)
+            except Exception as err:
+                # Error checking...
+                print "ERROR: Unable to update record value {0} : {1}".format(ip, err)
+                return False
+            else:
+                # If the record change was successful...
+                now = get_now_time()
+                time_dict = { 'last_update_success': now }
+                myrecord.update(time_dict)
+                return True
 
 
 def save_config_file(myconfig, filename):
@@ -212,6 +261,21 @@ def save_config_file(myconfig, filename):
         newfile.write(myconfig)
         newfile.close()
         return True
+
+
+def load_config_file(ip):
+    record = get_record(ip=ip)
+    if record:
+        my_file = config_dir + record['host_name'] + '.conf'
+        try:
+            file_string = open(my_file, 'r').read()
+        except Exception as err:
+            print 'ERROR: Unable to read file: {0} : {1}'.format(my_file, err)
+            return False
+        else:
+            return file_string
+    else:
+        print "Problem getting record information..."
 
 
 def check_ip(ip):
@@ -236,6 +300,7 @@ def check_ip(ip):
             if has_record:
                 # Check that the existing record is up-to-date. If not, update.
                 localDict = get_record(ip)
+                change_record(ip, localDict[''])
                 for attrib in record_attribs:
                     if localDict[attrib] != remoteDict[attrib]:
                         print attrib + " changed from {0} to {1}!".format(localDict[attrib], remoteDict[attrib])
@@ -289,7 +354,8 @@ if __name__ == '__main__':
     passDict = user_pass(passCSV)
     mypwd = passDict['pass']
     myuser = passDict['user']
-    my_options = ['Display Database', 'Scan Devices', 'Save Database', 'Load Database', 'Fetch Config', 'Refresh Devices']
+    my_options = ['Display Database', 'Scan Devices', 'Save Database', 'Load Database', 'Fetch Config',
+                  'Refresh Devices', 'Compare Configs']
     while True:
         print "*" * 25 + "\n"
         answer = getOptionAnswerIndex('Choose your poison', my_options)
@@ -321,5 +387,8 @@ if __name__ == '__main__':
             for myrecord in listDict:
                 print "Refreshing {0} ...".format(myrecord['ip'])
                 check_ip(str(myrecord['ip']))
+        elif answer == "7":
+            ip = getInputAnswer('Enter IP')
+            compare_configs(load_config_file(ip=ip), fetch_config(ip))
         else:
             quit()
