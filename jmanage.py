@@ -377,6 +377,7 @@ if __name__ == '__main__':
         print "Problem detecting OS type..."
         quit()
     else:
+        print "Pass directory: {0}".format(passCSV)
         passDict = user_pass(passCSV)
         mypwd = passDict['pass']
         myuser = passDict['user']
