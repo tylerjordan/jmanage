@@ -284,6 +284,8 @@ def user_pass(pathFileName):
     reader = csv.reader(open(pathFileName, 'r'))
     passDict = {}
     for row in reader:
+        print "k={0}".format(k)
+        print "v={0}".format(v)
         k, v = row
         passDict[k] = v
     return passDict
