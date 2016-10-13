@@ -39,12 +39,12 @@ def detect_env():
     global config_dir
 
     if platform.system().lower() == "windows":
-        print "Environment Windows!"
+        #print "Environment Windows!"
         listDictCSV = ".\\data\\listdict.csv"
         passCSV = ".\\data\\pass.csv"
         config_dir = ".\\data\\configs\\"
     else:
-        print "Environment Linux/MAC!"
+        #print "Environment Linux/MAC!"
         listDictCSV = "./data/listdict.csv"
         passCSV = "./data/pass.csv"
         config_dir = "./data/configs/"
@@ -377,10 +377,10 @@ if __name__ == '__main__':
         print "Problem detecting OS type..."
         quit()
     else:
-        print "Pass directory: {0}".format(passCSV)
-        passList = user_pass(passCSV)
-        myuser = passList[0]
-        mypwd = passList[1]
+        creds = csv_to_dict(passCSV)
+        myuser = creds['username']
+        mypwd = creds['password']
+        print "User: {0} | Pass: {1}".format(myuser, mypwd)
         my_options = ['Display Database', 'Scan Devices', 'Save Database', 'Load Database', 'Fetch Config',
                       'Refresh Devices', 'Compare Configs']
         while True:

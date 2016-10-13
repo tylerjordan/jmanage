@@ -217,6 +217,14 @@ def csv_to_listdict(filePathName):
         return emptyList
 
 
+# Converts CSV file to Dictionary
+def csv_to_dict(filePathName):
+    input_file = csv.DictReader(open(filePathName))
+    for row in input_file:
+        pass
+    return row
+
+
 # Gets a target code
 def getCode(device, mypath):
     tar_code = ""
@@ -285,6 +293,7 @@ def user_pass(pathFileName):
     with open(pathFileName, 'rb') as mycsvfile:
         readCSV = csv.reader(mycsvfile, delimiter=',')
         for row in readCSV:
+            print "User: {0}".format(row[0])
             user = row[0]
             passwd = row[1]
             passList.append(user)
