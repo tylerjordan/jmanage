@@ -378,9 +378,9 @@ if __name__ == '__main__':
         quit()
     else:
         print "Pass directory: {0}".format(passCSV)
-        passDict = user_pass(passCSV)
-        mypwd = passDict['pass']
-        myuser = passDict['user']
+        passList = user_pass(passCSV)
+        myuser = passList[0]
+        mypwd = passList[1]
         my_options = ['Display Database', 'Scan Devices', 'Save Database', 'Load Database', 'Fetch Config',
                       'Refresh Devices', 'Compare Configs']
         while True:
