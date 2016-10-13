@@ -21,13 +21,33 @@ from jnpr.junos.exception import *
 from lxml import etree
 
 listDict = []
-listDictCSV = ".\\data\\listdict.csv"
-passCSV = ".\\data\\pass.csv"
-config_dir = ".\\data\\configs\\"
+listDictCSV = ""
+passCSV = ""
+config_dir = ""
 mypwd = ''
 myuser = ''
 port = 22
 
+
+def detect_env():
+    """ Purpose: Detect OS and create appropriate path variables
+    :param: None
+    :return: None
+    """
+    global listDictCSV
+    global passCSV
+    global config_dir
+
+    if platform.system().lower() == "windows":
+        print "Environment Windows!"
+        listDictCSV = ".\\data\\listdict.csv"
+        passCSV = ".\\data\\pass.csv"
+        config_dir = ".\\data\\configs\\"
+    else:
+        print "Environment Linux/MAC!"
+        listDictCSV = "./data/listdict.csv"
+        passCSV = "./data/pass.csv"
+        config_dir = "./data/configs/"
 
 def ping(ip):
     """ Purpose: Determine if an IP is pingable
@@ -351,44 +371,50 @@ def fetch_config(ip):
 
 # START OF SCRIPT #
 if __name__ == '__main__':
-    passDict = user_pass(passCSV)
-    mypwd = passDict['pass']
-    myuser = passDict['user']
-    my_options = ['Display Database', 'Scan Devices', 'Save Database', 'Load Database', 'Fetch Config',
-                  'Refresh Devices', 'Compare Configs']
-    while True:
-        print "*" * 25 + "\n"
-        answer = getOptionAnswerIndex('Choose your poison', my_options)
-        print "\n" + "*" * 25
-        if answer == "1":
-            show_devices()
-        elif answer == "2":
-            my_network = getInputAnswer('Enter IP/Mask')
-            for myip in IPNetwork(my_network).iter_hosts():
-                print "Scanning {0} ...".format(myip)
-                check_ip(str(myip))
-        elif answer == "3":
-            print "Saving Database to CSV..."
-            listdict_to_csv(listDict, listDictCSV)
-            print "Completed Save"
-        elif answer == "4":
-            print "Loading Database from CSV..."
-            listDict = csv_to_listdict(listDictCSV)
-            print "Completed Load"
-        elif answer == "5":
-            ip = getInputAnswer('Enter IP')
-            print "Fetching Configuration..."
-            myconfig = fetch_config(ip)
-            if myconfig:
-                print "Got configuration..."
+    try:
+        detect_env()
+    except Exception as err:
+        print "Problem detecting OS type..."
+        quit()
+    else:
+        passDict = user_pass(passCSV)
+        mypwd = passDict['pass']
+        myuser = passDict['user']
+        my_options = ['Display Database', 'Scan Devices', 'Save Database', 'Load Database', 'Fetch Config',
+                      'Refresh Devices', 'Compare Configs']
+        while True:
+            print "*" * 25 + "\n"
+            answer = getOptionAnswerIndex('Choose your poison', my_options)
+            print "\n" + "*" * 25
+            if answer == "1":
+                show_devices()
+            elif answer == "2":
+                my_network = getInputAnswer('Enter IP/Mask')
+                for myip in IPNetwork(my_network).iter_hosts():
+                    print "Scanning {0} ...".format(myip)
+                    check_ip(str(myip))
+            elif answer == "3":
+                print "Saving Database to CSV..."
+                listdict_to_csv(listDict, listDictCSV)
+                print "Completed Save"
+            elif answer == "4":
+                print "Loading Database from CSV..."
+                listDict = csv_to_listdict(listDictCSV)
+                print "Completed Load"
+            elif answer == "5":
+                ip = getInputAnswer('Enter IP')
+                print "Fetching Configuration..."
+                myconfig = fetch_config(ip)
+                if myconfig:
+                    print "Got configuration..."
+                else:
+                    print "No configuration..."
+            elif answer == "6":
+                for myrecord in listDict:
+                    print "Refreshing {0} ...".format(myrecord['ip'])
+                    check_ip(str(myrecord['ip']))
+            elif answer == "7":
+                ip = getInputAnswer('Enter IP')
+                compare_configs(load_config_file(ip=ip), fetch_config(ip))
             else:
-                print "No configuration..."
-        elif answer == "6":
-            for myrecord in listDict:
-                print "Refreshing {0} ...".format(myrecord['ip'])
-                check_ip(str(myrecord['ip']))
-        elif answer == "7":
-            ip = getInputAnswer('Enter IP')
-            compare_configs(load_config_file(ip=ip), fetch_config(ip))
-        else:
-            quit()
+                quit()
