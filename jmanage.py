@@ -124,7 +124,7 @@ def run(ip, username, password, port):
         return output
 
 
-def get_record(ip='', hostname='', sn=''):
+def get_record(ip='', hostname='', sn='', code=''):
     """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
                 three different methods to return the data.
         Parameters:
@@ -135,7 +135,7 @@ def get_record(ip='', hostname='', sn=''):
             A dictionary containing the device data or 'False' if no record is found
     """
     blank_record = {}
-    print "Getting record for ip: {0}".format(ip)
+    #print "Getting record for ip: {0}".format(ip)
     if ip:
         for record in listDict:
             if record['ip'] == ip:
@@ -147,6 +147,10 @@ def get_record(ip='', hostname='', sn=''):
     elif sn:
         for record in listDict:
             if record['serial_number'] == sn:
+                return record
+    elif code:
+        for record in listDict:
+            if record['junos_code'] == code:
                 return record
     else:
         return blank_record
@@ -303,7 +307,7 @@ def check_ip(ip):
         Returns: True or False
     """
     has_record = False
-    print "Recalling any stored records..."
+    #print "Recalling any stored records..."
     if get_record(ip):
         has_record = True
     record_attribs = [ 'serial_number', 'model', 'host_name', 'junos_code' ]
@@ -312,7 +316,7 @@ def check_ip(ip):
     # If we can ping the IP...
     if ping(ip):
         # Try to collect current chassis info
-        print "Getting current information..."
+        #print "Getting current information..."
         remoteDict = run(ip, myuser, mypwd, port)
         # If info was collected...
         if remoteDict:
@@ -320,31 +324,58 @@ def check_ip(ip):
             if has_record:
                 # Check that the existing record is up-to-date. If not, update.
                 localDict = get_record(ip)
-                change_record(ip, localDict[''])
+                if localDict['host_name'] == remoteDict['host_name']:
+                    if localDict['serial_number'] == remoteDict['serial_number']:
+                        if localDict['junos_code'] == remoteDict['junos_code']:
+                            print "{0} - No Changes".format(ip)
+                        else:
+                            print "{0} - JunOS changed from {1} to {2}".format(ip, remoteDict['junos_code'], localDict['junos_code'])
+                            change_record(ip, remoteDict['junos_code'], key='junos_code')
+                    else:
+                        print "{0} - S/N changed from {1} to {2}".format(ip, remoteDict['serial_number'], localDict['serial_number'])
+                        change_record(ip, remoteDict['serial_number'], key='serial_number')
+                        change_record(ip, remoteDict['model'], key='model')
+                        change_record(ip, remoteDict['junos_code'], key='junos_code')
+                else:
+                    if localDict['serial_number'] != remoteDict['serial_number']:
+                        print "{0} - S/N changed from {1} to {2}".format(ip, remoteDict['serial_number'], localDict['serial_number'])
+                        change_record(ip, remoteDict['host_name'], key='host_name')
+                        print "{0} - Model changed from {1} to {2}".format(ip, remoteDict['model'], localDict['model'])
+                        change_record(ip, remoteDict['host_name'], key='host_name')
+                    # Do these regardless of S/N results
+                    print "{0} - Hostname changed from {1} to {2}".format(ip, remoteDict['host_name'], localDict['host_name'])
+                    change_record(ip, remoteDict['host_name'], key='host_name')
+                    if localDict['junos_code'] == remoteDict['junos_code']:
+                        print "{0} - JunOS changed from {1} to {2}".format(ip, remoteDict['junos_code'], localDict['junos_code'])
+                        change_record(ip, remoteDict['junos_code'], key='junos_code')
+                    else:
+                        print "{0} - No Changes".format(ip)
+                """
                 for attrib in record_attribs:
                     if localDict[attrib] != remoteDict[attrib]:
                         print attrib + " changed from {0} to {1}!".format(localDict[attrib], remoteDict[attrib])
                         change_record(ip, remoteDict[attrib], key=attrib)
+                """
             else:
                 # If no, this is a device that hasn't been identified yet, create a new record
-                print "Adding new device: {0}".format(ip)
+                print "{0} - Adding device as new record".format(ip),
                 if add_record(ip):
-                    print "Device Add Successful."
+                    print " - Successful"
                     return True
                 else:
-                    print "Device Add Failed."
+                    print " - Failed"
                     return False
         else:
-            print "ERROR: Unable to collect information from device: {0}".format(ip)
+            print "{0} - ERROR: Unable to collect information from device".format(ip)
             return False
     # If we can't ping, but we have a record
     elif has_record:
         # Set record status to "unreachable"
-        print "ERROR: Unable to ping KNOWN device: {0}".format(ip)
+        print "{0} - ERROR: Unable to ping KNOWN device".format(ip)
         return False
     # If we can't ping, and have no record
     else:
-        print "ERROR: Unable to ping: {0}".format(ip)
+        print "{0} - ERROR: Unable to ping".format(ip)
         return False
 
 
@@ -355,9 +386,7 @@ def fetch_config(ip):
     dev = Device(host=ip, user=myuser, passwd=mypwd)
     # Try to open a connection to the device
     try:
-        print "------------------------- Opening connection to: {0} -------------------------\n".format(ip)
-        print "User: {0}".format(myuser)
-        print "Pass: {0}".format(mypwd)
+        print "Connecting to: {0}".format(ip)
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
@@ -411,8 +440,8 @@ if __name__ == '__main__':
                 else:
                     print "No configuration..."
             elif answer == "6":
+                print "--- Refreshing Records ---"
                 for myrecord in listDict:
-                    print "Refreshing {0} ...".format(myrecord['ip'])
                     check_ip(str(myrecord['ip']))
             elif answer == "7":
                 ip = getInputAnswer('Enter IP')

@@ -194,7 +194,7 @@ def listDictCSV(myListDict, filePathName, keys):
 def listdict_to_csv(listDict, filePathName):
     try:
         fieldNames = listDict[0].keys()
-        with open(filePathName, 'w') as csvfile:
+        with open(filePathName, 'wb') as csvfile:
             writer = csv.DictWriter(csvfile, fieldNames)
             writer.writeheader()
             writer.writerows(listDict)
@@ -287,15 +287,3 @@ def tabulateRebootResults(listDict):
 
     return statusDict
 
-# Get password dictionary
-def user_pass(pathFileName):
-    passList = []
-    with open(pathFileName, 'rb') as mycsvfile:
-        readCSV = csv.reader(mycsvfile, delimiter=',')
-        for row in readCSV:
-            print "User: {0}".format(row[0])
-            user = row[0]
-            passwd = row[1]
-            passList.append(user)
-            passList.append(passwd)
-    return passList
