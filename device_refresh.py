@@ -12,6 +12,7 @@ from jnpr.junos import *
 from jnpr.junos.exception import *
 from ncclient import manager  # https://github.com/ncclient/ncclient
 from ncclient.transport import errors
+from utility import *
 
 credsCSV = ''
 iplistfile = ''
@@ -355,7 +356,7 @@ def main(argv):
             print 'device_refresh -c <credsfile> -i <iplistfile>'
             sys.exit()
         elif opt in ("-c", "--creds"):
-            credsfile = arg
+            credsCSV = arg
         elif opt in ("-i", "--iplist"):
             iplistfile = arg
     print "Credentials file is ", credsCSV
@@ -365,7 +366,13 @@ def main(argv):
 if __name__ == "__main__":
     detect_env()
     main(sys.argv[1:])
-    print "Working on records..."
+    creds = csv_to_dict(credsCSV)
+    myuser = creds['username']
+    mypwd = creds['password']
+    # Program Running
+    print "Loading records..."
+    listDict = csv_to_listdict(listDictCSV)
+    print "Refreshing records..."
     for myrecord in listDict:
         check_ip(str(myrecord['ip']))
     iplist = ip_list()
