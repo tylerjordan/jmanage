@@ -116,21 +116,23 @@ def check_ip(ip):
                     else:
                         print "{0} - S/N changed from {1} to {2}".format(ip, localDict['serial_number'], remoteDict['serial_number'])
                         change_record(ip, remoteDict['serial_number'], key='serial_number')
-                        print "{0} - Model changed from {1} to {2}".format(ip, localDict['model'], remoteDict['model'])
-                        change_record(ip, remoteDict['model'], key='model')
-                        if localDict['junos_code'] == remoteDict['junos_code']:
+                        if localDict['model'] != remoteDict['model']:
+                            print "{0} - Model changed from {1} to {2}".format(ip, localDict['model'], remoteDict['model'])
+                            change_record(ip, remoteDict['model'], key='model')
+                        if localDict['junos_code'] != remoteDict['junos_code']:
                             print "{0} - JunOS changed from {1} to {2}".format(ip, localDict['junos_code'], remoteDict['junos_code'])
                             change_record(ip, remoteDict['junos_code'], key='junos_code')
                 else:
                     if localDict['serial_number'] != remoteDict['serial_number']:
                         print "{0} - S/N changed from {1} to {2}".format(ip, localDict['serial_number'], remoteDict['serial_number'])
                         change_record(ip, remoteDict['serial_number'], key='serial_number')
-                        print "{0} - Model changed from {1} to {2}".format(ip, localDict['model'], remoteDict['model'])
-                        change_record(ip, remoteDict['model'], key='model')
+                        if localDict['model'] != remoteDict['model']:
+                            print "{0} - Model changed from {1} to {2}".format(ip, localDict['model'], remoteDict['model'])
+                            change_record(ip, remoteDict['model'], key='model')
                     # Do these regardless of S/N results
                     print "{0} - Hostname changed from {1} to {2}".format(ip, localDict['host_name'], remoteDict['host_name'])
                     change_record(ip, remoteDict['host_name'], key='host_name')
-                    if localDict['junos_code'] == remoteDict['junos_code']:
+                    if localDict['junos_code'] != remoteDict['junos_code']:
                         print "{0} - JunOS changed from {1} to {2}".format(ip, localDict['junos_code'], remoteDict['junos_code'])
                         change_record(ip, remoteDict['junos_code'], key='junos_code')
                 """
@@ -249,7 +251,6 @@ def change_record(ip, value, key):
     """
     change_dict = { key: value }
     for myrecord in listDict:
-        print "In Loop"
         # If we've found the correct record...
         if myrecord['ip'] == ip:
             try:
