@@ -153,6 +153,8 @@ def check_ip(ip):
         else:
             print "{0} - ERROR: Unable to collect information from device".format(ip)
             return False
+        print "Checking config..."
+
     # If we can't ping, but we have a record
     elif has_record:
         # Set record status to "unreachable"
@@ -221,7 +223,6 @@ def add_record(ip):
 
 def ping(ip):
     """ Purpose: Determine if an IP is pingable
-
     :param ip: IP address of host to ping
     :return: True if ping successful
     """
@@ -289,6 +290,45 @@ def fetch_config(ip):
         myconfig = dev.cli('show config | display set')
         return myconfig
 
+
+def compare_configs(config1, config2):
+    """ Purpose: To compare two configs and get the changes. """
+    print "*"*10 + "CONFIG1" + "*"*10
+    print config1
+    print "*"*10 + "CONFIG2" + "*"*10
+    print config2
+    if config1 and config2:
+        config1_lines = config1.splitlines(1)
+        config2_lines = config2.splitlines(1)
+
+        diffInstance = difflib.Differ()
+        diffList = list(diffInstance.compare(config1_lines, config2_lines))
+
+        print '-'*50
+        print "Lines different in config1 from config2:"
+        if not diffList:
+            return False
+        else:
+            for line in diffList:
+                if line[0] == '-':
+                    print line,
+                elif line[0] == '+':
+                    print line,
+            print
+            return True
+    else:
+        print "Errors with compare configs..."
+        return True
+
+def update_config(ip, current_config):
+    """ Purpose: Save the configuration for this """
+    try:
+        save_config_file(current_config, config_dir + items['host_name'] + ".conf")
+    except Exception as err:
+        print "Unable to save config {0} : {1}".format(ip, err)
+        return False
+    else:
+        return True
 
 def information(connection, ip, software_info, host_name):
     """ Purpose: This is the function called when using -info.
@@ -364,24 +404,49 @@ def main(argv):
     print "Credentials file is ", credsCSV
     print "IP List file is ", iplistfile
 
-
+# Main execution loop
 if __name__ == "__main__":
     detect_env()
     main(sys.argv[1:])
     creds = csv_to_dict(credsCSV)
     myuser = creds['username']
     mypwd = creds['password']
-    # Program Running
+
+    # Load records from existing CSV
     print "Loading records..."
     listDict = csv_to_listdict(listDictCSV)
-    print "Refreshing records..."
+
+    # Check existing records...
+    print "Refreshing existing records..."
     for myrecord in listDict:
         check_ip(str(myrecord['ip']))
+        current_config = fetch_config(myrecord['ip'])
+        if compare_configs(load_config_file(ip=ip), current_config):
+            print "Configs are different - updating..."
+            if update_config(myrecord['ip'], current_config):
+                print "Configs updated!"
+            else:
+                print "Config update failed!"
+        else:
+            print "Do nothing."
+
+    # Check optional ip list
     iplist = ip_list()
     if iplist:
         print "Working on IP list..."
         for ip in iplist:
             check_ip(str(ip))
+            current_config = fetch_config(ip)
+            if compare_configs(load_config_file(ip=ip), current_config):
+                print "Configs are different - updating..."
+                if update_config(ip, current_config):
+                    print "Configs updated!"
+                else:
+                    print "Config update failed!"
+            else:
+                print "Do nothing to the config."
+
+    # Save the changes of the listDict to CSV
     listdict_to_csv(listDict, listDictCSV)
     print "Saved any changes."
     print "Completed Work!"

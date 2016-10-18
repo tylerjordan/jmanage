@@ -204,7 +204,6 @@ def add_record(ip):
             listDict.append(items)
             return True
 
-
 def compare_configs(config1, config2):
     print "*"*10 + "CONFIG1" + "*"*10
     print config1
@@ -227,23 +226,6 @@ def compare_configs(config1, config2):
         print
     else:
         print "Errors with compare configs..."
-
-
-def compare_configs_two(config1, config2):
-    diff = difflib.unified_diff(
-        config2.splitlines(1),
-        config1.splitlines(1),
-        fromfile='config2',
-        tofile='config1',
-        n=0,
-    )
-    for line in diff:
-        for prefix in ('---', '+++', '@@'):
-            if line.startswith(prefix):
-                break
-        else:
-            sys.stdout.write(line[1:])
-
 
 def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
@@ -329,27 +311,30 @@ def check_ip(ip):
                         if localDict['junos_code'] == remoteDict['junos_code']:
                             print "{0} - No Changes".format(ip)
                         else:
-                            print "{0} - JunOS changed from {1} to {2}".format(ip, remoteDict['junos_code'], localDict['junos_code'])
+                            print "{0} - JunOS changed from {1} to {2}".format(ip, localDict['junos_code'], remoteDict['junos_code'])
                             change_record(ip, remoteDict['junos_code'], key='junos_code')
                     else:
-                        print "{0} - S/N changed from {1} to {2}".format(ip, remoteDict['serial_number'], localDict['serial_number'])
+                        print "{0} - S/N changed from {1} to {2}".format(ip, localDict['serial_number'], remoteDict['serial_number'])
                         change_record(ip, remoteDict['serial_number'], key='serial_number')
-                        change_record(ip, remoteDict['model'], key='model')
-                        change_record(ip, remoteDict['junos_code'], key='junos_code')
+                        if localDict['model'] != remoteDict['model']:
+                            print "{0} - Model changed from {1} to {2}".format(ip, localDict['model'], remoteDict['model'])
+                            change_record(ip, remoteDict['model'], key='model')
+                        if localDict['junos_code'] != remoteDict['junos_code']:
+                            print "{0} - JunOS changed from {1} to {2}".format(ip, localDict['junos_code'], remoteDict['junos_code'])
+                            change_record(ip, remoteDict['junos_code'], key='junos_code')
                 else:
                     if localDict['serial_number'] != remoteDict['serial_number']:
-                        print "{0} - S/N changed from {1} to {2}".format(ip, remoteDict['serial_number'], localDict['serial_number'])
-                        change_record(ip, remoteDict['host_name'], key='host_name')
-                        print "{0} - Model changed from {1} to {2}".format(ip, remoteDict['model'], localDict['model'])
-                        change_record(ip, remoteDict['host_name'], key='host_name')
+                        print "{0} - S/N changed from {1} to {2}".format(ip, localDict['serial_number'], remoteDict['serial_number'])
+                        change_record(ip, remoteDict['serial_number'], key='serial_number')
+                        if localDict['model'] != remoteDict['model']:
+                            print "{0} - Model changed from {1} to {2}".format(ip, localDict['model'], remoteDict['model'])
+                            change_record(ip, remoteDict['model'], key='model')
                     # Do these regardless of S/N results
-                    print "{0} - Hostname changed from {1} to {2}".format(ip, remoteDict['host_name'], localDict['host_name'])
+                    print "{0} - Hostname changed from {1} to {2}".format(ip, localDict['host_name'], remoteDict['host_name'])
                     change_record(ip, remoteDict['host_name'], key='host_name')
-                    if localDict['junos_code'] == remoteDict['junos_code']:
-                        print "{0} - JunOS changed from {1} to {2}".format(ip, remoteDict['junos_code'], localDict['junos_code'])
+                    if localDict['junos_code'] != remoteDict['junos_code']:
+                        print "{0} - JunOS changed from {1} to {2}".format(ip, localDict['junos_code'], remoteDict['junos_code'])
                         change_record(ip, remoteDict['junos_code'], key='junos_code')
-                    else:
-                        print "{0} - No Changes".format(ip)
                 """
                 for attrib in record_attribs:
                     if localDict[attrib] != remoteDict[attrib]:
