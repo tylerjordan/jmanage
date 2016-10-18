@@ -7,6 +7,7 @@ import platform
 import subprocess
 import datetime
 import getopt
+import difflib
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
@@ -78,7 +79,7 @@ def ip_list():
     iplist = []
     filepath = iplist_dir + iplistfile
     try:
-        f = open(filePath, 'r')
+        f = open(filepath, 'r')
     except Exception as err:
         print '{0} - Unable to open file. ERROR: {1}'.format(filepath, err)
         return False
@@ -293,10 +294,10 @@ def fetch_config(ip):
 
 def compare_configs(config1, config2):
     """ Purpose: To compare two configs and get the changes. """
-    print "*"*10 + "CONFIG1" + "*"*10
-    print config1
-    print "*"*10 + "CONFIG2" + "*"*10
-    print config2
+    #print "*"*10 + "CONFIG1" + "*"*10
+    #print config1
+    #print "*"*10 + "CONFIG2" + "*"*10
+    #print config2
     if config1 and config2:
         config1_lines = config1.splitlines(1)
         config2_lines = config2.splitlines(1)
@@ -306,24 +307,22 @@ def compare_configs(config1, config2):
 
         print '-'*50
         print "Lines different in config1 from config2:"
-        if not diffList:
-            return False
-        else:
-            for line in diffList:
-                if line[0] == '-':
-                    print line,
-                elif line[0] == '+':
-                    print line,
-            print
-            return True
+        for line in diffList:
+            if line[0] == '-':
+                print line,
+            elif line[0] == '+':
+                print line,
+        print
+        return True
     else:
         print "Errors with compare configs..."
         return True
 
 def update_config(ip, current_config):
     """ Purpose: Save the configuration for this """
+    iprec = get_record(ip=ip)
     try:
-        save_config_file(current_config, config_dir + items['host_name'] + ".conf")
+        save_config_file(current_config, config_dir + iprec['host_name'] + ".conf")
     except Exception as err:
         print "Unable to save config {0} : {1}".format(ip, err)
         return False
@@ -421,7 +420,7 @@ if __name__ == "__main__":
     for myrecord in listDict:
         check_ip(str(myrecord['ip']))
         current_config = fetch_config(myrecord['ip'])
-        if compare_configs(load_config_file(ip=ip), current_config):
+        if compare_configs(load_config_file(myrecord['ip']), current_config):
             print "Configs are different - updating..."
             if update_config(myrecord['ip'], current_config):
                 print "Configs updated!"
@@ -437,7 +436,7 @@ if __name__ == "__main__":
         for ip in iplist:
             check_ip(str(ip))
             current_config = fetch_config(ip)
-            if compare_configs(load_config_file(ip=ip), current_config):
+            if compare_configs(load_config_file(ip), current_config):
                 print "Configs are different - updating..."
                 if update_config(ip, current_config):
                     print "Configs updated!"
