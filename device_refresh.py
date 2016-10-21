@@ -268,7 +268,7 @@ def change_record(ip, value, key):
             else:
                 # If the record change was successful...
                 now = get_now_time()
-                time_dict = { 'last_update_success': now }
+                time_dict = {'last_update_success': now}
                 myrecord.update(time_dict)
                 return True
 
@@ -322,11 +322,15 @@ def update_config(ip, current_config):
     """ Purpose: Save the configuration for this """
     iprec = get_record(ip=ip)
     try:
+        now = get_now_time()
+        iprec.update({'last_config_attempt': now})
         save_config_file(current_config, config_dir + iprec['host_name'] + ".conf")
     except Exception as err:
         print "Unable to save config {0} : {1}".format(ip, err)
         return False
     else:
+        now = get_now_time()
+        iprec.update({'last_config_success': now})
         return True
 
 def information(connection, ip, software_info, host_name):
