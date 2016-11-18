@@ -7,6 +7,7 @@ import sys, re, os, csv
 import fileinput
 import glob
 import code
+import difflib
 
 from os import listdir
 from os.path import isfile, join
@@ -287,3 +288,34 @@ def tabulateRebootResults(listDict):
 
     return statusDict
 
+def compare_configs(config1, config2):
+    """ Purpose: To compare two configs and get the changes.
+        Returns: True means there are differences, false means they are the same.
+    """
+
+    #print "*"*10 + "CONFIG1" + "*"*10
+    #print config1
+    #print "*"*10 + "CONFIG2" + "*"*10
+    #print config2
+    are_different = False
+    if config1 and config2:
+        config1_lines = config1.splitlines(1)
+        config2_lines = config2.splitlines(1)
+
+        diffInstance = difflib.Differ()
+        diffList = list(diffInstance.compare(config1_lines, config2_lines))
+
+        print '-'*50
+        print "Lines different in config1 from config2:"
+        for line in diffList:
+            if line[0] == '-':
+                print line,
+                are_different = True
+            elif line[0] == '+':
+                print line,
+                are_different = True
+        print
+        return are_different
+    else:
+        print "Errors with compare configs..."
+        return are_different

@@ -7,7 +7,6 @@ import platform
 import subprocess
 import datetime
 import getopt
-import difflib
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
@@ -291,33 +290,6 @@ def fetch_config(ip):
         myconfig = dev.cli('show config | display set')
         return myconfig
 
-
-def compare_configs(config1, config2):
-    """ Purpose: To compare two configs and get the changes. """
-    #print "*"*10 + "CONFIG1" + "*"*10
-    #print config1
-    #print "*"*10 + "CONFIG2" + "*"*10
-    #print config2
-    if config1 and config2:
-        config1_lines = config1.splitlines(1)
-        config2_lines = config2.splitlines(1)
-
-        diffInstance = difflib.Differ()
-        diffList = list(diffInstance.compare(config1_lines, config2_lines))
-
-        print '-'*50
-        print "Lines different in config1 from config2:"
-        for line in diffList:
-            if line[0] == '-':
-                print line,
-            elif line[0] == '+':
-                print line,
-        print
-        return True
-    else:
-        print "Errors with compare configs..."
-        return True
-
 def update_config(ip, current_config):
     """ Purpose: Save the configuration for this """
     iprec = get_record(ip=ip)
@@ -388,7 +360,11 @@ def run(ip, username, password, port):
         return output
 
 def main(argv):
-    """ Purpose: Capture command line arguments and populate variables. """
+    """ Purpose: Capture command line arguments and populate variables.
+        Arguments:
+            -c    -  The file containing credentials to be used to access devices
+            -i    -  (Optional) A file containing a list of ip addresses (for adding to the database)
+    """
     global credsCSV
     global iplistfile
     try:

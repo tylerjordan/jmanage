@@ -204,28 +204,6 @@ def add_record(ip):
             listDict.append(items)
             return True
 
-def compare_configs(config1, config2):
-    print "*"*10 + "CONFIG1" + "*"*10
-    print config1
-    print "*"*10 + "CONFIG2" + "*"*10
-    print config2
-    if config1 and config2:
-        config1_lines = config1.splitlines(1)
-        config2_lines = config2.splitlines(1)
-
-        diffInstance = difflib.Differ()
-        diffList = list(diffInstance.compare(config1_lines, config2_lines))
-
-        print '-'*50
-        print "Lines different in config1 from config2:"
-        for line in diffList:
-            if line[0] == '-':
-                print line,
-            elif line[0] == '+':
-                print line,
-        print
-    else:
-        print "Errors with compare configs..."
 
 def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
@@ -430,6 +408,9 @@ if __name__ == '__main__':
                     check_ip(str(myrecord['ip']))
             elif answer == "7":
                 ip = getInputAnswer('Enter IP')
-                compare_configs(load_config_file(ip=ip), fetch_config(ip))
+                if compare_configs(load_config_file(ip=ip), fetch_config(ip)):
+                    print "*** Different ***"
+                else:
+                    print "*** No Difference ***"
             else:
                 quit()
