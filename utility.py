@@ -293,11 +293,6 @@ def compare_configs(config1, config2):
         Returns: True means there are differences, false means they are the same.
     """
 
-    #print "*"*10 + "CONFIG1" + "*"*10
-    #print config1
-    #print "*"*10 + "CONFIG2" + "*"*10
-    #print config2
-    are_different = False
     if config1 and config2:
         config1_lines = config1.splitlines(1)
         config2_lines = config2.splitlines(1)
@@ -310,12 +305,9 @@ def compare_configs(config1, config2):
         for line in diffList:
             if line[0] == '-':
                 print line,
-                are_different = True
             elif line[0] == '+':
                 print line,
-                are_different = True
         print
-        return are_different
     else:
         print "Errors with compare configs..."
-        return are_different
+    return diffList

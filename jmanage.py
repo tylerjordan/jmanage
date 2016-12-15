@@ -24,6 +24,7 @@ listDict = []
 listDictCSV = ""
 passCSV = ""
 config_dir = ""
+list_dir = ""
 mypwd = ''
 myuser = ''
 port = 22
@@ -43,11 +44,13 @@ def detect_env():
         listDictCSV = ".\\data\\listdict.csv"
         passCSV = ".\\data\\pass.csv"
         config_dir = ".\\data\\configs\\"
+        list_dir = ".\\data\\lists\\"
     else:
         #print "Environment Linux/MAC!"
         listDictCSV = "./data/listdict.csv"
         passCSV = "./data/pass.csv"
         config_dir = "./data/configs/"
+        list_dir = "./data/lists/"
 
 def ping(ip):
     """ Purpose: Determine if an IP is pingable
@@ -361,6 +364,27 @@ def fetch_config(ip):
         myconfig = dev.cli('show config | display set')
         return myconfig
 
+def load_devices():
+    # Load from a list of devices
+    print "DIR: {0}".format(list_dir)
+    filelist = getFileList(list_dir)
+    print filelist
+    if filelist:
+        device_list = getOptionAnswer("Choose a list file", filelist)
+        with open(join(list_dir, device_list), 'r') as infile:
+            reader = csv.DictReader(infile)
+            print("\n\n----------------------")
+            print("Scanning Device CSV")
+            print("----------------------\n")
+            for row in reader:
+                if row['IP_ADDR']:
+                    check_ip(row['IP_ADDR'])
+                else:
+                    print "- Blank Row -"
+    else:
+        print("No files present in 'lists' directory.")
+
+
 # START OF SCRIPT #
 if __name__ == '__main__':
     try:
@@ -373,7 +397,7 @@ if __name__ == '__main__':
         myuser = creds['username']
         mypwd = creds['password']
         print "User: {0} | Pass: {1}".format(myuser, mypwd)
-        my_options = ['Display Database', 'Scan Devices', 'Save Database', 'Load Database', 'Fetch Config',
+        my_options = ['Display Database', 'Scan Devices(Range)', 'Scan Devices(List)', 'Save Database', 'Load Database', 'Fetch Config',
                       'Refresh Devices', 'Compare Configs']
         while True:
             print "*" * 25 + "\n"
@@ -387,14 +411,16 @@ if __name__ == '__main__':
                     print "Scanning {0} ...".format(myip)
                     check_ip(str(myip))
             elif answer == "3":
+                load_devices()
+            elif answer == "4":
                 print "Saving Database to CSV..."
                 listdict_to_csv(listDict, listDictCSV)
                 print "Completed Save"
-            elif answer == "4":
+            elif answer == "5":
                 print "Loading Database from CSV..."
                 listDict = csv_to_listdict(listDictCSV)
                 print "Completed Load"
-            elif answer == "5":
+            elif answer == "6":
                 ip = getInputAnswer('Enter IP')
                 print "Fetching Configuration..."
                 myconfig = fetch_config(ip)
@@ -402,11 +428,11 @@ if __name__ == '__main__':
                     print "Got configuration..."
                 else:
                     print "No configuration..."
-            elif answer == "6":
+            elif answer == "7":
                 print "--- Refreshing Records ---"
                 for myrecord in listDict:
                     check_ip(str(myrecord['ip']))
-            elif answer == "7":
+            elif answer == "8":
                 ip = getInputAnswer('Enter IP')
                 if compare_configs(load_config_file(ip=ip), fetch_config(ip)):
                     print "*** Different ***"

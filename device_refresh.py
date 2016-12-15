@@ -19,6 +19,7 @@ iplistfile = ''
 listDictCSV = ''
 iplist_dir = ''
 config_dir = ''
+log_dir = ''
 
 listDict = []
 mypwd = ''
@@ -38,11 +39,13 @@ def detect_env():
         listDictCSV = ".\\data\\listdict.csv"
         iplist_dir = ".\\data\\iplists\\"
         config_dir = ".\\data\\configs\\"
+        log_dir = ".\\data\\logs\\"
     else:
         #print "Environment Linux/MAC!"
         listDictCSV = "./data/listdict.csv"
         iplist_dir = "./data/iplists/"
         config_dir = "./data/configs/"
+        log_dir = "./data/logs/"
 
 def load_config_file(ip):
     """ Purpose: Load the selected device's configuration file into a variable. """
@@ -397,15 +400,30 @@ if __name__ == "__main__":
 
     # Check existing records...
     print "Refreshing existing records..."
+
+    # File to log all changes to
+    now = get_now_time()
+    change_log = log_dir + "change_log-" + now + ".log"
+
     for myrecord in listDict:
         check_ip(str(myrecord['ip']))
         current_config = fetch_config(myrecord['ip'])
-        if compare_configs(load_config_file(myrecord['ip']), current_config):
+        diffList = compare_configs(load_config_file(myrecord['ip']), current_config)
+        if diffList:
             print "Configs are different - updating..."
             if update_config(myrecord['ip'], current_config):
                 print "Configs updated!"
             else:
                 print "Config update failed!"
+            # Try to write diffList output to a file
+            try:
+                logfile = open(change_log, 'a')
+            except Exception as err:
+                print "Error opening log file {0}".format(err)
+            else:
+                for item in diffList:
+                    logfile.write("%s\n" % item)
+                logfile.write("*"*40)
         else:
             print "Do nothing."
 
