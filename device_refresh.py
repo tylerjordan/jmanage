@@ -33,6 +33,7 @@ def detect_env():
     global credsCSV
     global iplist_dir
     global config_dir
+    global log_dir
 
     if platform.system().lower() == "windows":
         #print "Environment Windows!"
@@ -408,8 +409,8 @@ if __name__ == "__main__":
     for myrecord in listDict:
         check_ip(str(myrecord['ip']))
         current_config = fetch_config(myrecord['ip'])
-        diffList = compare_configs(load_config_file(myrecord['ip']), current_config)
-        if diffList:
+        change_list = compare_configs(load_config_file(myrecord['ip']), current_config)
+        if change_list:
             print "Configs are different - updating..."
             if update_config(myrecord['ip'], current_config):
                 print "Configs updated!"
@@ -421,11 +422,11 @@ if __name__ == "__main__":
             except Exception as err:
                 print "Error opening log file {0}".format(err)
             else:
-                for item in diffList:
+                for item in change_list:
                     logfile.write("%s\n" % item)
                 logfile.write("*"*40)
         else:
-            print "Do nothing."
+            print "Configs are the same, do nothing..."
 
     # Check optional ip list
     iplist = ip_list()

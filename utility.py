@@ -292,7 +292,7 @@ def compare_configs(config1, config2):
     """ Purpose: To compare two configs and get the changes.
         Returns: True means there are differences, false means they are the same.
     """
-
+    change_list = []
     if config1 and config2:
         config1_lines = config1.splitlines(1)
         config2_lines = config2.splitlines(1)
@@ -304,10 +304,12 @@ def compare_configs(config1, config2):
         print "Lines different in config1 from config2:"
         for line in diffList:
             if line[0] == '-':
+                change_list.append(line)
                 print line,
             elif line[0] == '+':
+                change_list.append(line)
                 print line,
-        print
+        print '-'*50
     else:
         print "Errors with compare configs..."
-    return diffList
+    return change_list

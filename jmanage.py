@@ -38,6 +38,7 @@ def detect_env():
     global listDictCSV
     global passCSV
     global config_dir
+    global list_dir
 
     if platform.system().lower() == "windows":
         #print "Environment Windows!"
@@ -364,11 +365,10 @@ def fetch_config(ip):
         myconfig = dev.cli('show config | display set')
         return myconfig
 
+
 def load_devices():
     # Load from a list of devices
-    print "DIR: {0}".format(list_dir)
     filelist = getFileList(list_dir)
-    print filelist
     if filelist:
         device_list = getOptionAnswer("Choose a list file", filelist)
         with open(join(list_dir, device_list), 'r') as infile:
