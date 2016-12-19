@@ -79,16 +79,26 @@ def save_config_file(myconfig, filename):
 
 def ip_list():
     """ Purpose: Create a list of the IPs from provided text file. """
-    iplist = []
     filepath = iplist_dir + iplistfile
+    iplist = line_list(filepath)
+    if iplist:
+        return iplist
+    else:
+        return False
+
+
+def line_list(filepath):
+    """ Purpose: Create a list of lines from the file defined. """
+    linelist = []
     try:
         f = open(filepath, 'r')
     except Exception as err:
         print '{0} - Unable to open file. ERROR: {1}'.format(filepath, err)
         return False
     else:
-        iplist = f.readlines()
-        return iplist
+        linelist = f.readlines()
+        return linelist
+
 
 def check_ip(ip):
     """ Purpose: Scans the device with the IP and handles action. """
@@ -291,7 +301,7 @@ def fetch_config(ip):
     else:
         # Increase the default RPC timeout to accommodate install operations
         dev.timeout = 600
-        myconfig = dev.cli('show config | display set')
+        myconfig = dev.cli('show config | display set', warning=False)
         return myconfig
 
 def update_config(ip, current_config):
@@ -363,6 +373,10 @@ def run(ip, username, password, port):
         #print connection.get_config(source='running', format='set')
         return output
 
+def template_scan():
+
+    pass
+
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
         Arguments:
@@ -405,28 +419,40 @@ if __name__ == "__main__":
     # File to log all changes to
     now = get_now_time()
     change_log = log_dir + "change_log-" + now + ".log"
-
-    for myrecord in listDict:
-        check_ip(str(myrecord['ip']))
-        current_config = fetch_config(myrecord['ip'])
-        change_list = compare_configs(load_config_file(myrecord['ip']), current_config)
-        if change_list:
-            print "Configs are different - updating..."
-            if update_config(myrecord['ip'], current_config):
-                print "Configs updated!"
-            else:
-                print "Config update failed!"
-            # Try to write diffList output to a file
-            try:
-                logfile = open(change_log, 'a')
-            except Exception as err:
-                print "Error opening log file {0}".format(err)
-            else:
+    try:
+        logfile = open(change_log, 'a')
+    except Exception as err:
+        print "Error opening log file {0}".format(err)
+    else:
+        print_sl("Purpose: Template Scrub\n", logfile)
+        print_sl("User: {0}\n".format(myuser), logfile)
+        print_sl("Capture Started: {0}\n\n".format(now), logfile)
+        for myrecord in listDict:
+            #print "---------- Working on {0} ----------".format(myrecord['ip'])
+            print_sl("-"*41, logfile)
+            print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
+            check_ip(str(myrecord['ip']))
+            current_config = fetch_config(myrecord['ip'])
+            change_list = compare_configs(load_config_file(myrecord['ip']), current_config)
+            if change_list:
+                #print "Configs are different - updating..."
+                print_sl("Discrepancies:\n-------------\n", logfile)
+                #if update_config(myrecord['ip'], current_config):
+                    #print "Configs updated!"
+                #else:
+                    #print "Config update failed!"
+                # Try to write diffList output to a file
                 for item in change_list:
-                    logfile.write("%s\n" % item)
-                logfile.write("*"*40)
-        else:
-            print "Configs are the same, do nothing..."
+                    print_sl("{0}\n".format(item), logfile)
+            else:
+                print_sl(" - No Discrepancies -\n\n", logfile)
+                #print "Configs are the same, do nothing..."
+            print_sl("***** %s *****\n" % myrecord['ip'], logfile)
+            print_sl("-"*41, logfile)
+            print_sl("\n\n", logfile)
+            #print "---------- Finished on {0} ----------".format(myrecord['ip'])
+        #print "\n"
+        print_sl("Capture Ended: {0}".format(get_now_time()), logfile)
 
     # Check optional ip list
     iplist = ip_list()
