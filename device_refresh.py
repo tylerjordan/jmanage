@@ -7,6 +7,7 @@ import platform
 import subprocess
 import datetime
 import getopt
+import re
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
@@ -30,6 +31,7 @@ port = 22
 
 def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
+    global template_file
     global listDictCSV
     global credsCSV
     global iplist_dir
@@ -421,23 +423,34 @@ if __name__ == "__main__":
 
     # File Comparison Against Template
     var_regex = '{{[A-Z]+}}'
-    temp_regex_dict = { "VERSION": '\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}',
-                   "HOSTNAME": 'SW[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]',
-                   "ENCPASS": '\$1\$[A-Z|a-z|\.|\$|\d]{31}',
-                   "TACSECRET": '\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{18,19}',
-                   "SNMPSECRET": '\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{184,187}',
-                   "IPADDRESS": '(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
-                   "CITY": '[A-Z][A-Z|a-z|\s]+',
-                   "STATE": '[A-Z]{2}'
-                }
+    d = {
+        "{{VERSION}}": r'\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}',
+        "{{HOSTNAME}}": r'SW[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]',
+        "{{ENCPASS}}": r'\$1\$[A-Z|a-z|\.|\$|\d]{31}',
+        "{{TACSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{18,19}',
+        "{{SNMPSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{184,187}',
+        "{{IPADDRESS}}": r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
+        "{{CITY}}": r'[A-Z][A-Z|a-z|\s]+',
+        "{{STATE}}": r'[A-Z]{2}',
+        "{{REV}}": r'\d{1,2}\.\d{1,2}'
+        }
     varindc = "{{"
     templ_list = line_list(template_file)
+    regtmpl_list = []
     for tline in templ_list:
         if varindc in tline:
-            pass
+            #str_out = re.sub(r'', lambda m:d.get(m.group(1), m.group(1)), tline)
+            str_out = ''
+            for key in d:
+                str_out = re.subn(key, d[key], tline)
+                if str_out[1] > 0:
+                    tline = str_out[0]
+            regtmpl_list.append(tline)
+    print regtmpl_list
+
     # Need to eliminate "\n" from strings, ie. login announcment
 
-
+    """
     # Standard File Comparison
     # File to log all changes to
     now = get_now_time()
@@ -476,7 +489,7 @@ if __name__ == "__main__":
             #print "---------- Finished on {0} ----------".format(myrecord['ip'])
         #print "\n"
         print_sl("Capture Ended: {0}".format(get_now_time()), logfile)
-
+    """
     # Check optional ip list
     iplist = ip_list()
     if iplist:
