@@ -20,6 +20,7 @@ listDictCSV = ''
 iplist_dir = ''
 config_dir = ''
 log_dir = ''
+template_file = ''
 
 listDict = []
 mypwd = ''
@@ -37,12 +38,14 @@ def detect_env():
 
     if platform.system().lower() == "windows":
         #print "Environment Windows!"
+        template_file = ".\\data\\configs\\Template.conf"
         listDictCSV = ".\\data\\listdict.csv"
         iplist_dir = ".\\data\\iplists\\"
         config_dir = ".\\data\\configs\\"
         log_dir = ".\\data\\logs\\"
     else:
         #print "Environment Linux/MAC!"
+        template_file = "./data/configs/Template.conf"
         listDictCSV = "./data/listdict.csv"
         iplist_dir = "./data/iplists/"
         config_dir = "./data/configs/"
@@ -416,6 +419,26 @@ if __name__ == "__main__":
     # Check existing records...
     print "Refreshing existing records..."
 
+    # File Comparison Against Template
+    var_regex = '{{[A-Z]+}}'
+    temp_regex_dict = { "VERSION": '\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}',
+                   "HOSTNAME": 'SW[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]',
+                   "ENCPASS": '\$1\$[A-Z|a-z|\.|\$|\d]{31}',
+                   "TACSECRET": '\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{18,19}',
+                   "SNMPSECRET": '\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{184,187}',
+                   "IPADDRESS": '(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
+                   "CITY": '[A-Z][A-Z|a-z|\s]+',
+                   "STATE": '[A-Z]{2}'
+                }
+    varindc = "{{"
+    templ_list = line_list(template_file)
+    for tline in templ_list:
+        if varindc in tline:
+            pass
+    # Need to eliminate "\n" from strings, ie. login announcment
+
+
+    # Standard File Comparison
     # File to log all changes to
     now = get_now_time()
     change_log = log_dir + "change_log-" + now + ".log"
