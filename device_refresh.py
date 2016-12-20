@@ -421,7 +421,7 @@ if __name__ == "__main__":
     # Check existing records...
     print "Refreshing existing records..."
 
-    # File Comparison Against Template
+    # Regexs for template comparisons
     var_regex = '{{[A-Z]+}}'
     d = {
         "{{VERSION}}": r'\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}',
@@ -434,19 +434,24 @@ if __name__ == "__main__":
         "{{STATE}}": r'[A-Z]{2}',
         "{{REV}}": r'\d{1,2}\.\d{1,2}'
         }
+
+    # Process for replacing placeholders with regexs
     varindc = "{{"
     templ_list = line_list(template_file)
     regtmpl_list = []
     for tline in templ_list:
         if varindc in tline:
-            #str_out = re.sub(r'', lambda m:d.get(m.group(1), m.group(1)), tline)
             str_out = ''
             for key in d:
                 str_out = re.subn(key, d[key], tline)
                 if str_out[1] > 0:
                     tline = str_out[0]
-            regtmpl_list.append(tline)
-    print regtmpl_list
+            regtmpl_list.append(tline.strip('\n\t'))
+        elif tline != '':
+            regtmpl_list.append(tline.strip('\n\t'))
+    for line in regtmpl_list:
+        print "- {0}".format(line)
+
 
     # Need to eliminate "\n" from strings, ie. login announcment
 
