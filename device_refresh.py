@@ -8,6 +8,7 @@ import subprocess
 import datetime
 import getopt
 import re
+import time
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
@@ -67,6 +68,23 @@ def load_config_file(ip):
             return file_string
     else:
         print "Problem getting record information..."
+
+def load_config_file_list(ip):
+    """ Purpose: Load the selected device's configuration file into a list. """
+    record = get_record(ip=ip)
+    linelist = []
+    if record:
+        my_file = config_dir + record['host_name'] + '.conf'
+        try:
+            linelist = line_list(my_file)
+        except Exception as err:
+            print 'ERROR: Unable to read file: {0} : {1}'.format(my_file, err)
+            return False
+        else:
+            return linelist
+    else:
+        print "Problem getting record information..."
+
 
 def save_config_file(myconfig, filename):
     """ Purpose: Creates a file and adds text to the file.
@@ -378,8 +396,28 @@ def run(ip, username, password, port):
         #print connection.get_config(source='running', format='set')
         return output
 
-def template_scan():
-
+def template_scan(regtmpl_list, config_list):
+    """ Purpose: To compare a regex list against a config list"""
+    for regline in regtmpl_list:
+        matched = False
+        print "Start using Regex: {0}".format(regline)
+        if regline != "":
+            for compline in config_list:
+                compline = re.sub(r"\\n", r"", compline)
+                if re.search(regline, compline):
+                    #print "MATCH FOUND!"
+                    #print "Regex: {0}".format(regline)
+                    #print "Compare String: {0}".format(compline)
+                    #time.sleep(5)
+                    matched = True
+                else:
+                    #print "compline: {0}".format(compline)
+                    #print "NO MATCH FOUND!"
+                    pass
+            if not matched:
+                print "Regex Not Matched!"
+        else:
+            print "No Regex!"
     pass
 
 def main(argv):
@@ -426,13 +464,14 @@ if __name__ == "__main__":
     d = {
         "{{VERSION}}": r'\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}',
         "{{HOSTNAME}}": r'SW[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]',
-        "{{ENCPASS}}": r'\$1\$[A-Z|a-z|\.|\$|\d]{31}',
+        "{{ENCPASS}}": r'\$1\$[A-Z|a-z|\.|\$|\/|\-|\d]{31}',
         "{{TACSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{18,19}',
         "{{SNMPSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{184,187}',
         "{{IPADDRESS}}": r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
         "{{CITY}}": r'[A-Z][A-Z|a-z|\s]+',
         "{{STATE}}": r'[A-Z]{2}',
-        "{{REV}}": r'\d{1,2}\.\d{1,2}'
+        "{{REV}}": r'\d{1,2}\.\d{1,2}',
+        "{{TEXT}}": r'.*'
         }
 
     # Process for replacing placeholders with regexs
@@ -440,6 +479,7 @@ if __name__ == "__main__":
     templ_list = line_list(template_file)
     regtmpl_list = []
     for tline in templ_list:
+        tline = re.sub(r"\*", r"\*", tline)
         if varindc in tline:
             str_out = ''
             for key in d:
@@ -449,11 +489,17 @@ if __name__ == "__main__":
             regtmpl_list.append(tline.strip('\n\t'))
         elif tline != '':
             regtmpl_list.append(tline.strip('\n\t'))
-    for line in regtmpl_list:
-        print "- {0}".format(line)
-
+    #for line in regtmpl_list:
+     #   print "- {0}".format(line)
 
     # Need to eliminate "\n" from strings, ie. login announcment
+
+    # Looping over regtmpl list and comparing to configuration
+
+    for myrecord in listDict:
+        config_list = load_config_file_list(myrecord['ip'])
+        print "SCANNING HOST: {0}".format(myrecord['host_name'])
+        template_scan(regtmpl_list, config_list)
 
     """
     # Standard File Comparison
