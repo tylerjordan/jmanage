@@ -54,11 +54,11 @@ def detect_env():
         config_dir = "./data/configs/"
         log_dir = "./data/logs/"
 
-def load_config_file(ip):
+def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
     record = get_record(ip=ip)
     if record:
-        my_file = config_dir + record['host_name'] + '.conf'
+        my_file = get_old_new_file(record, newest)
         try:
             file_string = open(my_file, 'r').read()
         except Exception as err:
@@ -69,12 +69,35 @@ def load_config_file(ip):
     else:
         print "Problem getting record information..."
 
-def load_config_file_list(ip):
+def get_old_new_file(record, newest):
+    """ Purpose: Returns the oldest config file from specified IP
+        Parameters:     newest - Is either T or F, True means get the newest file, False, means get the oldest.
+    """
+    filtered_list = []
+    if record:
+        for file in listdir(config_dir):
+            if file.startswith(record['host_name']):
+                filtered_list.append(config_dir + file)
+    sorted_list = sorted(filtered_list, key=os.path.getctime)
+    if newest:
+        return sorted_list[-1]
+    else:
+        return sorted_list[0]
+
+def get_file_number(record):
+    file_num = 0
+    if record:
+        for file in listdir(config_dir):
+            if file.startswith(record['host_name']):
+                file_num += 1
+    return file_num
+
+def load_config_file_list(ip, newest):
     """ Purpose: Load the selected device's configuration file into a list. """
     record = get_record(ip=ip)
     linelist = []
     if record:
-        my_file = config_dir + record['host_name'] + '.conf'
+        my_file = get_old_new_file(record, newest)
         try:
             linelist = line_list(my_file)
         except Exception as err:
@@ -86,16 +109,22 @@ def load_config_file_list(ip):
         print "Problem getting record information..."
 
 
-def save_config_file(myconfig, filename):
-    """ Purpose: Creates a file and adds text to the file.
+def save_config_file(myconfig, record):
+    """ Purpose: Creates a config file and adds text to the file.
         Returns: True or False
     """
+    now = get_now_time()
+    filename = config_dir + record['host_name'] + "-" + now + ".conf"
     try:
         newfile = open(filename, "w+")
     except Exception as err:
         print 'ERROR: Unable to open file: {0} : {1}'.format(filename, err)
         return False
     else:
+        # Remove excess configurations if necessary
+        if get_file_number(record) > 2:
+            del_file = get_old_new_file(record, newest=False)
+            os.remove(del_file)
         newfile.write(myconfig)
         newfile.close()
         return True
@@ -246,7 +275,7 @@ def add_record(ip):
     else:
         items['last_update_attempt'] = get_now_time()
         items['last_update_success'] = get_now_time()
-        if save_config_file(fetch_config(ip), config_dir + items['host_name'] + ".conf"):
+        if save_config_file(fetch_config(ip), get_record(ip=ip)):
             items['last_config_success'] = get_now_time()
             items['last_config_attempt'] = get_now_time()
             print 'Configuration captured: {0}'.format(ip)
@@ -333,7 +362,7 @@ def update_config(ip, current_config):
     try:
         now = get_now_time()
         iprec.update({'last_config_attempt': now})
-        save_config_file(current_config, config_dir + iprec['host_name'] + ".conf")
+        save_config_file(current_config, get_record(ip=ip))
     except Exception as err:
         print "Unable to save config {0} : {1}".format(ip, err)
         return False
@@ -403,7 +432,7 @@ def config_compare(myrecord, logfile):
             logfile         -   Reference to log object, for displaying and logging output
     """
     current_config = fetch_config(myrecord['ip'])
-    change_list = compare_configs(load_config_file(myrecord['ip']), current_config)
+    change_list = compare_configs(load_config_file(myrecord['ip'], newest=True), current_config)
     if change_list:
         # print "Configs are different - updating..."
         print_sl("Discrepancies:\n-------------\n", logfile)
@@ -526,6 +555,8 @@ if __name__ == "__main__":
             regtmpl_list.append(tline.strip('\n\t'))
     #for line in regtmpl_list:
      #   print "- {0}".format(line)
+    for myrecord in listDict:
+        get_oldest_file(myrecord['ip'])
 
     # Need to eliminate "\n" from strings, ie. login announcment
     '''
@@ -587,7 +618,7 @@ if __name__ == "__main__":
         for ip in iplist:
             check_ip(str(ip))
             current_config = fetch_config(ip)
-            if compare_configs(load_config_file(ip), current_config):
+            if compare_configs(load_config_file(ip, newest=True), current_config):
                 print "Configs are different - updating..."
                 if update_config(ip, current_config):
                     print "Configs updated!"
