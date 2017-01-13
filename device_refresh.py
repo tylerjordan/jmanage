@@ -396,11 +396,41 @@ def run(ip, username, password, port):
         #print connection.get_config(source='running', format='set')
         return output
 
-def template_scan(regtmpl_list, config_list):
-    """ Purpose: To compare a regex list against a config list"""
+def config_compare(myrecord, logfile):
+    """ Purpose: To compare two configs and get the differences, log them
+        Parameters:
+            myrecord        -   Object that contains parameters of devices
+            logfile         -   Reference to log object, for displaying and logging output
+    """
+    current_config = fetch_config(myrecord['ip'])
+    change_list = compare_configs(load_config_file(myrecord['ip']), current_config)
+    if change_list:
+        # print "Configs are different - updating..."
+        print_sl("Discrepancies:\n-------------\n", logfile)
+        # if update_config(myrecord['ip'], current_config):
+        # print "Configs updated!"
+        # else:
+        # print "Config update failed!"
+        # Try to write diffList output to a file
+        for item in change_list:
+            print_sl("{0}\n".format(item), logfile)
+        return True
+    else:
+        print_sl(" - No Discrepancies -\n\n", logfile)
+        # print "Configs are the same, do nothing..."
+        return True
+
+def template_scan(regtmpl_list, config_list, logfile):
+    """ Purpose: To compare a regex list against a config list
+        Parameters:
+            regtmpl_list    -   List of template set commands with regex
+            config_list     -   List of set commands from chassis
+            logfile         -   Reference to log object, for displaying and logging output
+    """
+    nomatch = True
     for regline in regtmpl_list:
         matched = False
-        print "Start using Regex: {0}".format(regline)
+        #print "Start using Regex: {0}".format(regline)
         if regline != "":
             for compline in config_list:
                 compline = re.sub(r"\\n", r"", compline)
@@ -415,10 +445,15 @@ def template_scan(regtmpl_list, config_list):
                     #print "NO MATCH FOUND!"
                     pass
             if not matched:
-                print "Regex Not Matched!"
+                #print "Regex Not Matched: {0}".format(regline)
+                nomatch = False
+                print_sl('Missing: {0}\n'.format(regline), logfile)
         else:
-            print "No Regex!"
-    pass
+            #print "No Regex!"
+            pass
+    if nomatch:
+        print_sl('- No Template Commands Missing -\n\n', logfile)
+    return True
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
@@ -493,16 +528,34 @@ if __name__ == "__main__":
      #   print "- {0}".format(line)
 
     # Need to eliminate "\n" from strings, ie. login announcment
-
-    # Looping over regtmpl list and comparing to configuration
-
-    for myrecord in listDict:
-        config_list = load_config_file_list(myrecord['ip'])
-        print "SCANNING HOST: {0}".format(myrecord['host_name'])
-        template_scan(regtmpl_list, config_list)
-
-    """
-    # Standard File Comparison
+    '''
+    # CHECK CONFIGS AGAINST TEMPLATE
+    # File to log all changes to
+    now = get_now_time()
+    template_log = log_dir + "template_log-" + now + ".log"
+    try:
+        logfile = open(template_log, 'a')
+    except Exception as err:
+        print "Error opening log file {0}".format(err)
+    else:
+        print_sl("Purpose: Template Comparison\n", logfile)
+        print_sl("User: {0}\n".format(myuser), logfile)
+        print_sl("Process Started: {0}\n\n".format(now), logfile)
+        # Looping over regtmpl list and comparing to configuration
+        for myrecord in listDict:
+            config_list = load_config_file_list(myrecord['ip'])
+            print_sl("-"*41, logfile)
+            print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
+            #print "SCANNING HOST: {0}".format(myrecord['host_name'])
+            if template_scan(regtmpl_list, config_list, logfile):
+                print_sl("-"*41, logfile)
+                print_sl("\n\n", logfile)
+            else:
+                print_sl("-"*41, logfile)
+                print_sl("\n***** Unable to perfrom template scan of {0} *****\n\n".format(myrecord['ip']), logfile)
+        print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
+    '''
+    # CHECK CONFIGS FOR CHANGES
     # File to log all changes to
     now = get_now_time()
     change_log = log_dir + "change_log-" + now + ".log"
@@ -511,36 +564,22 @@ if __name__ == "__main__":
     except Exception as err:
         print "Error opening log file {0}".format(err)
     else:
-        print_sl("Purpose: Template Scrub\n", logfile)
+        print_sl("Purpose: Config Comparison\n", logfile)
         print_sl("User: {0}\n".format(myuser), logfile)
-        print_sl("Capture Started: {0}\n\n".format(now), logfile)
+        print_sl("Process Started: {0}\n\n".format(now), logfile)
         for myrecord in listDict:
-            #print "---------- Working on {0} ----------".format(myrecord['ip'])
+            check_ip(str(myrecord['ip']))
             print_sl("-"*41, logfile)
             print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
-            check_ip(str(myrecord['ip']))
-            current_config = fetch_config(myrecord['ip'])
-            change_list = compare_configs(load_config_file(myrecord['ip']), current_config)
-            if change_list:
-                #print "Configs are different - updating..."
-                print_sl("Discrepancies:\n-------------\n", logfile)
-                #if update_config(myrecord['ip'], current_config):
-                    #print "Configs updated!"
-                #else:
-                    #print "Config update failed!"
-                # Try to write diffList output to a file
-                for item in change_list:
-                    print_sl("{0}\n".format(item), logfile)
+            if config_compare(myrecord, logfile):
+                #print_sl("***** %s *****\n" % myrecord['ip'], logfile)
+                print_sl("-"*41, logfile)
+                print_sl("\n\n", logfile)
             else:
-                print_sl(" - No Discrepancies -\n\n", logfile)
-                #print "Configs are the same, do nothing..."
-            print_sl("***** %s *****\n" % myrecord['ip'], logfile)
-            print_sl("-"*41, logfile)
-            print_sl("\n\n", logfile)
-            #print "---------- Finished on {0} ----------".format(myrecord['ip'])
-        #print "\n"
-        print_sl("Capture Ended: {0}".format(get_now_time()), logfile)
-    """
+                print_sl("-"*41, logfile)
+                print_sl("\n***** Unable to connect to {0} *****\n\n".format(myrecord['ip']), logfile)
+        print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
+
     # Check optional ip list
     iplist = ip_list()
     if iplist:
