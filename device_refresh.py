@@ -137,15 +137,6 @@ def save_config_file(myconfig, record):
             newfile.close()
             return True
 
-def ip_list():
-    """ Purpose: Create a list of the IPs from provided text file. """
-    filepath = iplist_dir + iplistfile
-    iplist = line_list(filepath)
-    if iplist:
-        return iplist
-    else:
-        return False
-
 
 def line_list(filepath):
     """ Purpose: Create a list of lines from the file defined. """
@@ -624,7 +615,7 @@ if __name__ == "__main__":
                 print_sl("\n***** Unable to connect to {0} *****\n\n".format(myrecord['ip']), logfile)
 
         # Check optional ip list
-        iplist = ip_list()
+        iplist = line_list((iplist_dir + iplistfile))
         if iplist:
             print "Working on IP list..."
             for ip in iplist:
