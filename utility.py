@@ -306,10 +306,10 @@ def compare_configs(config1, config2):
         for line in diffList:
             if line[0] == '-':
                 change_list.append(line)
-                print line,
+                #print line,
             elif line[0] == '+':
                 change_list.append(line)
-                print line,
+                #print line,
         #print '-'*50
     else:
         print "ERROR with compare configs, check configs."

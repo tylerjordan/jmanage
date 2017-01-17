@@ -152,9 +152,14 @@ def line_list(filepath):
     linelist = []
     try:
         f = open(filepath, 'r')
+    except IOError as ioex:
+        if ioex.errno == 2:
+            print "No IPList Defined"
+        else:
+            print 'IOERROR: Unable to open file: {0} | File: {1}'.format(err, filepath)
+        return False
     except Exception as err:
         print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, filepath)
-        return False
     else:
         linelist = f.readlines()
         return linelist
@@ -183,31 +188,31 @@ def check_ip(ip):
                 if localDict['host_name'] == remoteDict['host_name']:
                     if localDict['serial_number'] == remoteDict['serial_number']:
                         if localDict['junos_code'] == remoteDict['junos_code']:
-                            print "{0} - No Changes".format(ip)
+                            print "- Device Paramters Unchanged -\n"
                         else:
-                            print "{0} - JunOS changed from {1} to {2}".format(ip, localDict['junos_code'], remoteDict['junos_code'])
+                            print "- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code'])
                             change_record(ip, remoteDict['junos_code'], key='junos_code')
                     else:
-                        print "{0} - S/N changed from {1} to {2}".format(ip, localDict['serial_number'], remoteDict['serial_number'])
+                        print "- S/N changed from {0} to {1}".format(localDict['serial_number'], remoteDict['serial_number'])
                         change_record(ip, remoteDict['serial_number'], key='serial_number')
                         if localDict['model'] != remoteDict['model']:
-                            print "{0} - Model changed from {1} to {2}".format(ip, localDict['model'], remoteDict['model'])
+                            print "- Model changed from {0} to {1}".format(localDict['model'], remoteDict['model'])
                             change_record(ip, remoteDict['model'], key='model')
                         if localDict['junos_code'] != remoteDict['junos_code']:
-                            print "{0} - JunOS changed from {1} to {2}".format(ip, localDict['junos_code'], remoteDict['junos_code'])
+                            print "- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code'])
                             change_record(ip, remoteDict['junos_code'], key='junos_code')
                 else:
                     if localDict['serial_number'] != remoteDict['serial_number']:
-                        print "{0} - S/N changed from {1} to {2}".format(ip, localDict['serial_number'], remoteDict['serial_number'])
+                        print "- S/N changed from {0} to {1}".format(localDict['serial_number'], remoteDict['serial_number'])
                         change_record(ip, remoteDict['serial_number'], key='serial_number')
                         if localDict['model'] != remoteDict['model']:
-                            print "{0} - Model changed from {1} to {2}".format(ip, localDict['model'], remoteDict['model'])
+                            print "- Model changed from {0} to {1}".format(localDict['model'], remoteDict['model'])
                             change_record(ip, remoteDict['model'], key='model')
                     # Do these regardless of S/N results
-                    print "{0} - Hostname changed from {1} to {2}".format(ip, localDict['host_name'], remoteDict['host_name'])
+                    print "- Hostname changed from {0} to {1}".format(localDict['host_name'], remoteDict['host_name'])
                     change_record(ip, remoteDict['host_name'], key='host_name')
                     if localDict['junos_code'] != remoteDict['junos_code']:
-                        print "{0} - JunOS changed from {1} to {2}".format(ip, localDict['junos_code'], remoteDict['junos_code'])
+                        print "- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code'])
                         change_record(ip, remoteDict['junos_code'], key='junos_code')
                 """
                 for attrib in record_attribs:
@@ -217,7 +222,7 @@ def check_ip(ip):
                 """
             else:
                 # If no, this is a device that hasn't been identified yet, create a new record
-                print "{0} - Adding device as new record".format(ip),
+                print "- Adding device {0} as new record".format(ip),
                 if add_record(ip):
                     print " - Successful"
                     return True
@@ -227,7 +232,7 @@ def check_ip(ip):
         else:
             print "ERROR: Unable to collect information from device: {0}".format(ip)
             return False
-        print "Checking config..."
+        #print "Checking config..."
 
     # If we can't ping, but we have a record
     elif has_record:
@@ -351,7 +356,7 @@ def fetch_config(ip):
     dev = Device(host=ip, user=myuser, passwd=mypwd)
     # Try to open a connection to the device
     try:
-        print "Connecting to: {0}".format(ip)
+        #print "Connecting to: {0}".format(ip)
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
@@ -442,17 +447,18 @@ def config_compare(myrecord, logfile):
     change_list = compare_configs(load_config_file(myrecord['ip'], newest=True), current_config)
     if change_list:
         # print "Configs are different - updating..."
+        print_sl("- Found Configuration Changes -\n\n", logfile)
         print_sl("Discrepancies:\n-------------\n", logfile)
-        # if update_config(myrecord['ip'], current_config):
-        # print "Configs updated!"
-        # else:
-        # print "Config update failed!"
         # Try to write diffList output to a file
         for item in change_list:
             print_sl("{0}\n".format(item), logfile)
+        if update_config(myrecord['ip'], current_config):
+            print "Configs updated!"
+        else:
+            print "Config update failed!"
         return True
     else:
-        print_sl(" - No Discrepancies -\n\n", logfile)
+        print_sl(" - No Configuration Changes -\n\n", logfile)
         # print "Configs are the same, do nothing..."
         return True
 
@@ -606,9 +612,9 @@ if __name__ == "__main__":
         print_sl("User: {0}\n".format(myuser), logfile)
         print_sl("Process Started: {0}\n\n".format(now), logfile)
         for myrecord in listDict:
-            check_ip(str(myrecord['ip']))
             print_sl("-"*41, logfile)
             print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
+            check_ip(str(myrecord['ip']))
             if config_compare(myrecord, logfile):
                 #print_sl("***** %s *****\n" % myrecord['ip'], logfile)
                 print_sl("-"*41, logfile)
@@ -616,23 +622,25 @@ if __name__ == "__main__":
             else:
                 print_sl("-"*41, logfile)
                 print_sl("\n***** Unable to connect to {0} *****\n\n".format(myrecord['ip']), logfile)
-        print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
 
-    # Check optional ip list
-    iplist = ip_list()
-    if iplist:
-        print "Working on IP list..."
-        for ip in iplist:
-            check_ip(str(ip))
-            current_config = fetch_config(ip)
-            if compare_configs(load_config_file(ip, newest=True), current_config):
-                print "Configs are different - updating..."
-                if update_config(ip, current_config):
-                    print "Configs updated!"
+        # Check optional ip list
+        iplist = ip_list()
+        if iplist:
+            print "Working on IP list..."
+            for ip in iplist:
+                check_ip(str(ip))
+                current_config = fetch_config(ip)
+                if compare_configs(load_config_file(ip, newest=True), current_config):
+                    print "Configs are different - updating..."
+                    if update_config(ip, current_config):
+                        print "Configs updated!"
+                    else:
+                        print "Config update failed!"
                 else:
-                    print "Config update failed!"
-            else:
-                print "Do nothing to the config."
+                    print "Do nothing to the config."
+
+        # End of processing
+        print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
 
     # Save the changes of the listDict to CSV
     listdict_to_csv(listDict, listDictCSV)
