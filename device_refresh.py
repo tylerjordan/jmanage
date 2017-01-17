@@ -62,7 +62,7 @@ def load_config_file(ip, newest):
         try:
             file_string = open(my_file, 'r').read()
         except Exception as err:
-            print 'ERROR: Unable to read file: {0} : {1}'.format(my_file, err)
+            print 'ERROR: Unable to read file: {0} | File: {1}'.format(err, my_file)
             return False
         else:
             return file_string
@@ -101,7 +101,7 @@ def load_config_file_list(ip, newest):
         try:
             linelist = line_list(my_file)
         except Exception as err:
-            print 'ERROR: Unable to read file: {0} : {1}'.format(my_file, err)
+            print 'ERROR: Unable to read file: {0} | File: {1}'.format(err, my_file)
             return False
         else:
             return linelist
@@ -118,16 +118,24 @@ def save_config_file(myconfig, record):
     try:
         newfile = open(filename, "w+")
     except Exception as err:
-        print 'ERROR: Unable to open file: {0} : {1}'.format(filename, err)
+        print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, filename)
         return False
     else:
         # Remove excess configurations if necessary
         if get_file_number(record) > 2:
             del_file = get_old_new_file(record, newest=False)
-            os.remove(del_file)
-        newfile.write(myconfig)
-        newfile.close()
-        return True
+            try:
+                os.remove(del_file)
+            except Exception as err:
+                print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
+        try:
+            newfile.write(myconfig)
+        except Exception as err:
+            print "ERROR: Unable to write config to file: {0}".format(err)
+            return False
+        else:
+            newfile.close()
+            return True
 
 def ip_list():
     """ Purpose: Create a list of the IPs from provided text file. """
@@ -145,7 +153,7 @@ def line_list(filepath):
     try:
         f = open(filepath, 'r')
     except Exception as err:
-        print '{0} - Unable to open file. ERROR: {1}'.format(filepath, err)
+        print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, filepath)
         return False
     else:
         linelist = f.readlines()
@@ -217,18 +225,18 @@ def check_ip(ip):
                     print " - Failed"
                     return False
         else:
-            print "{0} - ERROR: Unable to collect information from device".format(ip)
+            print "ERROR: Unable to collect information from device: {0}".format(ip)
             return False
         print "Checking config..."
 
     # If we can't ping, but we have a record
     elif has_record:
         # Set record status to "unreachable"
-        print "{0} - ERROR: Unable to ping KNOWN device".format(ip)
+        print "ERROR: Unable to ping KNOWN device: {0}".format(ip)
         return False
     # If we can't ping, and have no record
     else:
-        print "{0} - ERROR: Unable to ping".format(ip)
+        print "ERROR: Unable to ping: {0}".format(ip)
         return False
 
 def get_record(ip='', hostname='', sn='', code=''):
@@ -268,7 +276,7 @@ def add_record(ip):
     try:
         items = run(ip, myuser, mypwd, port)
     except Exception as err:
-        print 'ERROR: Unable to get record information for: {0} : {1}'.format(ip, err)
+        print 'ERROR: Unable to get record information: {0} | Device: {1}'.format(err, ip)
         items['last_update_attempt'] = get_now_time()
         listDict.append(items)
         return False
@@ -283,7 +291,6 @@ def add_record(ip):
             return True
         else:
             items['last_config_attempt'] = get_now_time()
-            print 'ERROR: Unable to capture configuration: {0}'.format(ip)
             listDict.append(items)
             return True
 
@@ -328,7 +335,7 @@ def change_record(ip, value, key):
                 myrecord.update(change_dict)
             except Exception as err:
                 # Error checking...
-                print "ERROR: Unable to update record value {0} : {1}".format(ip, err)
+                print "ERROR: Unable to update record value: {0} | Device: {1}".format(err, ip)
                 return False
             else:
                 # If the record change was successful...
@@ -555,8 +562,8 @@ if __name__ == "__main__":
             regtmpl_list.append(tline.strip('\n\t'))
     #for line in regtmpl_list:
      #   print "- {0}".format(line)
-    for myrecord in listDict:
-        get_oldest_file(myrecord['ip'])
+    #for myrecord in listDict:
+    #    get_oldest_file(myrecord['ip'])
 
     # Need to eliminate "\n" from strings, ie. login announcment
     '''
