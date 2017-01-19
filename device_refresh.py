@@ -213,12 +213,13 @@ def check_ip(ip):
                 """
             else:
                 # If no, this is a device that hasn't been identified yet, create a new record
-                print "- Adding device {0} as new record".format(ip),
+                print "-"*41
+                print "- Adding device {0} as a new record".format(ip)
                 if add_record(ip):
-                    print " - Successful"
+                    print "- Successful"
                     return True
                 else:
-                    print " - Failed"
+                    print "- Failed"
                     return False
         else:
             print "ERROR: Unable to collect information from device: {0}".format(ip)
@@ -268,7 +269,8 @@ def get_record(ip='', hostname='', sn='', code=''):
         return blank_record
 
 def add_record(ip):
-    """ Purpose: Adds a record to list of dictionaries. """
+    """ Purpose: Adds a record to list of dictionaries.
+    """
     try:
         items = run(ip, myuser, mypwd, port)
     except Exception as err:
@@ -277,16 +279,18 @@ def add_record(ip):
         listDict.append(items)
         return False
     else:
-        items['last_update_attempt'] = get_now_time()
-        items['last_update_success'] = get_now_time()
-        if save_config_file(fetch_config(ip), get_record(ip=ip)):
+        if save_config_file(fetch_config(ip), items):
             items['last_config_success'] = get_now_time()
             items['last_config_attempt'] = get_now_time()
+            items['last_update_attempt'] = get_now_time()
+            items['last_update_success'] = get_now_time()
             print 'Configuration captured: {0}'.format(ip)
             listDict.append(items)
             return True
         else:
             items['last_config_attempt'] = get_now_time()
+            items['last_update_attempt'] = get_now_time()
+            items['last_update_success'] = get_now_time()
             listDict.append(items)
             return True
 
@@ -351,7 +355,9 @@ def fetch_config(ip):
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
-        print "Cannot connect to device {0} : {1}".format(ip, err)
+        print "ERROR: Cannot connect to device: {0} Device: {1}".format(err, ip)
+    except Exception as err:
+        print "ERROR: Unable to open connection: {0} Device: {1}".format(err, ip)
     # If try arguments succeed...
     else:
         # Increase the default RPC timeout to accommodate install operations
@@ -533,7 +539,7 @@ if __name__ == "__main__":
         "{{VERSION}}": r'\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}',
         "{{HOSTNAME}}": r'SW[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]',
         "{{ENCPASS}}": r'\$1\$[A-Z|a-z|\.|\$|\/|\-|\d]{31}',
-        "{{TACSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{18,19}',
+        "{{TACSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{18,21}',
         "{{SNMPSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{184,187}',
         "{{IPADDRESS}}": r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
         "{{CITY}}": r'[A-Z][A-Z|a-z|\s]+',
@@ -563,7 +569,7 @@ if __name__ == "__main__":
     #    get_oldest_file(myrecord['ip'])
 
     # Need to eliminate "\n" from strings, ie. login announcment
-    '''
+
     # CHECK CONFIGS AGAINST TEMPLATE
     # File to log all changes to
     now = get_now_time()
@@ -578,7 +584,7 @@ if __name__ == "__main__":
         print_sl("Process Started: {0}\n\n".format(now), logfile)
         # Looping over regtmpl list and comparing to configuration
         for myrecord in listDict:
-            config_list = load_config_file_list(myrecord['ip'])
+            config_list = load_config_file_list(myrecord['ip'], newest=True)
             print_sl("-"*41, logfile)
             print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
             #print "SCANNING HOST: {0}".format(myrecord['host_name'])
@@ -622,17 +628,17 @@ if __name__ == "__main__":
                 check_ip(str(ip))
                 current_config = fetch_config(ip)
                 if compare_configs(load_config_file(ip, newest=True), current_config):
-                    print "Configs are different - updating..."
+                    print "- Configs are different - updating..."
                     if update_config(ip, current_config):
-                        print "Configs updated!"
+                        print "- Configs updated!"
                     else:
-                        print "Config update failed!"
+                        print "- Config update failed!"
                 else:
-                    print "Do nothing to the config."
+                    print "- Do nothing to the config."
 
         # End of processing
         print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
-
+    '''
     # Save the changes of the listDict to CSV
     listdict_to_csv(listDict, listDictCSV)
     print "Saved any changes."
