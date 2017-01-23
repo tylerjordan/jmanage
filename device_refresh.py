@@ -99,7 +99,8 @@ def get_file_number(record):
     return file_num
 
 def load_config_file_list(ip, newest):
-    """ Purpose: Load the selected device's configuration file into a list. """
+    """ Purpose: Load the selected device's configuration file into a list.
+    """
     record = get_record(ip=ip)
     linelist = []
     if record:
