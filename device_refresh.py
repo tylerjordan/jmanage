@@ -18,17 +18,18 @@ from utility import *
 
 credsCSV = ''
 iplistfile = ''
-optional = ''
 listDictCSV = ''
 iplist_dir = ''
 config_dir = ''
 log_dir = ''
 template_file = ''
 
+addl_opt = ''
 listDict = []
 mypwd = ''
 myuser = ''
 port = 22
+system_slash = "/"   # This is the linux/mac slash format, windows format will be used in that case
 
 
 def detect_env():
@@ -36,10 +37,10 @@ def detect_env():
     global template_file
     global listDictCSV
     global credsCSV
-    global optional
     global iplist_dir
     global config_dir
     global log_dir
+    global system_slash
 
     if platform.system().lower() == "windows":
         #print "Environment Windows!"
@@ -48,6 +49,7 @@ def detect_env():
         iplist_dir = ".\\data\\iplists\\"
         config_dir = ".\\data\\configs\\"
         log_dir = ".\\data\\logs\\"
+        system_slash = "\\"
     else:
         #print "Environment Linux/MAC!"
         template_file = "./data/configs/Template.conf"
@@ -77,9 +79,10 @@ def get_old_new_file(record, newest):
     """
     filtered_list = []
     if record:
-        for file in listdir(config_dir):
+        my_dir = config_dir + getSiteCode(record) + system_slash
+        for file in listdir(my_dir):
             if file.startswith(record['host_name']):
-                filtered_list.append(config_dir + file)
+                filtered_list.append(my_dir + file)
     sorted_list = sorted(filtered_list, key=os.path.getctime)
     if newest:
         return sorted_list[-1]
@@ -89,7 +92,8 @@ def get_old_new_file(record, newest):
 def get_file_number(record):
     file_num = 0
     if record:
-        for file in listdir(config_dir):
+        my_dir = config_dir + getSiteCode(record) + system_slash
+        for file in listdir(my_dir):
             if file.startswith(record['host_name']):
                 file_num += 1
     return file_num
@@ -115,8 +119,16 @@ def save_config_file(myconfig, record):
     """ Purpose: Creates a config file and adds text to the file.
         Returns: True or False
     """
+    # Get the current time
     now = get_now_time()
-    filename = config_dir + record['host_name'] + "-" + now + ".conf"
+    site_dir = config_dir + getSiteCode(record) + system_slash
+
+    # Check if the appropriate site directory is created. If not, then create it.
+    if not os.path.isdir(site_dir):
+        os.mkdir(site_dir)
+
+    # Create the filename
+    filename = site_dir + record['host_name'] + "-" + now + ".conf"
     try:
         newfile = open(filename, "w+")
     except Exception as err:
@@ -503,7 +515,7 @@ def template_menu():
     var_regex = '{{[A-Z]+}}'
     d = {
         "{{VERSION}}": r'\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}',
-        "{{HOSTNAME}}": r'SW[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]',
+        "{{HOSTNAME}}": r'SW?[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]',
         "{{ENCPASS}}": r'\$1\$[A-Z|a-z|\.|\$|\/|\-|\d]{31}',
         "{{TACSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{18,21}',
         "{{SNMPSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{184,187}',
@@ -533,6 +545,7 @@ def template_menu():
     # Create log file for template process
     now = get_now_time()
     template_log = log_dir + "template_log-" + now + ".log"
+    # Attempt to open the new log file for input
     try:
         logfile = open(template_log, 'a')
     except Exception as err:
@@ -546,6 +559,7 @@ def template_menu():
             config_list = load_config_file_list(myrecord['ip'], newest=True)
             print_sl("-"*41, logfile)
             print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
+            #print_sl("Site Code: {0}\n\n".format(getSiteCode(myrecord)), logfile)
             #print "SCANNING HOST: {0}".format(myrecord['host_name'])
             if template_scan(regtmpl_list, config_list, logfile):
                 print_sl("-"*41, logfile)
@@ -564,6 +578,7 @@ def main(argv):
     """
     global credsCSV
     global iplistfile
+    global addl_opt
     try:
         opts, args = getopt.getopt(argv, "hc:i:o:",["creds=","iplist=","optal="])
     except getopt.GetoptError:
@@ -578,10 +593,10 @@ def main(argv):
         elif opt in ("-i", "--iplist"):
             iplistfile = arg
         elif opt in ("-o", "--optal"):
-            optional = arg
-    print "Credentials file is ", credsCSV
-    print "IP List file is ", iplistfile
-    print "Optional function is ", optional
+            addl_opt = arg
+    print "Credentials file is:", credsCSV
+    print "IP List file is:", iplistfile
+    print "Optional function is:", addl_opt
 
 # Main execution loop
 if __name__ == "__main__":
@@ -620,6 +635,7 @@ if __name__ == "__main__":
                 print_sl("\n***** Unable to connect to {0} *****\n\n".format(myrecord['ip']), logfile)
 
         # Check optional ip list
+        print "IPList File: {0}".format(iplistfile)
         iplist = line_list((iplist_dir + iplistfile))
         if iplist:
             print "Working on IP list..."
@@ -638,8 +654,8 @@ if __name__ == "__main__":
         # End of processing
         print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
 
-    print "Optional: " + optional
-    if optional == "template":
+    print "Optional: " + addl_opt
+    if addl_opt == "template":
         template_menu()
 
     # Save the changes of the listDict to CSV

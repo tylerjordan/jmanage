@@ -247,6 +247,14 @@ def getCode(device, mypath):
 
     return tar_code
 
+# Return the site code by extracting from a provided hostname
+def getSiteCode(record):
+    siteObj = re.match(r'SW?[A-Z]{3}', record['host_name'])
+    siteStr = siteObj.group()[-3:]
+
+    #print "Site String: {0}".format(siteStr)
+    return siteStr
+
 
 # Analyze listDict and create statistics (Upgrade)
 def tabulateUpgradeResults(listDict):
