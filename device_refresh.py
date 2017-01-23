@@ -18,6 +18,7 @@ from utility import *
 
 credsCSV = ''
 iplistfile = ''
+optional = ''
 listDictCSV = ''
 iplist_dir = ''
 config_dir = ''
@@ -35,6 +36,7 @@ def detect_env():
     global template_file
     global listDictCSV
     global credsCSV
+    global optional
     global iplist_dir
     global config_dir
     global log_dir
@@ -494,45 +496,9 @@ def template_scan(regtmpl_list, config_list, logfile):
         print_sl('- No Template Commands Missing -\n\n', logfile)
     return True
 
-def main(argv):
-    """ Purpose: Capture command line arguments and populate variables.
-        Arguments:
-            -c    -  The file containing credentials to be used to access devices
-            -i    -  (Optional) A file containing a list of ip addresses (for adding to the database)
-    """
-    global credsCSV
-    global iplistfile
-    try:
-        opts, args = getopt.getopt(argv, "hc:i:",["creds=","iplist="])
-    except getopt.GetoptError:
-        print "device_refresh -c <credsfile> -i <iplistfile>"
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            print 'device_refresh -c <credsfile> -i <iplistfile>'
-            sys.exit()
-        elif opt in ("-c", "--creds"):
-            credsCSV = arg
-        elif opt in ("-i", "--iplist"):
-            iplistfile = arg
-    print "Credentials file is ", credsCSV
-    print "IP List file is ", iplistfile
-
-# Main execution loop
-if __name__ == "__main__":
-    detect_env()
-    main(sys.argv[1:])
-    creds = csv_to_dict(credsCSV)
-    myuser = creds['username']
-    mypwd = creds['password']
-
-    # Load records from existing CSV
-    print "Loading records..."
-    listDict = csv_to_listdict(listDictCSV)
-
-    # Check existing records...
-    print "Refreshing existing records..."
-
+# CHECK CONFIGS AGAINST TEMPLATE
+# File to log all changes to
+def template_menu():
     # Regexs for template comparisons
     var_regex = '{{[A-Z]+}}'
     d = {
@@ -563,15 +529,8 @@ if __name__ == "__main__":
             regtmpl_list.append(tline.strip('\n\t'))
         elif tline != '':
             regtmpl_list.append(tline.strip('\n\t'))
-    #for line in regtmpl_list:
-     #   print "- {0}".format(line)
-    #for myrecord in listDict:
-    #    get_oldest_file(myrecord['ip'])
 
-    # Need to eliminate "\n" from strings, ie. login announcment
-
-    # CHECK CONFIGS AGAINST TEMPLATE
-    # File to log all changes to
+    # Create log file for template process
     now = get_now_time()
     template_log = log_dir + "template_log-" + now + ".log"
     try:
@@ -595,7 +554,47 @@ if __name__ == "__main__":
                 print_sl("-"*41, logfile)
                 print_sl("\n***** Unable to perfrom template scan of {0} *****\n\n".format(myrecord['ip']), logfile)
         print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
-    '''
+
+def main(argv):
+    """ Purpose: Capture command line arguments and populate variables.
+        Arguments:
+            -c    -  The file containing credentials to be used to access devices
+            -i    -  (Optional) A file containing a list of ip addresses (for adding to the database)
+            -o    -  (Optional) Can be use to select an optional process, such as template check
+    """
+    global credsCSV
+    global iplistfile
+    try:
+        opts, args = getopt.getopt(argv, "hc:i:o:",["creds=","iplist=","optal="])
+    except getopt.GetoptError:
+        print "device_refresh -c <credsfile> -i <iplistfile> -o <optional>"
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print 'device_refresh -c <credsfile> -i <iplistfile> -o <optional>'
+            sys.exit()
+        elif opt in ("-c", "--creds"):
+            credsCSV = arg
+        elif opt in ("-i", "--iplist"):
+            iplistfile = arg
+        elif opt in ("-o", "--optal"):
+            optional = arg
+    print "Credentials file is ", credsCSV
+    print "IP List file is ", iplistfile
+    print "Optional function is ", optional
+
+# Main execution loop
+if __name__ == "__main__":
+    detect_env()
+    main(sys.argv[1:])
+    creds = csv_to_dict(credsCSV)
+    myuser = creds['username']
+    mypwd = creds['password']
+
+    # Load records from existing CSV
+    print "Loading records..."
+    listDict = csv_to_listdict(listDictCSV)
+
     # CHECK CONFIGS FOR CHANGES
     # File to log all changes to
     now = get_now_time()
@@ -638,7 +637,11 @@ if __name__ == "__main__":
 
         # End of processing
         print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
-    '''
+
+    print "Optional: " + optional
+    if optional == "template":
+        template_menu()
+
     # Save the changes of the listDict to CSV
     listdict_to_csv(listDict, listDictCSV)
     print "Saved any changes."
