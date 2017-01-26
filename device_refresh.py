@@ -314,6 +314,15 @@ def ping(ip):
     :param ip: IP address of host to ping
     :return: True if ping successful
     """
+    ping_str = "-n 3" if platform.system().lower()=="windows" else "-c 3"
+    response = os.system("ping " + ping_str + " " + ip)
+
+    if response == 0:
+        return True
+    else:
+        return False
+
+    '''
     with open(os.devnull, 'w') as DEVNULL:
         try:
             # Check for Windows or Linux/MAC
@@ -323,9 +332,11 @@ def ping(ip):
                 stdout=DEVNULL,
                 stderr=DEVNULL
             )
-            return True
         except subprocess.CalledProcessError:
             return False
+        else:
+            return True
+    '''
 
 def get_now_time():
     """ Purpose: Create a correctly formatted timestamp
@@ -641,6 +652,8 @@ if __name__ == "__main__":
         if iplist:
             print "Working on IP list..."
             for ip in iplist:
+                print "Ping code for {0} : {1}".format(ip, ping(ip))
+                '''
                 check_ip(str(ip))
                 current_config = fetch_config(ip)
                 if compare_configs(load_config_file(ip, newest=True), current_config):
@@ -651,7 +664,7 @@ if __name__ == "__main__":
                         print "- Config update failed!"
                 else:
                     print "- Do nothing to the config."
-
+                '''
         # End of processing
         print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
 
