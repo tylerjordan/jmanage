@@ -228,13 +228,12 @@ def check_ip(ip):
                 """
             else:
                 # If no, this is a device that hasn't been identified yet, create a new record
-                print "-"*41
                 print "- Adding device {0} as a new record".format(ip)
                 if add_record(ip):
-                    print "- Successful"
+                    print "- Successfully added record"
                     return True
                 else:
-                    print "- Failed"
+                    print "- Failed adding record"
                     return False
         else:
             print "ERROR: Unable to collect information from device: {0}".format(ip)
@@ -299,30 +298,20 @@ def add_record(ip):
             items['last_config_attempt'] = get_now_time()
             items['last_update_attempt'] = get_now_time()
             items['last_update_success'] = get_now_time()
-            print 'Configuration captured: {0}'.format(ip)
-            listDict.append(items)
-            return True
+            print '- Configuration retrieved and saved'.format(ip)
         else:
             items['last_config_attempt'] = get_now_time()
             items['last_update_attempt'] = get_now_time()
             items['last_update_success'] = get_now_time()
-            listDict.append(items)
-            return True
+            print '- Configuration retrieved, but save failed'.format(ip)
+        listDict.append(items)
+        return True
 
 def ping(ip):
     """ Purpose: Determine if an IP is pingable
     :param ip: IP address of host to ping
     :return: True if ping successful
     """
-    ping_str = "-n 3" if platform.system().lower()=="windows" else "-c 3"
-    response = os.system("ping " + ping_str + " " + ip)
-
-    if response == 0:
-        return True
-    else:
-        return False
-
-    '''
     with open(os.devnull, 'w') as DEVNULL:
         try:
             # Check for Windows or Linux/MAC
@@ -332,11 +321,9 @@ def ping(ip):
                 stdout=DEVNULL,
                 stderr=DEVNULL
             )
+            return True
         except subprocess.CalledProcessError:
             return False
-        else:
-            return True
-    '''
 
 def get_now_time():
     """ Purpose: Create a correctly formatted timestamp
@@ -650,21 +637,24 @@ if __name__ == "__main__":
         print "IPList File: {0}".format(iplistfile)
         iplist = line_list((iplist_dir + iplistfile))
         if iplist:
-            print "Working on IP list..."
-            for ip in iplist:
-                print "Ping code for {0} : {1}".format(ip, ping(ip))
-                '''
-                check_ip(str(ip))
-                current_config = fetch_config(ip)
-                if compare_configs(load_config_file(ip, newest=True), current_config):
-                    print "- Configs are different - updating..."
-                    if update_config(ip, current_config):
-                        print "- Configs updated!"
+            for raw_ip in iplist:
+                ip = raw_ip.strip()
+                print_sl("-"*41, logfile)
+                print_sl("\n***** {0} *****".format(ip), logfile)
+                #print "Ping code for {0} : {1}".format(ip, ping(ip))
+                if check_ip(ip):
+                    current_config = fetch_config(ip)
+                    if compare_configs(load_config_file(ip, newest=True), current_config):
+                        print_sl("- Configs are different - updating...", logfile)
+                        if update_config(ip, current_config):
+                            print_sl("- Configs updated!", logfile)
+                        else:
+                            print_sl("- Config update failed!", logfile)
                     else:
-                        print "- Config update failed!"
+                        print_sl("- Do nothing to the config.", logfile)
                 else:
-                    print "- Do nothing to the config."
-                '''
+                    print_sl("- Device not pingable", logfile)
+
         # End of processing
         print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
 
