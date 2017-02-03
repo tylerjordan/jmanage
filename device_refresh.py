@@ -634,29 +634,29 @@ if __name__ == "__main__":
                 print_sl("\n***** Unable to connect to {0} *****\n\n".format(myrecord['ip']), logfile)
 
         # Check optional ip list
-        print "IPList File: {0}".format(iplistfile)
-        iplist = line_list((iplist_dir + iplistfile))
-        if iplist:
-            for raw_ip in iplist:
-                ip = raw_ip.strip()
-                print_sl("-" * 50, logfile)
-                print_sl("\n***** {0} *****\n".format(ip), logfile)
-                #print "Ping code for {0} : {1}".format(ip, ping(ip))
-                if check_ip(ip):
-                    current_config = fetch_config(ip)
-                    if compare_configs(load_config_file(ip, newest=True), current_config):
-                        print_sl("- Configs are different - updating...", logfile)
-                        if update_config(ip, current_config):
-                            print_sl("- Configs updated!\n", logfile)
+        if iplistfile:
+            print "IPList File: {0}".format(iplistfile)
+            iplist = line_list((iplist_dir + iplistfile))
+            if iplist:
+                for raw_ip in iplist:
+                    ip = raw_ip.strip()
+                    print_sl("-" * 50, logfile)
+                    print_sl("\n***** {0} *****\n".format(ip), logfile)
+                    #print "Ping code for {0} : {1}".format(ip, ping(ip))
+                    if check_ip(ip):
+                        current_config = fetch_config(ip)
+                        if compare_configs(load_config_file(ip, newest=True), current_config):
+                            print_sl("- Configs are different - updating...", logfile)
+                            if update_config(ip, current_config):
+                                print_sl("- Configs updated!\n", logfile)
+                            else:
+                                print_sl("- Config update failed!\n", logfile)
                         else:
-                            print_sl("- Config update failed!\n", logfile)
+                            print_sl("- Do nothing to the config.\n", logfile)
                     else:
-                        print_sl("- Do nothing to the config.\n", logfile)
-                else:
-                    print_sl("- Device not pingable!\n", logfile)
-
-        # End of processing
-        print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
+                        print_sl("- Device not pingable!\n", logfile)
+            # End of processing
+            print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
 
     print "Optional: " + addl_opt
     if addl_opt == "template":
