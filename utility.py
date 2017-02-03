@@ -249,11 +249,12 @@ def getCode(device, mypath):
 
 # Return the site code by extracting from a provided hostname
 def getSiteCode(record):
-    siteObj = re.match(r'SW?[A-Z]{3}', record['host_name'])
-    siteStr = siteObj.group()[-3:]
+    hostname = record['host_name'].upper()
+    siteObj = re.match(r'SW[A-Z]{3}', hostname)
+    if siteObj == None:
+        siteObj = re.match(r'S[A-Z]{3}', hostname)
 
-    #print "Site String: {0}".format(siteStr)
-    return siteStr
+    return siteObj.group()[-3:]
 
 
 # Analyze listDict and create statistics (Upgrade)

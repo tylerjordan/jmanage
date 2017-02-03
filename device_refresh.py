@@ -622,15 +622,15 @@ if __name__ == "__main__":
         print_sl("User: {0}\n".format(myuser), logfile)
         print_sl("Process Started: {0}\n\n".format(now), logfile)
         for myrecord in listDict:
-            print_sl("-"*41, logfile)
+            print_sl("-" * 50 + "\n", logfile)
             print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
             check_ip(str(myrecord['ip']))
             if config_compare(myrecord, logfile):
                 #print_sl("***** %s *****\n" % myrecord['ip'], logfile)
-                print_sl("-"*41, logfile)
+                print_sl("-" * 50, logfile)
                 print_sl("\n\n", logfile)
             else:
-                print_sl("-"*41, logfile)
+                print_sl("-" * 50, logfile)
                 print_sl("\n***** Unable to connect to {0} *****\n\n".format(myrecord['ip']), logfile)
 
         # Check optional ip list
@@ -639,21 +639,21 @@ if __name__ == "__main__":
         if iplist:
             for raw_ip in iplist:
                 ip = raw_ip.strip()
-                print_sl("-"*41, logfile)
-                print_sl("\n***** {0} *****".format(ip), logfile)
+                print_sl("-" * 50, logfile)
+                print_sl("\n***** {0} *****\n".format(ip), logfile)
                 #print "Ping code for {0} : {1}".format(ip, ping(ip))
                 if check_ip(ip):
                     current_config = fetch_config(ip)
                     if compare_configs(load_config_file(ip, newest=True), current_config):
                         print_sl("- Configs are different - updating...", logfile)
                         if update_config(ip, current_config):
-                            print_sl("- Configs updated!", logfile)
+                            print_sl("- Configs updated!\n", logfile)
                         else:
-                            print_sl("- Config update failed!", logfile)
+                            print_sl("- Config update failed!\n", logfile)
                     else:
-                        print_sl("- Do nothing to the config.", logfile)
+                        print_sl("- Do nothing to the config.\n", logfile)
                 else:
-                    print_sl("- Device not pingable", logfile)
+                    print_sl("- Device not pingable!\n", logfile)
 
         # End of processing
         print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
