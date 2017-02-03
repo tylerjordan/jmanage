@@ -643,7 +643,7 @@ if __name__ == "__main__":
                     print_sl("-" * 50, logfile)
                     print_sl("\n***** {0} *****\n".format(ip), logfile)
                     #print "Ping code for {0} : {1}".format(ip, ping(ip))
-                    if check_ip(ip):
+                    if ping(ip):
                         current_config = fetch_config(ip)
                         if compare_configs(load_config_file(ip, newest=True), current_config):
                             print_sl("- Configs are different - updating...", logfile)
