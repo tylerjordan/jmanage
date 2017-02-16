@@ -171,7 +171,7 @@ def line_list(filepath):
         return linelist
 
 
-def check_ip(ip):
+def check_ip(ip, logfile):
     """ Purpose: Scans the device with the IP and handles action. """
     has_record = False
     #print "Recalling any stored records..."
@@ -194,60 +194,54 @@ def check_ip(ip):
                 if localDict['host_name'] == remoteDict['host_name']:
                     if localDict['serial_number'] == remoteDict['serial_number']:
                         if localDict['junos_code'] == remoteDict['junos_code']:
-                            print "- Device Paramters Unchanged -\n"
+                            print_sl("No Parameter Changes\n", logfile)
                         else:
-                            print "- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code'])
+                            print_sl("\t- JunOS changed from {0} to {1}\n".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
                             change_record(ip, remoteDict['junos_code'], key='junos_code')
                     else:
-                        print "- S/N changed from {0} to {1}".format(localDict['serial_number'], remoteDict['serial_number'])
+                        print_sl("\t- S/N changed from {0} to {1}\n".format(localDict['serial_number'], remoteDict['serial_number']), logfile)
                         change_record(ip, remoteDict['serial_number'], key='serial_number')
                         if localDict['model'] != remoteDict['model']:
-                            print "- Model changed from {0} to {1}".format(localDict['model'], remoteDict['model'])
+                            print_sl("\t- Model changed from {0} to {1}\n".format(localDict['model'], remoteDict['model']), logfile)
                             change_record(ip, remoteDict['model'], key='model')
                         if localDict['junos_code'] != remoteDict['junos_code']:
-                            print "- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code'])
+                            print_sl("\t- JunOS changed from {0} to {1}\n".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
                             change_record(ip, remoteDict['junos_code'], key='junos_code')
                 else:
                     if localDict['serial_number'] != remoteDict['serial_number']:
-                        print "- S/N changed from {0} to {1}".format(localDict['serial_number'], remoteDict['serial_number'])
+                        print_sl("\t- S/N changed from {0} to {1}\n".format(localDict['serial_number'], remoteDict['serial_number']), logfile)
                         change_record(ip, remoteDict['serial_number'], key='serial_number')
                         if localDict['model'] != remoteDict['model']:
-                            print "- Model changed from {0} to {1}".format(localDict['model'], remoteDict['model'])
+                            print_sl("\t- Model changed from {0} to {1}\n".format(localDict['model'], remoteDict['model']), logfile)
                             change_record(ip, remoteDict['model'], key='model')
                     # Do these regardless of S/N results
-                    print "- Hostname changed from {0} to {1}".format(localDict['host_name'], remoteDict['host_name'])
+                    print_sl("\t- Hostname changed from {0} to {1}\n".format(localDict['host_name'], remoteDict['host_name']), logfile)
                     change_record(ip, remoteDict['host_name'], key='host_name')
                     if localDict['junos_code'] != remoteDict['junos_code']:
-                        print "- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code'])
+                        print_sl("\t- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
                         change_record(ip, remoteDict['junos_code'], key='junos_code')
-                """
-                for attrib in record_attribs:
-                    if localDict[attrib] != remoteDict[attrib]:
-                        print attrib + " changed from {0} to {1}!".format(localDict[attrib], remoteDict[attrib])
-                        change_record(ip, remoteDict[attrib], key=attrib)
-                """
             else:
                 # If no, this is a device that hasn't been identified yet, create a new record
-                print "- Adding device {0} as a new record".format(ip)
+                print_sl("\t- Adding device {0} as a new record\n".format(ip), logfile)
                 if add_record(ip):
-                    print "- Successfully added record"
+                    print_sl("\t- Successfully added record\n", logfile)
                     return True
                 else:
-                    print "- Failed adding record"
+                    print_sl("\t- Failed adding record\n", logfile)
                     return False
         else:
-            print "ERROR: Unable to collect information from device: {0}".format(ip)
+            print_sl("\tERROR: Unable to collect information from device: {0\n".format(ip), logfile)
             return False
         #print "Checking config..."
 
     # If we can't ping, but we have a record
     elif has_record:
         # Set record status to "unreachable"
-        print "ERROR: Unable to ping KNOWN device: {0}".format(ip)
+        print_sl("\t- ERROR: Unable to ping KNOWN device: {0}\n".format(ip), logfile)
         return False
     # If we can't ping, and have no record
     else:
-        print "ERROR: Unable to ping: {0}".format(ip)
+        print_sl("\t- ERROR: Unable to ping: {0}\n".format(ip), logfile)
         return False
 
 def get_record(ip='', hostname='', sn='', code=''):
@@ -457,59 +451,68 @@ def config_compare(myrecord, logfile):
     change_list = compare_configs(load_config_file(myrecord['ip'], newest=True), current_config)
     if change_list:
         # print "Configs are different - updating..."
-        print_sl("- Found Configuration Changes -\n\n", logfile)
-        print_sl("Discrepancies:\n-------------\n", logfile)
+        print_sl("Found Configuration Changes\n", logfile)
+        print_sl("-" * 50 + "\n", logfile)
         # Try to write diffList output to a file
         for item in change_list:
             print_sl("{0}\n".format(item), logfile)
         if update_config(myrecord['ip'], current_config):
-            print "Configs updated!"
+            print_sl("* Configs updated! *", logfile)
         else:
-            print "Config update failed!"
+            print_sl("(* Config update failed! *", logfile)
+        print_sl("-" * 50 + "\n", logfile)
         return True
     else:
-        print_sl(" - No Configuration Changes -\n\n", logfile)
-        # print "Configs are the same, do nothing..."
+        print_sl("No Configuration Changes\n", logfile)
         return True
 
-def template_scan(regtmpl_list, config_list, logfile):
+def template_scanner(regtmpl_list, myrecord, logfile):
     """ Purpose: To compare a regex list against a config list
         Parameters:
             regtmpl_list    -   List of template set commands with regex
             config_list     -   List of set commands from chassis
             logfile         -   Reference to log object, for displaying and logging output
     """
-    nomatch = True
-    for regline in regtmpl_list:
-        matched = False
-        #print "Start using Regex: {0}".format(regline)
-        if regline != "":
-            for compline in config_list:
-                compline = re.sub(r"\\n", r"", compline)
-                if re.search(regline, compline):
-                    #print "MATCH FOUND!"
-                    #print "Regex: {0}".format(regline)
-                    #print "Compare String: {0}".format(compline)
-                    #time.sleep(5)
-                    matched = True
-                else:
-                    #print "compline: {0}".format(compline)
-                    #print "NO MATCH FOUND!"
-                    pass
-            if not matched:
-                #print "Regex Not Matched: {0}".format(regline)
-                nomatch = False
-                print_sl('Missing: {0}\n'.format(regline), logfile)
-        else:
-            #print "No Regex!"
-            pass
-    if nomatch:
-        print_sl('- No Template Commands Missing -\n\n', logfile)
-    return True
+    config_list = load_config_file_list(myrecord['ip'], newest=True)
+    #print_sl("-" * 41, logfile)
+    #print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
+    # print_sl("Site Code: {0}\n\n".format(getSiteCode(myrecord)), logfile)
+    # print "SCANNING HOST: {0}".format(myrecord['host_name'])
 
-# CHECK CONFIGS AGAINST TEMPLATE
-# File to log all changes to
-def template_menu():
+    nomatch = True
+    try:
+        firstpass = True
+        for regline in regtmpl_list:
+            matched = False
+            # print "Start using Regex: {0}".format(regline)
+            if regline != "":
+                for compline in config_list:
+                    compline = re.sub(r"\\n", r"", compline)
+                    if re.search(regline, compline):
+                        # print "MATCH FOUND!"
+                        # print "Regex: {0}".format(regline)
+                        # print "Compare String: {0}".format(compline)
+                        # time.sleep(5)
+                        matched = True
+                    else:
+                        # print "compline: {0}".format(compline)
+                        # print "NO MATCH FOUND!"
+                        pass
+                if not matched:
+                    # print "Regex Not Matched: {0}".format(regline)
+                    if firstpass:
+                        print_sl('Template Commands Missing\n', logfile)
+                        print_sl("-" * 50 + "\n", logfile)
+                        firstpass = False
+                    nomatch = False
+                    print_sl('Missing: {0}\n'.format(regline), logfile)
+        if nomatch:
+            print_sl('No Template Commands Missing\n\n', logfile)
+    except Exception as err:
+        print_sl("\n***** Unable to perfrom template scan of {0} *****\n\n".format(myrecord['ip']), logfile)
+        print_sl("-" * 41 + "\n", logfile)
+
+def template_regex():
     # Regexs for template comparisons
     var_regex = '{{[A-Z]+}}'
     d = {
@@ -541,6 +544,11 @@ def template_menu():
         elif tline != '':
             regtmpl_list.append(tline.strip('\n\t'))
 
+    return regtmpl_list
+
+# CHECK CONFIGS AGAINST TEMPLATE
+# File to log all changes to
+def template_scan():
     # Create log file for template process
     now = get_now_time()
     template_log = log_dir + "template_log-" + now + ".log"
@@ -553,20 +561,12 @@ def template_menu():
         print_sl("Purpose: Template Comparison\n", logfile)
         print_sl("User: {0}\n".format(myuser), logfile)
         print_sl("Process Started: {0}\n\n".format(now), logfile)
+        regtemp_list = template_regex()
         # Looping over regtmpl list and comparing to configuration
         for myrecord in listDict:
-            config_list = load_config_file_list(myrecord['ip'], newest=True)
-            print_sl("-"*41, logfile)
-            print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
-            #print_sl("Site Code: {0}\n\n".format(getSiteCode(myrecord)), logfile)
-            #print "SCANNING HOST: {0}".format(myrecord['host_name'])
-            if template_scan(regtmpl_list, config_list, logfile):
-                print_sl("-"*41, logfile)
-                print_sl("\n\n", logfile)
-            else:
-                print_sl("-"*41, logfile)
-                print_sl("\n***** Unable to perfrom template scan of {0} *****\n\n".format(myrecord['ip']), logfile)
+            template_scanner(regtemp_list, myrecord, logfile)
         print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
+
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
@@ -606,7 +606,7 @@ if __name__ == "__main__":
     mypwd = creds['password']
 
     # Load records from existing CSV
-    print "Loading records..."
+    #print "Loading records..."
     listDict = csv_to_listdict(listDictCSV)
 
     # CHECK CONFIGS FOR CHANGES
@@ -618,49 +618,60 @@ if __name__ == "__main__":
     except Exception as err:
         print "Error opening log file {0}".format(err)
     else:
-        print_sl("Purpose: Config Comparison\n", logfile)
+        print_sl("\n\n********** DEVICE SCAN **********\n", logfile)
         print_sl("User: {0}\n".format(myuser), logfile)
-        print_sl("Process Started: {0}\n\n".format(now), logfile)
-        for myrecord in listDict:
-            print_sl("-" * 50 + "\n", logfile)
-            print_sl("\n***** {0} ({1}) *****\n\n".format(myrecord['host_name'], myrecord['ip']), logfile)
-            check_ip(str(myrecord['ip']))
-            if config_compare(myrecord, logfile):
-                #print_sl("***** %s *****\n" % myrecord['ip'], logfile)
-                print_sl("-" * 50, logfile)
-                print_sl("\n\n", logfile)
-            else:
-                print_sl("-" * 50, logfile)
-                print_sl("\n***** Unable to connect to {0} *****\n\n".format(myrecord['ip']), logfile)
+        print_sl("Process Started: {0}\n".format(now), logfile)
+        print_sl("*" * 33 + "\n\n", logfile)
 
-        # Check optional ip list
+        # Loads new IPs into the database, must specify in command line arguments " -o <file> "
+        print_sl("*" * 27 + "\n***** Add New Devices *****\n" + "*" * 27 + "\n", logfile)
+        print_sl("-" * 50 + "\n", logfile)
         if iplistfile:
-            print "IPList File: {0}".format(iplistfile)
             iplist = line_list((iplist_dir + iplistfile))
-            if iplist:
-                for raw_ip in iplist:
-                    ip = raw_ip.strip()
-                    print_sl("-" * 50, logfile)
-                    print_sl("\n***** {0} *****\n".format(ip), logfile)
-                    #print "Ping code for {0} : {1}".format(ip, ping(ip))
-                    if ping(ip):
-                        current_config = fetch_config(ip)
-                        if compare_configs(load_config_file(ip, newest=True), current_config):
-                            print_sl("- Configs are different - updating...", logfile)
-                            if update_config(ip, current_config):
-                                print_sl("- Configs updated!\n", logfile)
-                            else:
-                                print_sl("- Config update failed!\n", logfile)
+            # Loop over the list of IPs
+            for raw_ip in iplist:
+                ip = raw_ip.strip()
+                print_sl("\n----- [{0}] -----\n".format(ip), logfile)
+                # Make sure you can ping the device before trying to configure
+                if ping(ip):
+                    current_config = fetch_config(ip)
+                    if compare_configs(load_config_file(ip, newest=True), current_config):
+                        print_sl("\t- Configs are different - updating...", logfile)
+                        if update_config(ip, current_config):
+                            print_sl("\t- Configs updated!\n", logfile)
                         else:
-                            print_sl("- Do nothing to the config.\n", logfile)
+                            print_sl("\t- Config update failed!\n", logfile)
                     else:
-                        print_sl("- Device not pingable!\n", logfile)
-            # End of processing
-            print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
-
-    print "Optional: " + addl_opt
-    if addl_opt == "template":
-        template_menu()
+                        print_sl("\t- Do nothing to the config.\n", logfile)
+                else:
+                    print_sl("\t- Device not pingable!\n", logfile)
+        else:
+            print_sl("\n - No New IPs Specified -\n\n", logfile)
+        print_sl("-" * 50 + "\n\n", logfile)
+        # Performs the parameter check, configuration check, and template check
+        print_sl("*" * 25 + "\n***** Check Devices *****\n" + "*" * 25 + "\n", logfile)
+        print_sl("-" * 50 + "\n\n", logfile)
+        for myrecord in listDict:
+            print_sl("***** {0} [{1}] *****\n".format(myrecord['host_name'], myrecord['ip']), logfile)
+            # Run parameter check
+            try:
+                print_sl("Parameter Check: ", logfile)
+                check_ip(str(myrecord['ip']), logfile)
+            except Exception as err:
+                print_sl("Error with parameter check: {0}/n".format(err), logfile)
+            # Run configuration check
+            try:
+                print_sl("Configuration Check: ", logfile)
+                config_compare(myrecord, logfile)
+            except Exception as err:
+                print_sl("Error with configuration check: {0}/n".format(err), logfile)
+            # Check if template was specified
+            if addl_opt == "template":
+                print_sl("Template Check: ", logfile)
+                # Run template check
+                template_scanner(template_regex(), myrecord, logfile)
+        # End of processing
+        print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
 
     # Save the changes of the listDict to CSV
     listdict_to_csv(listDict, listDictCSV)
