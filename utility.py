@@ -324,8 +324,14 @@ def compare_configs(config1, config2):
         print "ERROR with compare configs, check configs."
     return change_list
 
-def print_sl(statement, logobj):
-    # Print to log
-    logobj.write(statement)
+def print_sl(statement, logfile):
     # Print to screen
     stdout.write(statement)
+
+    # Print to log
+    try:
+        logobj = open(logfile, 'a')
+    except Exception as err:
+        print "Error opening log file {0}".format(err)
+    else:
+        logobj.write(statement)
