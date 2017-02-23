@@ -647,7 +647,7 @@ if __name__ == "__main__":
     total_config_change = 0
     total_templ_change = 0
     for myrecord in listDict:
-        print_sl("\n=" * 50 + "\n", logfile)
+        print_sl("\n" + "=" * 50 + "\n", logfile)
         print_sl("***** {0} [{1}] *****\n".format(myrecord['host_name'], myrecord['ip']), logfile)
         print_sl("=" * 50 + "\n", logfile)
         # Run parameter check: return (0) = no parameter change, (1) = parameter change
