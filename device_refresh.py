@@ -641,7 +641,7 @@ if __name__ == "__main__":
     print_sl("-" * 50 + "\n\n", logfile)
     # Performs the parameter check, configuration check, and template check
     print_sl("*" * 25 + "\n***** Check Devices *****\n" + "*" * 25 + "\n", logfile)
-    print_sl("-" * 50 + "\n\n", logfile)
+    print_sl("-" * 50 + "\n", logfile)
 
     total_param_change = 0
     total_config_change = 0
