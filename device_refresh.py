@@ -44,19 +44,19 @@ def detect_env():
 
     if platform.system().lower() == "windows":
         #print "Environment Windows!"
-        template_file = ".\\data\\configs\\Template.conf"
         listDictCSV = ".\\data\\listdict.csv"
         iplist_dir = ".\\data\\iplists\\"
         config_dir = ".\\data\\configs\\"
         log_dir = ".\\data\\logs\\"
+        template_file = config_dir + "Template.conf"
         system_slash = "\\"
     else:
         #print "Environment Linux/MAC!"
-        template_file = "./data/configs/Template.conf"
         listDictCSV = "./data/listdict.csv"
         iplist_dir = "./data/iplists/"
         config_dir = "./data/configs/"
         log_dir = "./data/logs/"
+        template_file = config_dir + "Template.conf"
 
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
@@ -647,7 +647,7 @@ if __name__ == "__main__":
     total_config_change = 0
     total_templ_change = 0
     for myrecord in listDict:
-        print_sl("=" * 50 + "\n", logfile)
+        print_sl("\n=" * 50 + "\n", logfile)
         print_sl("***** {0} [{1}] *****\n".format(myrecord['host_name'], myrecord['ip']), logfile)
         print_sl("=" * 50 + "\n", logfile)
         # Run parameter check: return (0) = no parameter change, (1) = parameter change
