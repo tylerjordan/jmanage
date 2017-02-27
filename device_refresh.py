@@ -29,7 +29,6 @@ listDict = []
 mypwd = ''
 myuser = ''
 port = 22
-system_slash = "/"   # This is the linux/mac slash format, windows format will be used in that case
 
 
 def detect_env():
@@ -40,23 +39,22 @@ def detect_env():
     global iplist_dir
     global config_dir
     global log_dir
-    global system_slash
 
+    dir_path = os.path.dirname(os.path.abspath(__file__))
     if platform.system().lower() == "windows":
         #print "Environment Windows!"
-        listDictCSV = ".\\data\\listdict.csv"
-        iplist_dir = ".\\data\\iplists\\"
-        config_dir = ".\\data\\configs\\"
-        log_dir = ".\\data\\logs\\"
-        template_file = config_dir + "Template.conf"
-        system_slash = "\\"
+        listDictCSV = os.path.join(dir_path, "data\\listdict.csv")
+        iplist_dir = os.path.join(dir_path, "data\\iplists")
+        config_dir = os.path.join(dir_path, "data\\configs")
+        log_dir = os.path.join(dir_path, "data\\logs")
+        template_file = os.path.join(dir_path, config_dir, "Template.conf")
     else:
         #print "Environment Linux/MAC!"
-        listDictCSV = "./data/listdict.csv"
-        iplist_dir = "./data/iplists/"
-        config_dir = "./data/configs/"
-        log_dir = "./data/logs/"
-        template_file = config_dir + "Template.conf"
+        listDictCSV = os.path.join(dir_path, "data/listdict.csv")
+        iplist_dir = os.path.join(dir_path, "data/iplists")
+        config_dir = os.path.join(dir_path, "data/configs")
+        log_dir = os.path.join(dir_path, "data/logs")
+        template_file = os.path.join(dir_path, config_dir, "Template.conf")
 
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
@@ -79,10 +77,10 @@ def get_old_new_file(record, newest):
     """
     filtered_list = []
     if record:
-        my_dir = config_dir + getSiteCode(record) + system_slash
+        my_dir = os.path.join(config_dir, getSiteCode(record))
         for file in listdir(my_dir):
             if file.startswith(record['host_name']):
-                filtered_list.append(my_dir + file)
+                filtered_list.append(os.path.join(my_dir, file))
     sorted_list = sorted(filtered_list, key=os.path.getctime)
     if newest:
         return sorted_list[-1]
@@ -92,7 +90,7 @@ def get_old_new_file(record, newest):
 def get_file_number(record):
     file_num = 0
     if record:
-        my_dir = config_dir + getSiteCode(record) + system_slash
+        my_dir = os.path.join(config_dir, getSiteCode(record))
         for file in listdir(my_dir):
             if file.startswith(record['host_name']):
                 file_num += 1
@@ -122,18 +120,19 @@ def save_config_file(myconfig, record):
     """
     # Get the current time
     now = get_now_time()
-    site_dir = config_dir + getSiteCode(record) + system_slash
+    site_dir = os.path.join(config_dir, getSiteCode(record))
 
     # Check if the appropriate site directory is created. If not, then create it.
     if not os.path.isdir(site_dir):
         os.mkdir(site_dir)
 
     # Create the filename
-    filename = site_dir + record['host_name'] + "-" + now + ".conf"
+    filename = record['host_name'] + "-" + now + ".conf"
+    fileandpath = os.path.join(site_dir, filename)
     try:
-        newfile = open(filename, "w+")
+        newfile = open(fileandpath, "w+")
     except Exception as err:
-        print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, filename)
+        print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, fileandpath)
         return False
     else:
         # Remove excess configurations if necessary
@@ -606,7 +605,7 @@ if __name__ == "__main__":
 
     # Create log file for all changes
     now = get_now_time()
-    logfile = log_dir + "change_log-" + now + ".log"
+    logfile = os.path.join(log_dir, ("change_log-" + now + ".log"))
 
     # CHECK CONFIGS FOR CHANGES
     print_sl("\n\n********** DEVICE SCAN **********\n", logfile)
@@ -618,7 +617,7 @@ if __name__ == "__main__":
     print_sl("*" * 27 + "\n***** Add New Devices *****\n" + "*" * 27 + "\n", logfile)
     print_sl("-" * 50 + "\n", logfile)
     if iplistfile:
-        iplist = line_list((iplist_dir + iplistfile))
+        iplist = line_list(os.path.join(iplist_dir, iplistfile))
         # Loop over the list of IPs
         for raw_ip in iplist:
             ip = raw_ip.strip()
