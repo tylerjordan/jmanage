@@ -115,7 +115,7 @@ def load_config_file_list(ip, newest):
         print "Problem getting record information..."
 
 
-def directory_check(myrecord):
+def directory_check(record):
     """ Purpose: Checks if the config directory exists. Creates it if it does not.
         Returns: Nothing
     """
@@ -138,6 +138,7 @@ def save_config_file(myconfig, record):
 
     # Create the filename
     now = get_now_time()
+    site_dir = os.path.join(config_dir, getSiteCode(record))
     filename = record['host_name'] + "-" + now + ".conf"
     fileandpath = os.path.join(site_dir, filename)
     try:
@@ -450,9 +451,12 @@ def config_compare(myrecord, logfile):
 
     # Check if the appropriate site directory is created. If not, then create it.
     if not directory_check(myrecord):
-        save_config_file(fetch_config(myrecord['ip'], myrecord))
+        print("In directory if")
+        save_config_file(fetch_config(myrecord['ip']), myrecord)
         print_sl("No existing config, saved configuration\n", logfile)
     else:
+
+        print("In Else of if")
         current_config = fetch_config(myrecord['ip'])
         change_list = compare_configs(load_config_file(myrecord['ip'], newest=True), current_config)
         if change_list:
