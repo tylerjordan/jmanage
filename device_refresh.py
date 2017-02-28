@@ -115,19 +115,29 @@ def load_config_file_list(ip, newest):
         print "Problem getting record information..."
 
 
-def save_config_file(myconfig, record):
-    """ Purpose: Creates a config file and adds text to the file.
-        Returns: True or False
+def directory_check(myrecord):
+    """ Purpose: Checks if the config directory exists. Creates it if it does not.
+        Returns: Nothing
     """
-    # Get the current time
-    now = get_now_time()
     site_dir = os.path.join(config_dir, getSiteCode(record))
 
     # Check if the appropriate site directory is created. If not, then create it.
     if not os.path.isdir(site_dir):
         os.mkdir(site_dir)
+        return False
+    else:
+        return True
+
+
+def save_config_file(myconfig, record):
+    """ Purpose: Creates a config file and adds text to the file.
+        Returns: True or False
+    """
+    # Check if the appropriate site directory is created. If not, then create it.
+    directory_check(record)
 
     # Create the filename
+    now = get_now_time()
     filename = record['host_name'] + "-" + now + ".conf"
     fileandpath = os.path.join(site_dir, filename)
     try:
@@ -437,24 +447,30 @@ def config_compare(myrecord, logfile):
             logfile         -   Reference to log object, for displaying and logging output
     """
     returncode = 1
-    current_config = fetch_config(myrecord['ip'])
-    change_list = compare_configs(load_config_file(myrecord['ip'], newest=True), current_config)
-    if change_list:
-        # print "Configs are different - updating..."
-        print_sl("Found Configuration Changes\n", logfile)
-        print_sl("-" * 50 + "\n", logfile)
-        # Try to write diffList output to a file
-        for item in change_list:
-            print_sl("{0}\n".format(item), logfile)
-        if update_config(myrecord['ip'], current_config):
-            print_sl("* Configs updated! *", logfile)
-        else:
-            print_sl("(* Config update failed! *", logfile)
-        print_sl("-" * 50 + "\n", logfile)
-        return True
+
+    # Check if the appropriate site directory is created. If not, then create it.
+    if not directory_check(myrecord):
+        save_config_file(fetch_config(myrecord['ip'], myrecord))
+        print_sl("No existing config, saved configuration\n", logfile)
     else:
-        print_sl("No Configuration Changes\n", logfile)
-        returncode = 0
+        current_config = fetch_config(myrecord['ip'])
+        change_list = compare_configs(load_config_file(myrecord['ip'], newest=True), current_config)
+        if change_list:
+            # print "Configs are different - updating..."
+            print_sl("Found Configuration Changes\n", logfile)
+            print_sl("-" * 50 + "\n", logfile)
+            # Try to write diffList output to a file
+            for item in change_list:
+                print_sl("{0}\n".format(item), logfile)
+            if update_config(myrecord['ip'], current_config):
+                print_sl("* Configs updated! *", logfile)
+            else:
+                print_sl("(* Config update failed! *", logfile)
+            print_sl("-" * 50 + "\n", logfile)
+            return True
+        else:
+            print_sl("No Configuration Changes\n", logfile)
+            returncode = 0
 
     return returncode
 
