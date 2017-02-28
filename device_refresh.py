@@ -9,6 +9,7 @@ import datetime
 import getopt
 import re
 import time
+import multiprocessing
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
@@ -180,65 +181,55 @@ def check_ip(ip, logfile):
 
 
     returncode = 1
-    # If we can ping the IP...
-    if ping(ip):
-        # Try to collect current chassis info
-        #print "Getting current information..."
-        remoteDict = run(ip, myuser, mypwd, port)
-        # If info was collected...
-        if remoteDict:
-            # If this IP is associated with a record...
-            if has_record:
-                # Check that the existing record is up-to-date. If not, update.
-                localDict = get_record(ip)
-                if localDict['host_name'] == remoteDict['host_name']:
-                    if localDict['serial_number'] == remoteDict['serial_number']:
-                        if localDict['junos_code'] == remoteDict['junos_code']:
-                            print_sl("No Parameter Changes\n", logfile)
-                            returncode = 0
-                        else:
-                            print_sl("\t- JunOS changed from {0} to {1}\n".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
-                            change_record(ip, remoteDict['junos_code'], key='junos_code')
+    # Try to collect current chassis info
+    #print "Getting current information..."
+    remoteDict = run(ip, myuser, mypwd, port)
+    # If info was collected...
+    if remoteDict:
+        # If this IP is associated with a record...
+        if has_record:
+            # Check that the existing record is up-to-date. If not, update.
+            localDict = get_record(ip)
+            if localDict['host_name'] == remoteDict['host_name']:
+                if localDict['serial_number'] == remoteDict['serial_number']:
+                    if localDict['junos_code'] == remoteDict['junos_code']:
+                        print_sl("No Parameter Changes\n", logfile)
+                        returncode = 0
                     else:
-                        print_sl("\t- S/N changed from {0} to {1}\n".format(localDict['serial_number'], remoteDict['serial_number']), logfile)
-                        change_record(ip, remoteDict['serial_number'], key='serial_number')
-                        if localDict['model'] != remoteDict['model']:
-                            print_sl("\t- Model changed from {0} to {1}\n".format(localDict['model'], remoteDict['model']), logfile)
-                            change_record(ip, remoteDict['model'], key='model')
-                        if localDict['junos_code'] != remoteDict['junos_code']:
-                            print_sl("\t- JunOS changed from {0} to {1}\n".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
-                            change_record(ip, remoteDict['junos_code'], key='junos_code')
+                        print_sl("\t- JunOS changed from {0} to {1}\n".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
+                        change_record(ip, remoteDict['junos_code'], key='junos_code')
                 else:
-                    if localDict['serial_number'] != remoteDict['serial_number']:
-                        print_sl("\t- S/N changed from {0} to {1}\n".format(localDict['serial_number'], remoteDict['serial_number']), logfile)
-                        change_record(ip, remoteDict['serial_number'], key='serial_number')
-                        if localDict['model'] != remoteDict['model']:
-                            print_sl("\t- Model changed from {0} to {1}\n".format(localDict['model'], remoteDict['model']), logfile)
-                            change_record(ip, remoteDict['model'], key='model')
-                    # Do these regardless of S/N results
-                    print_sl("\t- Hostname changed from {0} to {1}\n".format(localDict['host_name'], remoteDict['host_name']), logfile)
-                    change_record(ip, remoteDict['host_name'], key='host_name')
+                    print_sl("\t- S/N changed from {0} to {1}\n".format(localDict['serial_number'], remoteDict['serial_number']), logfile)
+                    change_record(ip, remoteDict['serial_number'], key='serial_number')
+                    if localDict['model'] != remoteDict['model']:
+                        print_sl("\t- Model changed from {0} to {1}\n".format(localDict['model'], remoteDict['model']), logfile)
+                        change_record(ip, remoteDict['model'], key='model')
                     if localDict['junos_code'] != remoteDict['junos_code']:
-                        print_sl("\t- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
+                        print_sl("\t- JunOS changed from {0} to {1}\n".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
                         change_record(ip, remoteDict['junos_code'], key='junos_code')
             else:
-                # If no, this is a device that hasn't been identified yet, create a new record
-                print_sl("\t- Adding device {0} as a new record\n".format(ip), logfile)
-                if add_record(ip):
-                    print_sl("\t- Successfully added record\n", logfile)
-                else:
-                    print_sl("\t- Failed adding record\n", logfile)
+                if localDict['serial_number'] != remoteDict['serial_number']:
+                    print_sl("\t- S/N changed from {0} to {1}\n".format(localDict['serial_number'], remoteDict['serial_number']), logfile)
+                    change_record(ip, remoteDict['serial_number'], key='serial_number')
+                    if localDict['model'] != remoteDict['model']:
+                        print_sl("\t- Model changed from {0} to {1}\n".format(localDict['model'], remoteDict['model']), logfile)
+                        change_record(ip, remoteDict['model'], key='model')
+                # Do these regardless of S/N results
+                print_sl("\t- Hostname changed from {0} to {1}\n".format(localDict['host_name'], remoteDict['host_name']), logfile)
+                change_record(ip, remoteDict['host_name'], key='host_name')
+                if localDict['junos_code'] != remoteDict['junos_code']:
+                    print_sl("\t- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
+                    change_record(ip, remoteDict['junos_code'], key='junos_code')
         else:
-            print_sl("\tERROR: Unable to collect information from device: {0\n".format(ip), logfile)
-        #print "Checking config..."
-
-    # If we can't ping, but we have a record
-    elif has_record:
-        # Set record status to "unreachable"
-        print_sl("\t- ERROR: Unable to ping KNOWN device: {0}\n".format(ip), logfile)
-    # If we can't ping, and have no record
+            # If no, this is a device that hasn't been identified yet, create a new record
+            print_sl("\t- Adding device {0} as a new record\n".format(ip), logfile)
+            if add_record(ip):
+                print_sl("\t- Successfully added record\n", logfile)
+            else:
+                print_sl("\t- Failed adding record\n", logfile)
     else:
-        print_sl("\t- ERROR: Unable to ping: {0}\n".format(ip), logfile)
+        print_sl("\tERROR: Unable to collect information from device: {0\n".format(ip), logfile)
+    #print "Checking config..."
 
     return returncode
 
@@ -253,7 +244,7 @@ def get_record(ip='', hostname='', sn='', code=''):
         Returns:
             A dictionary containing the device data or 'False' if no record is found
     """
-    blank_record = {}
+    has_record = False
     #print "Getting record for ip: {0}".format(ip)
     if ip:
         for record in listDict:
@@ -272,7 +263,7 @@ def get_record(ip='', hostname='', sn='', code=''):
             if record['junos_code'] == code:
                 return record
     else:
-        return blank_record
+        return has_record
 
 def add_record(ip):
     """ Purpose: Adds a record to list of dictionaries.
@@ -290,12 +281,12 @@ def add_record(ip):
             items['last_config_attempt'] = get_now_time()
             items['last_update_attempt'] = get_now_time()
             items['last_update_success'] = get_now_time()
-            print '- Configuration retrieved and saved'.format(ip)
+            print '\t- Configuration retrieved and saved'.format(ip)
         else:
             items['last_config_attempt'] = get_now_time()
             items['last_update_attempt'] = get_now_time()
             items['last_update_success'] = get_now_time()
-            print '- Configuration retrieved, but save failed'.format(ip)
+            print '\t- Configuration retrieved, but save failed'.format(ip)
         listDict.append(items)
         return True
 
@@ -493,7 +484,7 @@ def template_scanner(regtmpl_list, myrecord, logfile):
                         print_sl("-" * 50 + "\n", logfile)
                         firstpass = False
                     nomatch = False
-                    print_sl('Missing: {0}\n'.format(regline), logfile)
+                    print_sl('{0}\n'.format(regline), logfile)
         if nomatch:
             print_sl('No Template Commands Missing\n\n', logfile)
             returncode = 0
@@ -616,25 +607,23 @@ if __name__ == "__main__":
     # Loads new IPs into the database, must specify in command line arguments " -o <file> "
     print_sl("*" * 27 + "\n***** Add New Devices *****\n" + "*" * 27 + "\n", logfile)
     print_sl("-" * 50 + "\n", logfile)
+
     if iplistfile:
         iplist = line_list(os.path.join(iplist_dir, iplistfile))
-        # Loop over the list of IPs
+        # Loop over the list of new IPs
         for raw_ip in iplist:
             ip = raw_ip.strip()
             print_sl("\n----- [{0}] -----\n".format(ip), logfile)
-            # Make sure you can ping the device before trying to configure
-            if ping(ip):
-                current_config = fetch_config(ip)
-                if compare_configs(load_config_file(ip, newest=True), current_config):
-                    print_sl("\t- Configs are different - updating...", logfile)
-                    if update_config(ip, current_config):
-                        print_sl("\t- Configs updated!\n", logfile)
-                    else:
-                        print_sl("\t- Config update failed!\n", logfile)
+            # If a record doesn't exist, try to create one
+            if not get_record(ip):
+                # Make sure you can ping the device before trying to configure
+                print_sl("\t- Device is not in the database\n", logfile)
+                if ping(ip):
+                    check_ip(ip, logfile)
                 else:
-                    print_sl("\t- Do nothing to the config.\n", logfile)
+                    print_sl("\t- Unable to ping device - skipping\n", logfile)
             else:
-                print_sl("\t- Device not pingable!\n", logfile)
+                print_sl("\t- Device is already in database - skipping\n", logfile)
     else:
         print_sl("\n - No New IPs Specified -\n\n", logfile)
     print_sl("-" * 50 + "\n\n", logfile)
@@ -645,27 +634,32 @@ if __name__ == "__main__":
     total_param_change = 0
     total_config_change = 0
     total_templ_change = 0
+    jobs = []
+    # Parameter/Configuration/Template Check loop
     for myrecord in listDict:
         print_sl("\n" + "=" * 50 + "\n", logfile)
         print_sl("***** {0} [{1}] *****\n".format(myrecord['host_name'], myrecord['ip']), logfile)
         print_sl("=" * 50 + "\n", logfile)
         # Run parameter check: return (0) = no parameter change, (1) = parameter change
-        try:
-            print_sl("Parameter Check: ", logfile)
-            total_param_change += check_ip(str(myrecord['ip']), logfile)
-        except Exception as err:
-            print_sl("Error with parameter check: {0}/n".format(err), logfile)
-        # Run configuration check: return (0) = no config change, (1) = config change
-        try:
-            print_sl("Configuration Check: ", logfile)
-            total_config_change += config_compare(myrecord, logfile)
-        except Exception as err:
-            print_sl("Error with configuration check: {0}/n".format(err), logfile)
-        # Check if template was specified: return (0) = no template discrepancy, (1) = discrepancies
-        if addl_opt == "template":
-            print_sl("Template Check: ", logfile)
-            # Run template check
-            total_templ_change += template_scanner(template_regex(), myrecord, logfile)
+        if ping(myrecord['ip']):
+            try:
+                print_sl("Parameter Check: ", logfile)
+                total_param_change += check_ip(str(myrecord['ip']), logfile)
+            except Exception as err:
+                print_sl("Error with parameter check: {0}/n".format(err), logfile)
+            # Run configuration check: return (0) = no config change, (1) = config change
+            try:
+                print_sl("Configuration Check: ", logfile)
+                total_config_change += config_compare(myrecord, logfile)
+            except Exception as err:
+                print_sl("Error with configuration check: {0}/n".format(err), logfile)
+            # Check if template was specified: return (0) = no template discrepancy, (1) = discrepancies
+            if addl_opt == "template":
+                print_sl("Template Check: ", logfile)
+                # Run template check
+                total_templ_change += template_scanner(template_regex(), myrecord, logfile)
+        else:
+            print_sl("Unable to ping device - skipping/n/n")
     # End of processing
     print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
     print "Checks Summary"
