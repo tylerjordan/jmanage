@@ -223,8 +223,7 @@ def csv_to_listdict(filePathName):
 def csv_to_dict(filePathName):
     input_file = csv.DictReader(open(filePathName))
     for row in input_file:
-        pass
-    return row
+        return row
 
 
 # Gets a target code
@@ -250,9 +249,13 @@ def getCode(device, mypath):
 # Return the site code by extracting from a provided hostname
 def getSiteCode(record):
     hostname = record['host_name'].upper()
-    siteObj = re.match(r'SW[A-Z]{3}', hostname)
-    if siteObj == None:
+    if re.match(r'SW[A-Z]{3}', hostname):
+        siteObj = re.match(r'SW[A-Z]{3}', hostname)
+    elif re.match(r'S[A-Z]{3}', hostname):
         siteObj = re.match(r'S[A-Z]{3}', hostname)
+    else:
+        mydirect = "MISC"
+        return mydirect
 
     return siteObj.group()[-3:]
 

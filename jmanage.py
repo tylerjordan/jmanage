@@ -7,7 +7,6 @@ import platform
 import subprocess
 import datetime
 import sys  # for writing to terminal
-import paramiko  # https://github.com/paramiko/paramiko for -c -mc -put -get
 import getpass  # for retrieving password input from the user without echoing back what they are typing.
 import difflib
 

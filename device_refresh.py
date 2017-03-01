@@ -24,6 +24,7 @@ iplist_dir = ''
 config_dir = ''
 log_dir = ''
 template_file = ''
+dir_path = ''
 
 addl_opt = ''
 listDict = []
@@ -40,6 +41,7 @@ def detect_env():
     global iplist_dir
     global config_dir
     global log_dir
+    global dir_path
 
     dir_path = os.path.dirname(os.path.abspath(__file__))
     if platform.system().lower() == "windows":
@@ -62,13 +64,16 @@ def load_config_file(ip, newest):
     record = get_record(ip=ip)
     if record:
         my_file = get_old_new_file(record, newest)
-        try:
-            file_string = open(my_file, 'r').read()
-        except Exception as err:
-            print 'ERROR: Unable to read file: {0} | File: {1}'.format(err, my_file)
-            return False
+        if my_file:
+            try:
+                file_string = open(my_file, 'r').read()
+            except Exception as err:
+                print 'ERROR: Unable to read file: {0} | File: {1}'.format(err, my_file)
+                return False
+            else:
+                return file_string
         else:
-            return file_string
+            return my_file
     else:
         print "Problem getting record information..."
 
@@ -78,15 +83,27 @@ def get_old_new_file(record, newest):
     """
     filtered_list = []
     if record:
+        # Create the appropriate absolute path for the config file
         my_dir = os.path.join(config_dir, getSiteCode(record))
-        for file in listdir(my_dir):
-            if file.startswith(record['host_name']):
-                filtered_list.append(os.path.join(my_dir, file))
-    sorted_list = sorted(filtered_list, key=os.path.getctime)
-    if newest:
-        return sorted_list[-1]
-    else:
-        return sorted_list[0]
+        if os.path.exists(my_dir):
+            try:
+                for file in listdir(my_dir):
+                    if file.startswith(record['host_name']):
+                        filtered_list.append(os.path.join(my_dir, file))
+                sorted_list = sorted(filtered_list, key=os.path.getctime)
+            except Exception as err:
+                print "Issue"
+            if sorted_list:
+                if newest:
+                    return sorted_list[-1]
+                else:
+                    return sorted_list[0]
+            else:
+                return sorted_list
+        # Returns an empty list, if directory doesn't exist
+        else:
+            return filtered_list
+
 
 def get_file_number(record):
     file_num = 0
@@ -117,16 +134,19 @@ def load_config_file_list(ip, newest):
 
 def directory_check(record):
     """ Purpose: Checks if the config directory exists. Creates it if it does not.
-        Returns: Nothing
+        Returns: True or False
     """
-    site_dir = os.path.join(config_dir, getSiteCode(record))
-
-    # Check if the appropriate site directory is created. If not, then create it.
-    if not os.path.isdir(site_dir):
-        os.mkdir(site_dir)
-        return False
+    try:
+        site_dir = os.path.join(config_dir, getSiteCode(record))
+    except Exception as err:
+        print "Failed Directory Check: ERROR: {0}".format(err)
     else:
-        return True
+        # Check if the appropriate site directory is created. If not, then create it.
+        if not os.path.isdir(site_dir):
+            os.mkdir(site_dir)
+            return False
+        else:
+            return True
 
 
 def save_config_file(myconfig, record):
@@ -450,15 +470,14 @@ def config_compare(myrecord, logfile):
     returncode = 1
 
     # Check if the appropriate site directory is created. If not, then create it.
-    if not directory_check(myrecord):
-        print("In directory if")
+
+    loaded_config = load_config_file(myrecord['ip'], newest=True)
+    if not directory_check(myrecord) or not loaded_config:
         save_config_file(fetch_config(myrecord['ip']), myrecord)
         print_sl("No existing config, saved configuration\n", logfile)
     else:
-
-        print("In Else of if")
         current_config = fetch_config(myrecord['ip'])
-        change_list = compare_configs(load_config_file(myrecord['ip'], newest=True), current_config)
+        change_list = compare_configs(loaded_config, current_config)
         if change_list:
             # print "Configs are different - updating..."
             print_sl("Found Configuration Changes\n", logfile)
@@ -606,7 +625,9 @@ def main(argv):
 if __name__ == "__main__":
     detect_env()
     main(sys.argv[1:])
-    creds = csv_to_dict(credsCSV)
+    myfile = os.path.join(dir_path, credsCSV)
+    print "File: " + myfile
+    creds = csv_to_dict(myfile)
     myuser = creds['username']
     mypwd = creds['password']
 
@@ -683,13 +704,16 @@ if __name__ == "__main__":
     # End of processing
     print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
     print "Checks Summary"
-    print "---------------------"
-    print "Parameter Check...{0}".format(total_param_change)
-    print "Config Check......{0}".format(total_config_change)
-    print "Template Check....{0}".format(total_templ_change)
-    print "====================="
-    print "Total Devices.....{0}".format(len(listDict))
+    print "---------------------------"
+    print "Parameters Changed......{0}".format(total_param_change)
+    print "Configs Changed.........{0}".format(total_config_change)
+    print "Templates Unmatched.....{0}".format(total_templ_change)
+    print "==========================="
+    print "Total Devices...........{0}".format(len(listDict))
 
     # Save the changes of the listDict to CSV
-    listdict_to_csv(listDict, listDictCSV)
-    print "\nSaved any changes. We're done!"
+    if listDict:
+        listdict_to_csv(listDict, listDictCSV)
+        print "\nSaved any changes. We're done!"
+    else:
+        print "\nNo content in database. Exiting!"
