@@ -639,13 +639,13 @@ if __name__ == "__main__":
     logfile = os.path.join(log_dir, ("change_log-" + now + ".log"))
 
     # CHECK CONFIGS FOR CHANGES
-    print_sl("\n\n" + createHeading("Scan Devices", 5), logfile)
+    print_sl("\n\n" + topHeading("SCAN DEVICES", 5), logfile)
     print_sl("User: {0}\n".format(myuser), logfile)
     print_sl("Process Started: {0}\n".format(now), logfile)
     print_sl("*" * 33 + "\n\n", logfile)
 
     # Loads new IPs into the database, must specify in command line arguments " -o <file> "
-    print_sl("*" * 27 + "\n***** Add New Devices *****\n" + "*" * 27 + "\n", logfile)
+    print_sl("\n" + subHeading("Add New Devices", 5), logfile)
     print_sl("-" * 50 + "\n", logfile)
 
     if iplistfile:
@@ -668,7 +668,7 @@ if __name__ == "__main__":
         print_sl("\n - No New IPs Specified -\n\n", logfile)
     print_sl("-" * 50 + "\n\n", logfile)
     # Performs the parameter check, configuration check, and template check
-    print_sl("*" * 25 + "\n***** Check Devices *****\n" + "*" * 25 + "\n", logfile)
+    print_sl("\n" + subHeading("Check Devices", 5), logfile)
     print_sl("-" * 50 + "\n", logfile)
 
     total_param_change = 0
@@ -702,13 +702,17 @@ if __name__ == "__main__":
             print_sl("Unable to ping device - skipping/n/n")
     # End of processing
     print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
-    print_sl("      Checks Summary", logfile)
-    print_sl("---------------------------", logfile)
-    print_sl("Parameters Changed......{0}".format(total_param_change), logfile)
-    print_sl("Configs Changed.........{0}".format(total_config_change), logfile)
-    print_sl("Templates Unmatched.....{0}".format(total_templ_change), logfile)
-    print_sl("===========================", logfile)
-    print_sl("Total Devices...........{0}".format(len(listDict)), logfile)
+    print_sl(subHeading("Scan Results", 5), logfile)
+    print_sl("==============================\n", logfile)
+    print_sl("Total Number of Devices....{0}\n".format(len(listDict)), logfile)
+    print_sl("==============================\n", logfile)
+    print_sl("Devices with...\n", logfile)
+    print_sl("------------------------------\n", logfile)
+    print_sl("Parameters Changed.........{0}\n".format(total_param_change), logfile)
+    print_sl("Configs Changed............{0}\n".format(total_config_change), logfile)
+    print_sl("Templates Unmatched........{0}\n".format(total_templ_change), logfile)
+    print_sl("==============================\n\n", logfile)
+
 
     # Save the changes of the listDict to CSV
     if listDict:

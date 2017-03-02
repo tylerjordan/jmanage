@@ -124,16 +124,25 @@ def getTarget():
         else:
             print "Bad Selection"
 
-# Takes a text string and a margin to create a fancy heading
-def createHeading(rawtext, margin):
+# Takes a text string and creates a top level heading
+def topHeading(rawtext, margin):
     head_length = len(rawtext)
-    equal_length = head_length + 8
-    dash_length = head_length + 2
+    equal_length = head_length + 6
+
     heading = " " * margin + "+" + "=" * equal_length + "+\n" +\
-              " " * margin + "|  o" + "-" * dash_length + "o  |\n" +\
-              " " * margin + "|  | " + rawtext + " |  |\n" +\
-              " " * margin + "|  o" + "-" * dash_length + "o  |\n" + \
+              " " * margin + "|   " + rawtext + "   |\n" +\
               " " * margin + "+" + "=" * equal_length + "+\n"
+
+    return heading
+
+# Takes a string and creates a sub heading
+def subHeading(rawtext, margin):
+    head_length = len(rawtext)
+    dash_length = head_length + 2
+
+    heading = " " * margin + "o" + "-" * dash_length + "o\n" +\
+              " " * margin + "| " + rawtext + " |\n" +\
+              " " * margin + "o" + "-" * dash_length + "o\n"
 
     return heading
 
