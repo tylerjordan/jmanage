@@ -636,13 +636,15 @@ if __name__ == "__main__":
 
     # Create log file for all changes
     now = get_now_time()
-    logfile = os.path.join(log_dir, ("change_log-" + now + ".log"))
+    log_name = "change_log-" + now + ".log"
+    logfile = os.path.join(log_dir, log_name)
 
     # CHECK CONFIGS FOR CHANGES
     print_sl("\n\n" + topHeading("SCAN DEVICES", 5), logfile)
+    print_sl("-" * 50 + "\n", logfile)
     print_sl("User: {0}\n".format(myuser), logfile)
     print_sl("Process Started: {0}\n".format(now), logfile)
-    print_sl("*" * 33 + "\n\n", logfile)
+    print_sl("-" * 50 + "\n", logfile)
 
     # Loads new IPs into the database, must specify in command line arguments " -o <file> "
     print_sl("\n" + subHeading("Add New Devices", 5), logfile)
@@ -671,10 +673,13 @@ if __name__ == "__main__":
     print_sl("\n" + subHeading("Check Devices", 5), logfile)
     print_sl("-" * 50 + "\n", logfile)
 
-    total_param_change = 0
-    total_config_change = 0
-    total_templ_change = 0
-    jobs = []
+    param_change_total = 0
+    param_change_ips = []
+    config_change_total = 0
+    config_change_ips = []
+    templ_change_total = 0
+    templ_change_ips = []
+
     # Parameter/Configuration/Template Check loop
     for myrecord in listDict:
         print_sl("\n" + "=" * 50 + "\n", logfile)
@@ -684,35 +689,80 @@ if __name__ == "__main__":
         if ping(myrecord['ip']):
             try:
                 print_sl("Parameter Check: ", logfile)
-                total_param_change += check_ip(str(myrecord['ip']), logfile)
+                if check_ip(str(myrecord['ip']), logfile):
+                    param_change_total += 1
+                    param_change_ips.append(myrecord['ip'] + " (" + myrecord['host_name'] + ")")
             except Exception as err:
                 print_sl("Error with parameter check: {0}/n".format(err), logfile)
             # Run configuration check: return (0) = no config change, (1) = config change
             try:
                 print_sl("Configuration Check: ", logfile)
-                total_config_change += config_compare(myrecord, logfile)
+                if config_compare(myrecord, logfile):
+                    config_change_total += 1
+                    config_change_ips.append(myrecord['ip'] + " (" + myrecord['host_name'] + ")")
             except Exception as err:
                 print_sl("Error with configuration check: {0}/n".format(err), logfile)
             # Check if template was specified: return (0) = no template discrepancy, (1) = discrepancies
             if addl_opt == "template":
                 print_sl("Template Check: ", logfile)
                 # Run template check
-                total_templ_change += template_scanner(template_regex(), myrecord, logfile)
+                if template_scanner(template_regex(), myrecord, logfile):
+                    templ_change_total += 1
+                    templ_change_ips.append(myrecord['ip'] + " (" + myrecord['host_name'] + ")")
         else:
             print_sl("Unable to ping device - skipping/n/n")
     # End of processing
-    print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
-    print_sl(subHeading("Scan Results", 5), logfile)
-    print_sl("==============================\n", logfile)
-    print_sl("Total Number of Devices....{0}\n".format(len(listDict)), logfile)
-    print_sl("==============================\n", logfile)
-    print_sl("Devices with...\n", logfile)
-    print_sl("------------------------------\n", logfile)
-    print_sl("Parameters Changed.........{0}\n".format(total_param_change), logfile)
-    print_sl("Configs Changed............{0}\n".format(total_config_change), logfile)
-    print_sl("Templates Unmatched........{0}\n".format(total_templ_change), logfile)
-    print_sl("==============================\n\n", logfile)
+    print_sl("Process Ended: {0}\n\n".format(get_now_time()), logfile)
 
+    # Print brief results to screen
+    print subHeading("Scan Results", 5)
+    print"=============================="
+    print"Total Number of Devices....{0}".format(len(listDict))
+    print"=============================="
+    print"Devices with..."
+    print"------------------------------"
+    print"Parameters Changed.........{0}".format(param_change_total)
+    print"Configs Changed............{0}".format(config_change_total)
+    print"Templates Unmatched........{0}".format(templ_change_total)
+    print"==============================\n"
+
+    # Print results to log file
+    # Create log file for scan results summary
+    now = get_now_time()
+    sum_name = "results_summary-" + now + ".log"
+    sumfile = os.path.join(log_dir, sum_name)
+
+    # Write the scan results to a text file
+    print_log(subHeading("Scan Results Summary", 5), sumfile)
+    print_log("-" * 50 + "\n", sumfile)
+    print_log("Username: " + myuser + "\n", sumfile)
+    print_log("Log File: " + log_name + "\n", sumfile)
+    print_log("-" * 50 + "\n\n", sumfile)
+    print_log("=" * 50 + "\n", sumfile)
+    print_log("Parameters Changed (" + str(param_change_total) + ")\n", sumfile)
+    print_log("-" * 50 + "\n", sumfile)
+    if len(param_change_ips) == 0:
+        print_log("\t * No Devices *\n", sumfile)
+    else:
+        for ip in param_change_ips:
+            print_log("\t- " + ip + "\n", sumfile)
+    print_log("\n" + "=" * 25 + "\n", sumfile)
+    print_log("Configurations Changed (" + str(config_change_total) + ")\n", sumfile)
+    print_log("-" * 25 + "\n", sumfile)
+    if len(config_change_ips) == 0:
+        print_log("\t * No Devices *\n", sumfile)
+    else:
+        for ip in config_change_ips:
+            print_log("\t- " + ip + "\n", sumfile)
+    print_log("\n" + "=" * 25 + "\n", sumfile)
+    print_log("Templates Changed (" + str(templ_change_total) + ")\n", sumfile)
+    print_log("-" * 25 + "\n", sumfile)
+    if len(templ_change_ips) == 0:
+        print_log("\t * No Devices *\n", sumfile)
+    else:
+        for ip in templ_change_ips:
+            print_log("\t- " + ip + "\n", sumfile)
+    print "\nResults file completed"
 
     # Save the changes of the listDict to CSV
     if listDict:

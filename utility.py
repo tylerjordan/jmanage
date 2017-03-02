@@ -348,10 +348,15 @@ def compare_configs(config1, config2):
         print "ERROR with compare configs, check configs."
     return change_list
 
+# Print output to the screen and a log file
 def print_sl(statement, logfile):
     # Print to screen
     stdout.write(statement)
+    # Print to log
+    print_log(statement, logfile)
 
+# Print output to log file only
+def print_log(statement, logfile):
     # Print to log
     try:
         logobj = open(logfile, 'a')
