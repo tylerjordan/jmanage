@@ -124,6 +124,18 @@ def getTarget():
         else:
             print "Bad Selection"
 
+# Takes a text string and a margin to create a fancy heading
+def createHeading(rawtext, margin):
+    head_length = len(rawtext)
+    equal_length = head_length + 8
+    dash_length = head_length + 2
+    heading = " " * margin + "+" + "=" * equal_length + "+\n" +\
+              " " * margin + "|  o" + "-" * dash_length + "o  |\n" +\
+              " " * margin + "|  | " + rawtext + " |  |\n" +\
+              " " * margin + "|  o" + "-" * dash_length + "o  |\n" + \
+              " " * margin + "+" + "=" * equal_length + "+\n"
+
+    return heading
 
 # Common method for accessing multiple routers
 def chooseDevices():

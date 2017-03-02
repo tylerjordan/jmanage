@@ -626,7 +626,6 @@ if __name__ == "__main__":
     detect_env()
     main(sys.argv[1:])
     myfile = os.path.join(dir_path, credsCSV)
-    print "File: " + myfile
     creds = csv_to_dict(myfile)
     myuser = creds['username']
     mypwd = creds['password']
@@ -640,7 +639,7 @@ if __name__ == "__main__":
     logfile = os.path.join(log_dir, ("change_log-" + now + ".log"))
 
     # CHECK CONFIGS FOR CHANGES
-    print_sl("\n\n********** DEVICE SCAN **********\n", logfile)
+    print_sl("\n\n" + createHeading("Scan Devices", 5), logfile)
     print_sl("User: {0}\n".format(myuser), logfile)
     print_sl("Process Started: {0}\n".format(now), logfile)
     print_sl("*" * 33 + "\n\n", logfile)
@@ -703,13 +702,13 @@ if __name__ == "__main__":
             print_sl("Unable to ping device - skipping/n/n")
     # End of processing
     print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
-    print "Checks Summary"
-    print "---------------------------"
-    print "Parameters Changed......{0}".format(total_param_change)
-    print "Configs Changed.........{0}".format(total_config_change)
-    print "Templates Unmatched.....{0}".format(total_templ_change)
-    print "==========================="
-    print "Total Devices...........{0}".format(len(listDict))
+    print_sl("      Checks Summary", logfile)
+    print_sl("---------------------------", logfile)
+    print_sl("Parameters Changed......{0}".format(total_param_change), logfile)
+    print_sl("Configs Changed.........{0}".format(total_config_change), logfile)
+    print_sl("Templates Unmatched.....{0}".format(total_templ_change), logfile)
+    print_sl("===========================", logfile)
+    print_sl("Total Devices...........{0}".format(len(listDict)), logfile)
 
     # Save the changes of the listDict to CSV
     if listDict:
