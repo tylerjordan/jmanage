@@ -570,26 +570,44 @@ def template_regex():
 
     return regtmpl_list
 
-# CHECK CONFIGS AGAINST TEMPLATE
-# File to log all changes to
-def template_scan():
-    # Create log file for template process
+# Print summary results to log file
+def summaryLog(myuser, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips, templ_change_ips):
+    # Create log file for scan results summary
     now = get_now_time()
-    template_log = log_dir + "template_log-" + now + ".log"
-    # Attempt to open the new log file for input
-    try:
-        logfile = open(template_log, 'a')
-    except Exception as err:
-        print "Error opening log file {0}".format(err)
+    sum_name = "results_summary-" + now + ".log"
+    sumfile = os.path.join(log_dir, sum_name)
+
+    # Write the scan results to a text file
+    print_log(subHeading("Scan Results Summary", 5), sumfile)
+    print_log("-" * 50 + "\n", sumfile)
+    print_log("Username: " + myuser + "\n", sumfile)
+    print_log("Log File: " + log_name + "\n", sumfile)
+    print_log("-" * 50 + "\n\n", sumfile)
+    print_log("=" * 50 + "\n", sumfile)
+    print_log("Parameters Changed (" + str(param_change_total) + ")\n", sumfile)
+    print_log("-" * 50 + "\n", sumfile)
+    if len(param_change_ips) == 0:
+        print_log("\t * No Devices *\n", sumfile)
     else:
-        print_sl("Purpose: Template Comparison\n", logfile)
-        print_sl("User: {0}\n".format(myuser), logfile)
-        print_sl("Process Started: {0}\n\n".format(now), logfile)
-        regtemp_list = template_regex()
-        # Looping over regtmpl list and comparing to configuration
-        for myrecord in listDict:
-            template_scanner(regtemp_list, myrecord, logfile)
-        print_sl("\n\nProcess Ended: {0}\n\n".format(get_now_time()), logfile)
+        for ip in param_change_ips:
+            print_log("\t- " + ip + "\n", sumfile)
+    print_log("\n" + "=" * 50 + "\n", sumfile)
+    print_log("Configurations Changed (" + str(config_change_total) + ")\n", sumfile)
+    print_log("-" * 50 + "\n", sumfile)
+    if len(config_change_ips) == 0:
+        print_log("\t * No Devices *\n", sumfile)
+    else:
+        for ip in config_change_ips:
+            print_log("\t- " + ip + "\n", sumfile)
+    print_log("\n" + "=" * 50 + "\n", sumfile)
+    print_log("Template Mismatches (" + str(templ_change_total) + ")\n", sumfile)
+    print_log("-" * 50 + "\n", sumfile)
+    if len(templ_change_ips) == 0:
+        print_log("\t * No Devices *\n", sumfile)
+    else:
+        for ip in templ_change_ips:
+            print_log("\t- " + ip + "\n", sumfile)
+    print_log("-" * 50 + "\n\n", sumfile)
 
 
 def main(argv):
@@ -723,46 +741,13 @@ if __name__ == "__main__":
     print"------------------------------"
     print"Parameters Changed.........{0}".format(param_change_total)
     print"Configs Changed............{0}".format(config_change_total)
-    print"Templates Unmatched........{0}".format(templ_change_total)
+    print"Template Mismatches........{0}".format(templ_change_total)
     print"==============================\n"
 
-    # Print results to log file
-    # Create log file for scan results summary
-    now = get_now_time()
-    sum_name = "results_summary-" + now + ".log"
-    sumfile = os.path.join(log_dir, sum_name)
-
-    # Write the scan results to a text file
-    print_log(subHeading("Scan Results Summary", 5), sumfile)
-    print_log("-" * 50 + "\n", sumfile)
-    print_log("Username: " + myuser + "\n", sumfile)
-    print_log("Log File: " + log_name + "\n", sumfile)
-    print_log("-" * 50 + "\n\n", sumfile)
-    print_log("=" * 50 + "\n", sumfile)
-    print_log("Parameters Changed (" + str(param_change_total) + ")\n", sumfile)
-    print_log("-" * 50 + "\n", sumfile)
-    if len(param_change_ips) == 0:
-        print_log("\t * No Devices *\n", sumfile)
-    else:
-        for ip in param_change_ips:
-            print_log("\t- " + ip + "\n", sumfile)
-    print_log("\n" + "=" * 25 + "\n", sumfile)
-    print_log("Configurations Changed (" + str(config_change_total) + ")\n", sumfile)
-    print_log("-" * 25 + "\n", sumfile)
-    if len(config_change_ips) == 0:
-        print_log("\t * No Devices *\n", sumfile)
-    else:
-        for ip in config_change_ips:
-            print_log("\t- " + ip + "\n", sumfile)
-    print_log("\n" + "=" * 25 + "\n", sumfile)
-    print_log("Templates Changed (" + str(templ_change_total) + ")\n", sumfile)
-    print_log("-" * 25 + "\n", sumfile)
-    if len(templ_change_ips) == 0:
-        print_log("\t * No Devices *\n", sumfile)
-    else:
-        for ip in templ_change_ips:
-            print_log("\t- " + ip + "\n", sumfile)
-    print "\nResults file completed"
+    # Print results  to summary file
+    if summaryLog(myuser, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips,
+               templ_change_ips):
+        print "\nResults file completed"
 
     # Save the changes of the listDict to CSV
     if listDict:
