@@ -424,7 +424,7 @@ def information(connection, ip, software_info, host_name):
         serial_number = chassis_inventory.xpath('//chassis-inventory/chassis/serial-number')[0].text
         return {'host_name': host_name, 'ip': ip, 'model': model, 'junos_code': junos_code, 'serial_number': serial_number}
     except:
-        print '\t - ERROR: Device was reachable, the information was not found.'
+        print '\t- ERROR: Device was reachable, the information was not found.'
         return False
 
 
