@@ -730,7 +730,7 @@ if __name__ == "__main__":
                     templ_change_total += 1
                     templ_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
         else:
-            print_sl("Unable to ping device - skipping/n/n")
+            print_sl("\n\t- Unable to ping device - skipping/n/n", logfile)
     # End of processing
     print_sl("Process Ended: {0}\n\n".format(get_now_time()), logfile)
 
