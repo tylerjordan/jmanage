@@ -259,7 +259,7 @@ def check_ip(ip, logfile):
             else:
                 print_sl("\t- Failed adding record\n", logfile)
     else:
-        print_sl("\tERROR: Unable to collect information from device: {0\n".format(ip), logfile)
+        print_sl("\t- ERROR: Unable to collect information from device: {0}\n".format(ip), logfile)
     #print "Checking config..."
 
     return returncode
@@ -424,7 +424,7 @@ def information(connection, ip, software_info, host_name):
         serial_number = chassis_inventory.xpath('//chassis-inventory/chassis/serial-number')[0].text
         return {'host_name': host_name, 'ip': ip, 'model': model, 'junos_code': junos_code, 'serial_number': serial_number}
     except:
-        print 'Host-name: {0} \nAccessed via: {1} \nDevice was reachable, the information was not found.'.format(host_name, ip)
+        print '\t - ERROR: Device was reachable, the information was not found.'
         return False
 
 
@@ -445,13 +445,13 @@ def run(ip, username, password, port):
                                      hostkey_verify=False)
         connection.timeout = 300
     except errors.SSHError:
-        print 'Unable to connect to device: {0} on port: {1}'.format(ip, port)
+        print '\t- ERROR: Unable to connect to device: {0} on port: {1}'.format(ip, port)
         return False
     except errors.AuthenticationError:
-        print 'Bad username or password for device: {0}'.format(ip)
+        print '\t- ERROR: Bad username or password for device: {0}'.format(ip)
         return False
     except Exception as err:
-        print 'Unable to connect to device: {0} with error: {1}'.format(ip, err)
+        print '\t- ERROR: Unable to connect to device: {0} with error: {1}'.format(ip, err)
         return False
     else:
         software_info = connection.get_software_information(format='xml')
@@ -571,7 +571,7 @@ def template_regex():
     return regtmpl_list
 
 # Print summary results to log file
-def summaryLog(myuser, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips, templ_change_ips):
+def summaryLog(myuser, total_devices, addl_opt, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips, templ_change_ips):
     # Create log file for scan results summary
     now = get_now_time()
     sum_name = "results_summary-" + now + ".log"
@@ -584,7 +584,7 @@ def summaryLog(myuser, param_change_total, config_change_total, templ_change_tot
     print_log("Log File: " + log_name + "\n", sumfile)
     print_log("-" * 50 + "\n\n", sumfile)
     print_log("=" * 50 + "\n", sumfile)
-    print_log("Parameters Changed (" + str(param_change_total) + ")\n", sumfile)
+    print_log("Parameters Changed (" + str(param_change_total) + " of " + str(total_devices) + ")\n", sumfile)
     print_log("-" * 50 + "\n", sumfile)
     if len(param_change_ips) == 0:
         print_log("\t * No Devices *\n", sumfile)
@@ -592,21 +592,22 @@ def summaryLog(myuser, param_change_total, config_change_total, templ_change_tot
         for ip in param_change_ips:
             print_log("\t- " + ip + "\n", sumfile)
     print_log("\n" + "=" * 50 + "\n", sumfile)
-    print_log("Configurations Changed (" + str(config_change_total) + ")\n", sumfile)
+    print_log("Configurations Changed (" + str(config_change_total) + " of " + str(total_devices) + ")\n", sumfile)
     print_log("-" * 50 + "\n", sumfile)
     if len(config_change_ips) == 0:
         print_log("\t * No Devices *\n", sumfile)
     else:
         for ip in config_change_ips:
             print_log("\t- " + ip + "\n", sumfile)
-    print_log("\n" + "=" * 50 + "\n", sumfile)
-    print_log("Template Mismatches (" + str(templ_change_total) + ")\n", sumfile)
-    print_log("-" * 50 + "\n", sumfile)
-    if len(templ_change_ips) == 0:
-        print_log("\t * No Devices *\n", sumfile)
-    else:
-        for ip in templ_change_ips:
-            print_log("\t- " + ip + "\n", sumfile)
+    if addl_opt == "template":
+        print_log("\n" + "=" * 50 + "\n", sumfile)
+        print_log("Template Mismatches (" + str(templ_change_total) + " of " + str(total_devices) + ")\n", sumfile)
+        print_log("-" * 50 + "\n", sumfile)
+        if len(templ_change_ips) == 0:
+            print_log("\t * No Devices *\n", sumfile)
+        else:
+            for ip in templ_change_ips:
+                print_log("\t- " + ip + "\n", sumfile)
     print_log("-" * 50 + "\n\n", sumfile)
 
 
@@ -691,6 +692,7 @@ if __name__ == "__main__":
     print_sl("\n" + subHeading("Check Devices", 5), logfile)
     print_sl("-" * 50 + "\n", logfile)
 
+    total_devices = len(listDict)
     param_change_total = 0
     param_change_ips = []
     config_change_total = 0
@@ -701,7 +703,7 @@ if __name__ == "__main__":
     # Parameter/Configuration/Template Check loop
     for myrecord in listDict:
         print_sl("\n" + "=" * 50 + "\n", logfile)
-        print_sl("***** {0} [{1}] *****\n".format(myrecord['host_name'], myrecord['ip']), logfile)
+        print_sl("***** {0} ({1}) *****\n".format(myrecord['host_name'], myrecord['ip']), logfile)
         print_sl("=" * 50 + "\n", logfile)
         # Run parameter check: return (0) = no parameter change, (1) = parameter change
         if ping(myrecord['ip']):
@@ -709,7 +711,7 @@ if __name__ == "__main__":
                 print_sl("Parameter Check: ", logfile)
                 if check_ip(str(myrecord['ip']), logfile):
                     param_change_total += 1
-                    param_change_ips.append(myrecord['ip'] + " (" + myrecord['host_name'] + ")")
+                    param_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
             except Exception as err:
                 print_sl("Error with parameter check: {0}/n".format(err), logfile)
             # Run configuration check: return (0) = no config change, (1) = config change
@@ -717,7 +719,7 @@ if __name__ == "__main__":
                 print_sl("Configuration Check: ", logfile)
                 if config_compare(myrecord, logfile):
                     config_change_total += 1
-                    config_change_ips.append(myrecord['ip'] + " (" + myrecord['host_name'] + ")")
+                    config_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
             except Exception as err:
                 print_sl("Error with configuration check: {0}/n".format(err), logfile)
             # Check if template was specified: return (0) = no template discrepancy, (1) = discrepancies
@@ -726,7 +728,7 @@ if __name__ == "__main__":
                 # Run template check
                 if template_scanner(template_regex(), myrecord, logfile):
                     templ_change_total += 1
-                    templ_change_ips.append(myrecord['ip'] + " (" + myrecord['host_name'] + ")")
+                    templ_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
         else:
             print_sl("Unable to ping device - skipping/n/n")
     # End of processing
@@ -735,17 +737,18 @@ if __name__ == "__main__":
     # Print brief results to screen
     print subHeading("Scan Results", 5)
     print"=============================="
-    print"Total Number of Devices....{0}".format(len(listDict))
+    print"Total Number of Devices....{0}".format(total_devices)
     print"=============================="
     print"Devices with..."
     print"------------------------------"
     print"Parameters Changed.........{0}".format(param_change_total)
     print"Configs Changed............{0}".format(config_change_total)
-    print"Template Mismatches........{0}".format(templ_change_total)
+    if addl_opt == "template":
+        print"Template Mismatches........{0}".format(templ_change_total)
     print"==============================\n"
 
     # Print results  to summary file
-    if summaryLog(myuser, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips,
+    if summaryLog(myuser, total_devices, addl_opt, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips,
                templ_change_ips):
         print "\nResults file completed"
 
