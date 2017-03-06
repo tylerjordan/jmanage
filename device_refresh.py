@@ -473,8 +473,10 @@ def config_compare(myrecord, logfile):
 
     loaded_config = load_config_file(myrecord['ip'], newest=True)
     if not directory_check(myrecord) or not loaded_config:
-        save_config_file(fetch_config(myrecord['ip']), myrecord)
-        print_sl("No existing config, saved configuration\n", logfile)
+        if save_config_file(fetch_config(myrecord['ip']), myrecord):
+            print_sl("No Existing Config, Configuration Saved\n", logfile)
+        else:
+            print_sl("No Existing Config, Configuration Save Failed\n", logfile)
     else:
         current_config = fetch_config(myrecord['ip'])
         change_list = compare_configs(loaded_config, current_config)
@@ -484,11 +486,11 @@ def config_compare(myrecord, logfile):
             print_sl("-" * 50 + "\n", logfile)
             # Try to write diffList output to a file
             for item in change_list:
-                print_sl("{0}\n".format(item), logfile)
+                print_sl("{0}".format(item), logfile)
             if update_config(myrecord['ip'], current_config):
-                print_sl("* Configs updated! *", logfile)
+                print_sl("\n[ New Config Uploaded ]\n", logfile)
             else:
-                print_sl("(* Config update failed! *", logfile)
+                print_sl("\n[ Config Update Failed ]\n", logfile)
             print_sl("-" * 50 + "\n", logfile)
             return True
         else:
