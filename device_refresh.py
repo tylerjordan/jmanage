@@ -84,7 +84,7 @@ def get_old_new_file(record, newest):
     filtered_list = []
     if record:
         # Create the appropriate absolute path for the config file
-        my_dir = os.path.join(config_dir, getSiteCode(record))
+        my_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
         if os.path.exists(my_dir):
             try:
                 for file in listdir(my_dir):
@@ -108,7 +108,7 @@ def get_old_new_file(record, newest):
 def get_file_number(record):
     file_num = 0
     if record:
-        my_dir = os.path.join(config_dir, getSiteCode(record))
+        my_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
         for file in listdir(my_dir):
             if file.startswith(record['host_name']):
                 file_num += 1
@@ -133,21 +133,45 @@ def load_config_file_list(ip, newest):
 
 
 def directory_check(record):
-    """ Purpose: Checks if the config directory exists. Creates it if it does not.
+    """ Purpose: Check if the site/device dirs exists. Creates it if it does not.
         Returns: True or False
     """
-    try:
-        site_dir = os.path.join(config_dir, getSiteCode(record))
-    except Exception as err:
-        print "Failed Directory Check: ERROR: {0}".format(err)
+    # Check for site specific directory
+    if not os.path.isdir(os.path.join(config_dir, getSiteCode(record))):
+        try:
+            os.mkdir(os.path.join(config_dir, getSiteCode(record)))
+        except Exception as err:
+            print "Failed Creating Directory -> ERROR: {0}".format(err)
+            return False
+
+    # Check for the device specific directory
+    if os.path.isdir(os.path.join(config_dir, getSiteCode(record), record['host_name'])):
+        return True
     else:
-        # Check if the appropriate site directory is created. If not, then create it.
-        if not os.path.isdir(site_dir):
-            os.mkdir(site_dir)
+        try:
+            os.mkdir(os.path.join(config_dir, getSiteCode(record), record['host_name']))
+        except Exception as err:
+            print "Failed Creating Directory -> ERROR: {0}".format(err)
             return False
         else:
             return True
 
+    '''
+    try:
+        site_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+    except Exception as err:
+        print "Failed Creating Site Path -> ERROR: {0}".format(err)
+        return False
+    else:
+        # Check if the appropriate site directory is created. If not, then create it.
+        if not os.path.isdir(site_dir):
+            try:
+                os.mkdir(site_dir)
+            except Exception as err:
+                print "Failed Creating Directory -> ERROR: {0}".format(err)
+                return False
+    return True
+    '''
 
 def save_config_file(myconfig, record):
     """ Purpose: Creates a config file and adds text to the file.
@@ -158,8 +182,8 @@ def save_config_file(myconfig, record):
 
     # Create the filename
     now = get_now_time()
-    site_dir = os.path.join(config_dir, getSiteCode(record))
-    filename = record['host_name'] + "-" + now + ".conf"
+    site_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+    filename = record['host_name'] + "_" + now + ".conf"
     fileandpath = os.path.join(site_dir, filename)
     try:
         newfile = open(fileandpath, "w+")
@@ -209,7 +233,6 @@ def check_ip(ip, logfile):
     if get_record(ip):
         has_record = True
     record_attribs = [ 'serial_number', 'model', 'host_name', 'junos_code' ]
-
 
     returncode = 1
     # Try to collect current chassis info
@@ -461,24 +484,24 @@ def run(ip, username, password, port):
         #print connection.get_config(source='running', format='set')
         return output
 
-def config_compare(myrecord, logfile):
+def config_compare(record, logfile):
     """ Purpose: To compare two configs and get the differences, log them
         Parameters:
-            myrecord        -   Object that contains parameters of devices
+            record          -   Object that contains parameters of devices
             logfile         -   Reference to log object, for displaying and logging output
     """
     returncode = 1
 
     # Check if the appropriate site directory is created. If not, then create it.
 
-    loaded_config = load_config_file(myrecord['ip'], newest=True)
-    if not directory_check(myrecord) or not loaded_config:
-        if save_config_file(fetch_config(myrecord['ip']), myrecord):
+    loaded_config = load_config_file(record['ip'], newest=True)
+    if not directory_check(record) or not loaded_config:
+        if save_config_file(fetch_config(record['ip']), record):
             print_sl("No Existing Config, Configuration Saved\n", logfile)
         else:
             print_sl("No Existing Config, Configuration Save Failed\n", logfile)
     else:
-        current_config = fetch_config(myrecord['ip'])
+        current_config = fetch_config(record['ip'])
         change_list = compare_configs(loaded_config, current_config)
         if change_list:
             # print "Configs are different - updating..."
@@ -487,7 +510,7 @@ def config_compare(myrecord, logfile):
             # Try to write diffList output to a file
             for item in change_list:
                 print_sl("{0}".format(item), logfile)
-            if update_config(myrecord['ip'], current_config):
+            if update_config(record['ip'], current_config):
                 print_sl("\n[ New Config Uploaded ]\n", logfile)
             else:
                 print_sl("\n[ Config Update Failed ]\n", logfile)
@@ -720,37 +743,41 @@ if __name__ == "__main__":
     templ_change_ips = []
 
     # Parameter/Configuration/Template Check loop
-    for myrecord in listDict:
+    for record in listDict:
         print_sl("\n" + "=" * 50 + "\n", all_log_paths)
-        print_sl("***** {0} ({1}) *****\n".format(myrecord['host_name'], myrecord['ip']), all_log_paths)
+        print_sl("***** {0} ({1}) *****\n".format(record['host_name'], record['ip']), all_log_paths)
         print_sl("=" * 50 + "\n", all_log_paths)
         # Run parameter check: return (0) = no parameter change, (1) = parameter change
-        if ping(myrecord['ip']):
-            try:
-                print_sl("Parameter Check: ", [conf_log])
-                if check_ip(str(myrecord['ip']), [conf_log]):
-                    param_change_total += 1
-                    param_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
-            except Exception as err:
-                print_sl("Error with parameter check: {0}/n".format(err), [conf_log])
-            # Run configuration check: return (0) = no config change, (1) = config change
-            try:
-                print_sl("Configuration Check: ", [conf_log])
-                if config_compare(myrecord, [conf_log]):
-                    config_change_total += 1
-                    config_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
-                    add_to_csv_sort(myrecord['ip'] + "," + myrecord['host_name'] + "," + now, run_change_log)
-            except Exception as err:
-                print_sl("Error with configuration check: {0}/n".format(err), [conf_log])
-            # Check if template was specified: return (0) = no template discrepancy, (1) = discrepancies
-            if addl_opt == "template":
-                print_sl("Template Check: ", [templ_log])
-                # Run template check
-                if template_scanner(template_regex(), myrecord, [templ_log]):
-                    templ_change_total += 1
-                    templ_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
-        else:
-            print_sl("\n\t- Unable to ping device - skipping/n/n", all_log_paths)
+        if directory_check(record):
+            device_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+            if ping(record['ip']):
+                print_sl
+                try:
+                    print_sl("Parameter Check: ", [conf_log])
+                    if check_ip(str(record['ip']), conf_log):
+                        param_change_total += 1
+                        param_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+                except Exception as err:
+                    print_sl("Error with parameter check: {0}/n".format(err), [conf_log])
+                # Run configuration check: return (0) = no config change, (1) = config change
+                try:
+                    print_sl("Configuration Check: ", [conf_log])
+                    if config_compare(record, conf_log):
+                        config_change_total += 1
+                        config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+                        add_to_csv_sort(record['ip'] + "," + record['host_name'] + "," + now, run_change_log)
+                except Exception as err:
+                    print_sl("Error with configuration check: {0}/n".format(err), [conf_log])
+                # Check if template was specified: return (0) = no template discrepancy, (1) = discrepancies
+                if addl_opt == "template":
+                    print_sl("Template Check: ", [templ_log])
+                    # Run template check
+                    if template_scanner(template_regex(), record, templ_log):
+                        templ_change_total += 1
+                        templ_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+            else:
+                print_sl("\n\t- Unable to ping device - skipping/n/n", all_log_paths)
+                print_log("{0}: Unable to ping @ {1}/n".format(now, record['ip']), device_log)
     # End of processing
     print_sl("Process Ended: {0}\n\n".format(get_now_time()), all_log_paths)
 
