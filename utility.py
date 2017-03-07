@@ -8,6 +8,7 @@ import fileinput
 import glob
 import code
 import difflib
+import operator
 
 from os import listdir
 from os.path import isfile, join
@@ -247,6 +248,31 @@ def csv_to_dict(filePathName):
         return row
 
 
+# Apply lines to CSV, then sort it, newest entries first
+def add_to_csv_sort(entry, csv_file):
+    # Add to csv file
+    print_log(entry, csv_file)
+
+    # Sort the entire csv, by date, newest first
+    try:
+        reader = csv.reader(open(csv_file), delimiter=",")
+        sortedlist = sorted(reader, key=operator.itemgetter(2), reverse=True)
+    except Exception as err:
+        print "Issue reading or sorting file -> ERROR: {0}".format(err)
+        return False
+    else:
+        try:
+            with open(csv_file, "w") as f:
+                fileWriter = csv.writer(f, delimiter=',')
+                for row in sortedlist:
+                    fileWriter.writerow(row)
+        except Exception as err:
+            print "Issue opening or writing to file -> ERROR: {0}".format(err)
+            return False
+        else:
+            return True
+
+
 # Gets a target code
 def getCode(device, mypath):
     tar_code = ""
@@ -348,12 +374,13 @@ def compare_configs(config1, config2):
         print "ERROR with compare configs, check configs."
     return change_list
 
-# Print output to the screen and a log file
-def print_sl(statement, logfile):
+# Print output to the screen and a log file(s)
+def print_sl(statement, file_list):
     # Print to screen
     stdout.write(statement)
     # Print to log
-    print_log(statement, logfile)
+    for log in file_list:
+        print_log(statement, log)
 
 # Print output to log file only
 def print_log(statement, logfile):

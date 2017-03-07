@@ -573,7 +573,7 @@ def template_regex():
     return regtmpl_list
 
 # Print summary results to log file
-def summaryLog(myuser, total_devices, addl_opt, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips, templ_change_ips):
+def summaryLog(myuser, total_devices, addl_opt, all_log_names, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips, templ_change_ips):
     # Create log file for scan results summary
     now = get_now_time()
     sum_name = "results_summary-" + now + ".log"
@@ -583,7 +583,10 @@ def summaryLog(myuser, total_devices, addl_opt, param_change_total, config_chang
     print_log(subHeading("Scan Results Summary", 5), sumfile)
     print_log("-" * 50 + "\n", sumfile)
     print_log("Username: " + myuser + "\n", sumfile)
-    print_log("Log File: " + log_name + "\n", sumfile)
+    print_log("Logs:\n", sumfile)
+    for log_name in all_log_names:
+        print_log("\t- {0}\n".format(log_name), sumfile)
+
     print_log("-" * 50 + "\n\n", sumfile)
     print_log("=" * 50 + "\n", sumfile)
     print_log("Parameters Changed (" + str(param_change_total) + " of " + str(total_devices) + ")\n", sumfile)
@@ -655,44 +658,58 @@ if __name__ == "__main__":
     #print "Loading records..."
     listDict = csv_to_listdict(listDictCSV)
 
-    # Create log file for all changes
+    # Running change log file
+    run_change_log = os.path.join(log_dir, "run_change_log.csv")
+
+    # Create log file for parameter and config details
+    all_log_paths = []
+    all_log_names = []
     now = get_now_time()
-    log_name = "change_log-" + now + ".log"
-    logfile = os.path.join(log_dir, log_name)
+    conf_name = "conf_log-" + now + ".log"
+    conf_log = os.path.join(log_dir, conf_name)
+    all_log_paths.append(conf_log)
+    all_log_names.append(conf_name)
+
+    # Create log file for template details, if necessary
+    if addl_opt == "template":
+        templ_name = "templ_log-" + now + ".log"
+        templ_log = os.path.join(log_dir, templ_name)
+        all_log_paths.append(templ_log)
+        all_log_names.append(templ_name)
 
     # CHECK CONFIGS FOR CHANGES
-    print_sl("\n\n" + topHeading("SCAN DEVICES", 5), logfile)
-    print_sl("-" * 50 + "\n", logfile)
-    print_sl("User: {0}\n".format(myuser), logfile)
-    print_sl("Process Started: {0}\n".format(now), logfile)
-    print_sl("-" * 50 + "\n", logfile)
+    print_sl("\n\n" + topHeading("SCAN DEVICES", 5), all_log_paths)
+    print_sl("-" * 50 + "\n", all_log_paths)
+    print_sl("User: {0}\n".format(myuser), all_log_paths)
+    print_sl("Process Started: {0}\n".format(now), all_log_paths)
+    print_sl("-" * 50 + "\n", all_log_paths)
 
     # Loads new IPs into the database, must specify in command line arguments " -o <file> "
-    print_sl("\n" + subHeading("Add New Devices", 5), logfile)
-    print_sl("-" * 50 + "\n", logfile)
+    print_sl("\n" + subHeading("Add New Devices", 5), [conf_log])
+    print_sl("-" * 50 + "\n", [conf_log])
 
     if iplistfile:
         iplist = line_list(os.path.join(iplist_dir, iplistfile))
         # Loop over the list of new IPs
         for raw_ip in iplist:
             ip = raw_ip.strip()
-            print_sl("\n----- [{0}] -----\n".format(ip), logfile)
+            print_sl("\n----- [{0}] -----\n".format(ip), [conf_log])
             # If a record doesn't exist, try to create one
             if not get_record(ip):
                 # Make sure you can ping the device before trying to configure
-                print_sl("\t- Device is not in the database\n", logfile)
+                print_sl("\t- Device is not in the database\n", [conf_log])
                 if ping(ip):
-                    check_ip(ip, logfile)
+                    check_ip(ip, [conf_log])
                 else:
-                    print_sl("\t- Unable to ping device - skipping\n", logfile)
+                    print_sl("\t- Unable to ping device - skipping\n", [conf_log])
             else:
-                print_sl("\t- Device is already in database - skipping\n", logfile)
+                print_sl("\t- Device is already in database - skipping\n", [conf_log])
     else:
-        print_sl("\n - No New IPs Specified -\n\n", logfile)
-    print_sl("-" * 50 + "\n\n", logfile)
+        print_sl("\n - No New IPs Specified -\n\n", [conf_log])
+    print_sl("-" * 50 + "\n\n", [conf_log])
     # Performs the parameter check, configuration check, and template check
-    print_sl("\n" + subHeading("Check Devices", 5), logfile)
-    print_sl("-" * 50 + "\n", logfile)
+    print_sl("\n" + subHeading("Check Devices", 5), [conf_log])
+    print_sl("-" * 50 + "\n", [conf_log])
 
     total_devices = len(listDict)
     param_change_total = 0
@@ -704,37 +721,38 @@ if __name__ == "__main__":
 
     # Parameter/Configuration/Template Check loop
     for myrecord in listDict:
-        print_sl("\n" + "=" * 50 + "\n", logfile)
-        print_sl("***** {0} ({1}) *****\n".format(myrecord['host_name'], myrecord['ip']), logfile)
-        print_sl("=" * 50 + "\n", logfile)
+        print_sl("\n" + "=" * 50 + "\n", all_log_paths)
+        print_sl("***** {0} ({1}) *****\n".format(myrecord['host_name'], myrecord['ip']), all_log_paths)
+        print_sl("=" * 50 + "\n", all_log_paths)
         # Run parameter check: return (0) = no parameter change, (1) = parameter change
         if ping(myrecord['ip']):
             try:
-                print_sl("Parameter Check: ", logfile)
-                if check_ip(str(myrecord['ip']), logfile):
+                print_sl("Parameter Check: ", [conf_log])
+                if check_ip(str(myrecord['ip']), [conf_log]):
                     param_change_total += 1
                     param_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
             except Exception as err:
-                print_sl("Error with parameter check: {0}/n".format(err), logfile)
+                print_sl("Error with parameter check: {0}/n".format(err), [conf_log])
             # Run configuration check: return (0) = no config change, (1) = config change
             try:
-                print_sl("Configuration Check: ", logfile)
-                if config_compare(myrecord, logfile):
+                print_sl("Configuration Check: ", [conf_log])
+                if config_compare(myrecord, [conf_log]):
                     config_change_total += 1
                     config_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
+                    add_to_csv_sort(myrecord['ip'] + "," + myrecord['host_name'] + "," + now, run_change_log)
             except Exception as err:
-                print_sl("Error with configuration check: {0}/n".format(err), logfile)
+                print_sl("Error with configuration check: {0}/n".format(err), [conf_log])
             # Check if template was specified: return (0) = no template discrepancy, (1) = discrepancies
             if addl_opt == "template":
-                print_sl("Template Check: ", logfile)
+                print_sl("Template Check: ", [templ_log])
                 # Run template check
-                if template_scanner(template_regex(), myrecord, logfile):
+                if template_scanner(template_regex(), myrecord, [templ_log]):
                     templ_change_total += 1
                     templ_change_ips.append(myrecord['host_name'] + " (" + myrecord['ip'] + ")")
         else:
-            print_sl("\n\t- Unable to ping device - skipping/n/n", logfile)
+            print_sl("\n\t- Unable to ping device - skipping/n/n", all_log_paths)
     # End of processing
-    print_sl("Process Ended: {0}\n\n".format(get_now_time()), logfile)
+    print_sl("Process Ended: {0}\n\n".format(get_now_time()), all_log_paths)
 
     # Print brief results to screen
     print subHeading("Scan Results", 5)
@@ -750,7 +768,7 @@ if __name__ == "__main__":
     print"==============================\n"
 
     # Print results  to summary file
-    if summaryLog(myuser, total_devices, addl_opt, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips,
+    if summaryLog(myuser, total_devices, addl_opt, all_log_names, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips,
                templ_change_ips):
         print "\nResults file completed"
 
