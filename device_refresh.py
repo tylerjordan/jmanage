@@ -226,7 +226,7 @@ def line_list(filepath):
         return linelist
 
 
-def check_ip(ip, logfile):
+def check_params(ip):
     """ Purpose: Scans the device with the IP and handles action. """
     has_record = False
     #print "Recalling any stored records..."
@@ -234,58 +234,43 @@ def check_ip(ip, logfile):
         has_record = True
     record_attribs = [ 'serial_number', 'model', 'host_name', 'junos_code' ]
 
+    # 0 = Unable to Check, 1 = No Changes, 2 = Changes Detected
     returncode = 1
+    # Store the results of check and returncode
+    results = []
+
     # Try to collect current chassis info
-    #print "Getting current information..."
     remoteDict = run(ip, myuser, mypwd, port)
     # If info was collected...
     if remoteDict:
-        # If this IP is associated with a record...
-        if has_record:
-            # Check that the existing record is up-to-date. If not, update.
-            localDict = get_record(ip)
-            if localDict['host_name'] == remoteDict['host_name']:
-                if localDict['serial_number'] == remoteDict['serial_number']:
-                    if localDict['junos_code'] == remoteDict['junos_code']:
-                        print_sl("No Parameter Changes\n", logfile)
-                        returncode = 0
-                    else:
-                        print_sl("\t- JunOS changed from {0} to {1}\n".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
-                        change_record(ip, remoteDict['junos_code'], key='junos_code')
-                else:
-                    print_sl("\t- S/N changed from {0} to {1}\n".format(localDict['serial_number'], remoteDict['serial_number']), logfile)
-                    change_record(ip, remoteDict['serial_number'], key='serial_number')
-                    if localDict['model'] != remoteDict['model']:
-                        print_sl("\t- Model changed from {0} to {1}\n".format(localDict['model'], remoteDict['model']), logfile)
-                        change_record(ip, remoteDict['model'], key='model')
-                    if localDict['junos_code'] != remoteDict['junos_code']:
-                        print_sl("\t- JunOS changed from {0} to {1}\n".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
-                        change_record(ip, remoteDict['junos_code'], key='junos_code')
-            else:
-                if localDict['serial_number'] != remoteDict['serial_number']:
-                    print_sl("\t- S/N changed from {0} to {1}\n".format(localDict['serial_number'], remoteDict['serial_number']), logfile)
-                    change_record(ip, remoteDict['serial_number'], key='serial_number')
-                    if localDict['model'] != remoteDict['model']:
-                        print_sl("\t- Model changed from {0} to {1}\n".format(localDict['model'], remoteDict['model']), logfile)
-                        change_record(ip, remoteDict['model'], key='model')
-                # Do these regardless of S/N results
-                print_sl("\t- Hostname changed from {0} to {1}\n".format(localDict['host_name'], remoteDict['host_name']), logfile)
-                change_record(ip, remoteDict['host_name'], key='host_name')
-                if localDict['junos_code'] != remoteDict['junos_code']:
-                    print_sl("\t- JunOS changed from {0} to {1}".format(localDict['junos_code'], remoteDict['junos_code']), logfile)
-                    change_record(ip, remoteDict['junos_code'], key='junos_code')
-        else:
-            # If no, this is a device that hasn't been identified yet, create a new record
-            print_sl("\t- Adding device {0} as a new record\n".format(ip), logfile)
-            if add_record(ip):
-                print_sl("\t- Successfully added record\n", logfile)
-            else:
-                print_sl("\t- Failed adding record\n", logfile)
-    else:
-        print_sl("\t- ERROR: Unable to collect information from device: {0}\n".format(ip), logfile)
-    #print "Checking config..."
+        # Check that the existing record is up-to-date. If not, update.
+        localDict = get_record(ip)
+        if not localDict['host_name'] == remoteDict['host_name']:
+            results.append("Hostname changed from " + localDict['host_name'] + " to " + remoteDict['host_name'])
+            change_record(ip, remoteDict['host_name'], key='host_name')
+            returncode = 2
 
-    return returncode
+        if not localDict['serial_number'] == remoteDict['serial_number']:
+            results.append("S/N changed from " + localDict['serial_number'] + " to " + remoteDict['serial_number'])
+            change_record(ip, remoteDict['serial_number'], key='serial_number')
+            returncode = 2
+
+        if not localDict['junos_code'] == remoteDict['junos_code']:
+            results.append("JunOS changed from " + localDict['junos_code'] + " to " + remoteDict['junos_code'])
+            change_record(ip, remoteDict['junos_code'], key='junos_code')
+            returncode = 2
+
+        if not localDict['model'] == remoteDict['model']:
+            results.append("Model changed from " + localDict['model'] + " to " + remoteDict['model'])
+            change_record(ip, remoteDict['model'], key='model')
+            returncode = 2
+    # If we are unable to collect info from this device
+    else:
+        returncode = 0
+        results.append("ERROR: Unable to collect params from device")
+
+    results.append(returncode)
+    return results
 
 def get_record(ip='', hostname='', sn='', code=''):
     """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
@@ -484,53 +469,51 @@ def run(ip, username, password, port):
         #print connection.get_config(source='running', format='set')
         return output
 
-def config_compare(record, logfile):
+def config_compare(record):
     """ Purpose: To compare two configs and get the differences, log them
         Parameters:
             record          -   Object that contains parameters of devices
             logfile         -   Reference to log object, for displaying and logging output
     """
+    results = []
+    # 0 = Save Failed, 1 = No Changes, 2 = Changes Detected, 3 = Update Failed
     returncode = 1
 
     # Check if the appropriate site directory is created. If not, then create it.
-
     loaded_config = load_config_file(record['ip'], newest=True)
-    if not directory_check(record) or not loaded_config:
+    if not loaded_config:
         if save_config_file(fetch_config(record['ip']), record):
-            print_sl("No Existing Config, Configuration Saved\n", logfile)
+            results.append("No Existing Config, Configuration Saved")
         else:
-            print_sl("No Existing Config, Configuration Save Failed\n", logfile)
+            results.append("No Existing Config, Configuration Save Failed")
+            returncode = 0
     else:
         current_config = fetch_config(record['ip'])
         change_list = compare_configs(loaded_config, current_config)
         if change_list:
-            # print "Configs are different - updating..."
-            print_sl("Found Configuration Changes\n", logfile)
-            print_sl("-" * 50 + "\n", logfile)
-            # Try to write diffList output to a file
+            returncode = 2
+            # Try to write diffList output to a list
             for item in change_list:
-                print_sl("{0}".format(item), logfile)
+                results.append(item)
             if update_config(record['ip'], current_config):
-                print_sl("\n[ New Config Uploaded ]\n", logfile)
+                results.append("* Config Update Successful *")
             else:
-                print_sl("\n[ Config Update Failed ]\n", logfile)
-            print_sl("-" * 50 + "\n", logfile)
-            return True
-        else:
-            print_sl("No Configuration Changes\n", logfile)
-            returncode = 0
+                results.append("* Config Update Failed *")
+                returncode = 3
+    results.append(returncode)
+    return results
 
-    return returncode
-
-def template_scanner(regtmpl_list, myrecord, logfile):
+def template_scanner(regtmpl_list, record):
     """ Purpose: To compare a regex list against a config list
         Parameters:
             regtmpl_list    -   List of template set commands with regex
             config_list     -   List of set commands from chassis
             logfile         -   Reference to log object, for displaying and logging output
     """
+    # Template Results: 0 = Error, 1 = No Changes, 2 = Changes
+    results = []
     returncode = 1
-    config_list = load_config_file_list(myrecord['ip'], newest=True)
+    config_list = load_config_file_list(record['ip'], newest=True)
 
     nomatch = True
     try:
@@ -544,22 +527,20 @@ def template_scanner(regtmpl_list, myrecord, logfile):
                         matched = True
                 if not matched:
                     if firstpass:
-                        print_sl('Template Commands Missing\n', logfile)
-                        print_sl("-" * 50 + "\n", logfile)
                         firstpass = False
                     nomatch = False
-                    print_sl('{0}\n'.format(regline), logfile)
+                    results.append(regline)
+                    returncode = 2
         if nomatch:
-            print_sl('No Template Commands Missing\n\n', logfile)
-            returncode = 0
+            results.append("No Template Commands Missing")
+            returncode = 1
             return returncode
     except Exception as err:
-        print_sl("\n***** Unable to perfrom template scan of {0} *****\n\n".format(myrecord['ip']), logfile)
-        print_sl("-" * 50 + "\n\n", logfile)
-    else:
-        print_sl("-" * 50 + "\n\n", logfile)
+        results.append("ERROR: Problems preforming template scan")
+        returncode = 0
 
-    return returncode
+    results.append(returncode)
+    return results
 
 def template_regex():
     # Regexs for template comparisons
@@ -666,15 +647,26 @@ def add_new_devices(iplistfile, myuser):
         else:
             print_sl("Device already in database - Skipping\n", [conf_log])
 
-def check_param_configs(listDict):
+def check_param_configs(listDict, myuser):
     # Performs the parameter check, configuration check, and template check
     total_devices = len(listDict)
-    param_change_total = 0
+    no_changes_ips = []
+
+    noping_ips = []
+    config_save_error_ips = []
+    config_update_error_ips = []
+    param_attrib_error_ips = []
+    templ_error_ips = []
+
     param_change_ips = []
-    config_change_total = 0
     config_change_ips = []
-    templ_change_total = 0
     templ_change_ips = []
+
+    # Log to collect errors on devices
+    now = get_now_time()
+    access_error_name = "Access_Error_" + now + ".log"
+    access_error_log = os.path.join(log_dir, access_error_name)
+    run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
 
     # Parameter/Configuration/Template Check loop
     for record in listDict:
@@ -692,36 +684,72 @@ def check_param_configs(listDict):
 
         # Check if device is pingable
         if ping(record['ip']):
-            print_sl("Report: Parameter and Config Check\n", conf_chg_log)
-            print_sl("User: {0}\n".format(myuser), conf_chg_log)
-            print_sl("Captured: {0}\n\n".format(now), conf_chg_log)
-            try:
-                # Run parameter check: return (0) = no parameter change, (1) = parameter change
-                print_sl("Parameter Check: ", [conf_log])
-                if check_ip(str(record['ip']), conf_log):
-                    param_change_total += 1
-                    param_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-            except Exception as err:
-                print_sl("Error with parameter check: {0}/n".format(err), [conf_log])
-            # Run configuration check: return (0) = no config change, (1) = config change
-            try:
-                print_sl("Configuration Check: ", [conf_log])
-                if config_compare(record, conf_log):
-                    config_change_total += 1
-                    config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-                    add_to_csv_sort(record['ip'] + "," + record['host_name'] + "," + now, run_change_log)
-            except Exception as err:
-                print_sl("Error with configuration check: {0}/n".format(err), [conf_log])
-            # Check if template was specified: return (0) = no template discrepancy, (1) = discrepancies
+            # Param Results: 0 = Error, 1 = No Changes, 2 = Changes
+            # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
+            param_results = check_params(str(record['ip']))
+            compare_results = config_compare(record, conf_log)
+
+            # Scan param results
+            if param_results[-1] == 1 and compare_results[-1] == 1:          # If no changes are detected
+                no_changes_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+            elif param_results[-1] == 2 or compare_results[-1] == 2:         # If changes are detected
+                print_sl("Report: Parameter and Config Check\n", conf_chg_log)
+                print_sl("User: {0}\n".format(myuser), conf_chg_log)
+                print_sl("Captured: {0}\n\n".format(now), conf_chg_log)
+                add_to_csv_sort(record['ip'] + "," + record['host_name'] + "," + now, run_change_log)
+
+            # If param results detect changes
+            if param_results[-1] == 2:
+                print_sl("Parameter Check:\n", conf_chg_log)
+                for result in param_results[:-1]:
+                    print_sl("\t- {0}\n".format(result), conf_chg_log)
+                print_sl("\n", conf_chg_log)
+                param_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+            # If param results are errors
+            elif param_results[-1] == 0:
+                print_sl("{0}:{1}:Parameter Check -> {2}\n".format(now, record['ip'], param_results[0]), access_error_log)
+                param_attrib_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+            # If compare results detect differences
+            if compare_results[-1] == 2:
+                print_sl("Config Check:\n", conf_chg_log)
+                for result in compare_results[:-1]:
+                    print_sl("\t- {0}\n".format(result), conf_chg_log)
+                print_sl("\n", conf_chg_log)
+                config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+            # If compare results are save errors
+            elif compare_results[-1] == 0:
+                print_sl("{0}:{1}:Config Check -> {2}\n".format(now, record['ip'], compare_results[0]), access_error_log)
+                config_save_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+            # If compare results are update errors
+            elif compare_results[-1] == 3:
+                print_sl("{0}:{1}:Config Check -> {2}\n".format(now, record['ip'], compare_results[0]), access_error_log)
+                config_update_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+            
+            # Check if template option was specified
+            # Template Results: 0 = Error, 1 = No Changes, 2 = Changes
             if addl_opt == "template":
-                print_sl("Template Check: ", [templ_log])
                 # Run template check
-                if template_scanner(template_regex(), record, templ_log):
-                    templ_change_total += 1
+                templ_results = template_scanner(template_regex(), record, templ_log)
+
+                print_sl("Report: Template Deviation Check\n", temp_dev_log)
+                print_sl("User: {0}\n".format(myuser), temp_dev_log)
+                print_sl("Captured: {0}\n\n".format(now), temp_dev_log)
+
+                if templ_results[-1] == 2:
+                    for result in compare_results[:-1]:
+                        print_sl("\t- {0}\n".format(result), temp_dev_log)
                     templ_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+                elif templ_results[-1] == 1:
+                    for result in compare_results[:-1]:
+                        print_sl("\t- {0}\n".format(result), temp_dev_log)
+                else:
+                    print_sl("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
+                    print_sl("{0}:{1}:Config Check -> {2}\n".format(now, record['ip'], templ_results[0]), access_error_log)
+                    templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+
         else:
-            print_sl("\n\t- Unable to ping device - skipping/n/n", all_log_paths)
-            print_log("{0}: Unable to ping @ {1}/n".format(now, record['ip']), device_log)
+            noping_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+
     # End of processing
     print_sl("Process Ended: {0}\n\n".format(get_now_time()), all_log_paths)
 
@@ -780,15 +808,7 @@ if __name__ == "__main__":
     #print "Loading records..."
     listDict = csv_to_listdict(listDictCSV)
 
-    # Running change log file
-    run_change_log = os.path.join(log_dir, "run_change_log.csv")
-
-    # Create log file for parameter and config details
-    now = get_now_time()
-    new_devices_name = "Add_New_Devices_" + now + ".log"
-    new_devices_log = os.path.join(log_dir, new_devices_name)
-
-    # Check run Add New Device function
+    # Add New Device function if IPs have been supplied
     print "\n > Add New Device Function:"
     if iplistfile:
         print " >> Running..."
@@ -797,10 +817,11 @@ if __name__ == "__main__":
     else:
         print " >> No Devices in List... Skipping\n"
 
+    # Check Params/Config/Template Function if records exist
     print "\n > Check Params, Config, Template Function:"
     if all(record for record in listDict):
         print " >> Running..."
-        check_param_configs(listDict)
+        check_param_configs(listDict, myuser)
         print " >> Completed"
     else:
         print " >> No Records... Skipping\n"
