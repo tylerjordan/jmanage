@@ -105,6 +105,24 @@ def get_old_new_file(record, newest):
             return filtered_list
 
 
+def remove_template_file(record):
+    file_start = "Template_Deviation_"
+    device_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+    if os.path.exists(device_dir):
+        for file in listdir(device_dir):
+            if file.startswith(file_start):
+                try:
+                    os.remove(os.path.join(device_dir, file))
+                except Exception as err:
+                    print "Problem removing file: {0} ERROR: {1}".format(file, err)
+                else:
+                    return True
+            else:
+                return True
+    else:
+        print "Directory does not exist: {0}".format(device_dir)
+
+
 def get_file_number(record):
     file_num = 0
     if record:
@@ -483,9 +501,9 @@ def config_compare(record):
     loaded_config = load_config_file(record['ip'], newest=True)
     if not loaded_config:
         if save_config_file(fetch_config(record['ip']), record):
-            results.append("No Existing Config, Configuration Saved")
+            results.append("No Existing Config, Configuration Saved\n")
         else:
-            results.append("No Existing Config, Configuration Save Failed")
+            results.append("No Existing Config, Configuration Save Failed\n")
             returncode = 0
     else:
         current_config = fetch_config(record['ip'])
@@ -496,9 +514,9 @@ def config_compare(record):
             for item in change_list:
                 results.append(item)
             if update_config(record['ip'], current_config):
-                results.append("* Config Update Successful *")
+                results.append("* Config Update Successful *\n")
             else:
-                results.append("* Config Update Failed *")
+                results.append("* Config Update Failed *\n")
                 returncode = 3
     results.append(returncode)
     return results
@@ -577,47 +595,94 @@ def template_regex():
     return regtmpl_list
 
 # Print summary results to log file
-def summaryLog(myuser, total_devices, addl_opt, all_log_names, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips, templ_change_ips):
+def summaryLog(myuser, total_devices, no_changes_ips, no_ping_ips, config_save_error_ips, config_update_error_ips,
+                  param_attrib_error_ips, templ_error_ips, param_change_ips, config_change_ips, templ_change_ips):
     # Create log file for scan results summary
     now = get_now_time()
-    sum_name = "results_summary-" + now + ".log"
-    sumfile = os.path.join(log_dir, sum_name)
+    summary_name = "Results_Summary_" + now + ".log"
+    summary_log = os.path.join(log_dir, summary_name)
 
     # Write the scan results to a text file
-    print_log(subHeading("Scan Results Summary", 5), sumfile)
-    print_log("-" * 50 + "\n", sumfile)
-    print_log("Username: " + myuser + "\n", sumfile)
-    print_log("Logs:\n", sumfile)
-    for log_name in all_log_names:
-        print_log("\t- {0}\n".format(log_name), sumfile)
+    print_log("Report: Scan Results Summary\n", summary_log)
+    print_log("User: {0}\n".format(myuser), summary_log)
+    print_log("Captured: {0}\n".format(now), summary_log)
+    print_log("=" * 50 + "\n", summary_log)
+    print_log("Total Devices: {0}\n".format(total_devices), summary_log)
+    print_log("=" * 50 + "\n", summary_log)
 
-    print_log("-" * 50 + "\n\n", sumfile)
-    print_log("=" * 50 + "\n", sumfile)
-    print_log("Parameters Changed (" + str(param_change_total) + " of " + str(total_devices) + ")\n", sumfile)
-    print_log("-" * 50 + "\n", sumfile)
+    # Parameter Content
+    print_log("[Parameters]\n", summary_log)
+    print_log("\tChanged Parameters: {0}\n".format(len(param_change_ips)), summary_log)
     if len(param_change_ips) == 0:
-        print_log("\t * No Devices *\n", sumfile)
+        print_log("\t\t* No Devices *\n", summary_log)
     else:
         for ip in param_change_ips:
-            print_log("\t- " + ip + "\n", sumfile)
-    print_log("\n" + "=" * 50 + "\n", sumfile)
-    print_log("Configurations Changed (" + str(config_change_total) + " of " + str(total_devices) + ")\n", sumfile)
-    print_log("-" * 50 + "\n", sumfile)
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("\tError Accessing Parameters: {0}\n".format(len(param_attrib_error_ips)), summary_log)
+    if len(param_attrib_error_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in param_attrib_error_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("=" * 50 + "\n", summary_log)
+
+    # Config Compare Content
+    print_log("[Configuration Compare]\n", summary_log)
+    print_log("\tChanged Configurations: {0}\n".format(len(config_change_ips)), summary_log)
     if len(config_change_ips) == 0:
-        print_log("\t * No Devices *\n", sumfile)
+        print_log("\t\t* No Devices *\n", summary_log)
     else:
         for ip in config_change_ips:
-            print_log("\t- " + ip + "\n", sumfile)
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("\tSave Configuration Errors: {0}\n".format(len(config_save_error_ips)), summary_log)
+    if len(config_save_error_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in config_save_error_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("\tUpdate Configuration Errors: {0}\n".format(len(config_update_error_ips)), summary_log)
+    if len(config_update_error_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in config_update_error_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("=" * 50 + "\n", summary_log)
+
+    # Template Deviation Content
     if addl_opt == "template":
-        print_log("\n" + "=" * 50 + "\n", sumfile)
-        print_log("Template Mismatches (" + str(templ_change_total) + " of " + str(total_devices) + ")\n", sumfile)
-        print_log("-" * 50 + "\n", sumfile)
+        print_log("[Template Deviation]", summary_log)
+        print_log("\tTemplate Deviation: {0}\n".format(len(templ_change_ips)), summary_log)
         if len(templ_change_ips) == 0:
-            print_log("\t * No Devices *\n", sumfile)
+            print_log("\t\t* No Devices *\n", summary_log)
         else:
             for ip in templ_change_ips:
-                print_log("\t- " + ip + "\n", sumfile)
-    print_log("-" * 50 + "\n\n", sumfile)
+                print_log("\t\t-> " + ip + "\n", summary_log)
+        print_log("\tTemplate Errors: {0}\n".format(len(templ_error_ips)), summary_log)
+        if len(templ_error_ips) == 0:
+            print_log("\t\t* No Devices *\n", summary_log)
+        else:
+            for ip in templ_error_ips:
+                print_log("\t\t-> " + ip + "\n", summary_log)
+        print_log("=" * 50 + "\n", summary_log)
+
+    # Unable to Ping
+    print_log("\tUnable to Ping: {0}\n".format(len(no_ping_ips)), summary_log)
+    if len(no_ping_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in no_ping_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("=" * 50 + "\n", summary_log)
+
+    # Unchanged Devices
+    print_log("\tUnchanged Devices: {0}\n".format(len(no_changes_ips)), summary_log)
+    if len(no_changes_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in no_changes_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("=" * 50 + "\n", summary_log)
+
 
 def add_new_devices(iplistfile, myuser):
     now = get_now_time()
@@ -637,22 +702,22 @@ def add_new_devices(iplistfile, myuser):
         if not get_record(ip):
             # Make sure you can ping the device before trying to configure
             if ping(ip):
-                print_sl("Device not in the database - Adding...", [conf_log])
                 if add_record(ip):
-                    print_sl("Success\n", new_devices_log)
+                    print_sl("\t* Added device to database successfully *", new_devices_log)
                 else:
-                    print_sl("Failed\n", new_devices_log)
+                    print_sl("\t* Failed adding device to database *", [new_devices_log, access_error_log])
             else:
-                print_sl("Unable to ping device - Skipping\n", [conf_log])
+                print_sl("\t* Unable to ping device *", [new_devices_log, access_error_log])
         else:
-            print_sl("Device already in database - Skipping\n", [conf_log])
+            print_sl("\t* Device already in database *", new_devices_log)
+
 
 def check_param_configs(listDict, myuser):
     # Performs the parameter check, configuration check, and template check
     total_devices = len(listDict)
     no_changes_ips = []
 
-    noping_ips = []
+    no_ping_ips = []
     config_save_error_ips = []
     config_update_error_ips = []
     param_attrib_error_ips = []
@@ -684,10 +749,11 @@ def check_param_configs(listDict, myuser):
 
         # Check if device is pingable
         if ping(record['ip']):
+            print "Processing {0} -> Logging to {1}".format(record['host_name'], conf_chg_log)
             # Param Results: 0 = Error, 1 = No Changes, 2 = Changes
             # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
             param_results = check_params(str(record['ip']))
-            compare_results = config_compare(record, conf_log)
+            compare_results = config_compare(record)
 
             # Scan param results
             if param_results[-1] == 1 and compare_results[-1] == 1:          # If no changes are detected
@@ -713,7 +779,7 @@ def check_param_configs(listDict, myuser):
             if compare_results[-1] == 2:
                 print_sl("Config Check:\n", conf_chg_log)
                 for result in compare_results[:-1]:
-                    print_sl("\t- {0}\n".format(result), conf_chg_log)
+                    print_sl("\t- {0}".format(result), conf_chg_log)
                 print_sl("\n", conf_chg_log)
                 config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
             # If compare results are save errors
@@ -726,11 +792,15 @@ def check_param_configs(listDict, myuser):
                 config_update_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
             
             # Check if template option was specified
-            # Template Results: 0 = Error, 1 = No Changes, 2 = Changes
+            # Template Results: 0 = Error, 1 = No Deviations, 2 = Deviations
             if addl_opt == "template":
-                # Run template check
-                templ_results = template_scanner(template_regex(), record, templ_log)
+                # Delete existing template file
+                remove_template_file(record)
 
+                # Run template check
+                templ_results = template_scanner(template_regex(), record)
+
+                print "Template File: {0}".format(temp_dev_log)
                 print_sl("Report: Template Deviation Check\n", temp_dev_log)
                 print_sl("User: {0}\n".format(myuser), temp_dev_log)
                 print_sl("Captured: {0}\n\n".format(now), temp_dev_log)
@@ -748,10 +818,10 @@ def check_param_configs(listDict, myuser):
                     templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
         else:
-            noping_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+            no_ping_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
     # End of processing
-    print_sl("Process Ended: {0}\n\n".format(get_now_time()), all_log_paths)
+    print "Process Ended: {0}\n\n".format(get_now_time())
 
     # Print brief results to screen
     print subHeading("Scan Results", 5)
@@ -760,11 +830,18 @@ def check_param_configs(listDict, myuser):
     print"=============================="
     print"Devices with..."
     print"------------------------------"
-    print"Parameters Changed.........{0}".format(param_change_total)
-    print"Configs Changed............{0}".format(config_change_total)
+    print"Parameters Changed.........{0}".format(len(param_change_ips))
+    print"Configs Changed............{0}".format(len(config_change_ips))
     if addl_opt == "template":
-        print"Template Mismatches........{0}".format(templ_change_total)
+        print"Template Mismatches........{0}".format(len(templ_change_ips))
     print"==============================\n"
+
+    # Print results to summary file
+    try:
+        summaryLog(myuser, total_devices, no_changes_ips, no_ping_ips, config_save_error_ips, config_update_error_ips,
+                  param_attrib_error_ips, templ_error_ips, param_change_ips, config_change_ips, templ_change_ips)
+    except Exception as err:
+        print "Summary Log Failed ERROR: {0}".format(err)
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
@@ -825,13 +902,6 @@ if __name__ == "__main__":
         print " >> Completed"
     else:
         print " >> No Records... Skipping\n"
-
-
-
-    # Print results  to summary file
-    if summaryLog(myuser, total_devices, addl_opt, all_log_names, param_change_total, config_change_total, templ_change_total, param_change_ips, config_change_ips,
-               templ_change_ips):
-        print "\nResults file completed"
 
     # Save the changes of the listDict to CSV
     if listDict:

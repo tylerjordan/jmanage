@@ -374,17 +374,21 @@ def compare_configs(config1, config2):
         print "ERROR with compare configs, check configs."
     return change_list
 
-# Print output to the screen and a log file(s)
+# Print output to the screen and a log file (either a list or string)
 def print_sl(statement, file_list):
     # Print to screen
     stdout.write(statement)
     # Print to log
-    for log in file_list:
-        print_log(statement, log)
+    if type(file_list) is list:
+        for log in file_list:
+            print_log(statement, log)
+    else:
+        print_log(statement, file_list)
 
 # Print output to log file only
 def print_log(statement, logfile):
     # Print to log
+    #print "Log File: {0}".format(logfile)
     try:
         logobj = open(logfile, 'a')
     except Exception as err:
