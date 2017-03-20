@@ -109,18 +109,16 @@ def remove_template_file(record):
     file_start = "Template_Deviation_"
     device_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
     if os.path.exists(device_dir):
-        for file in listdir(device_dir):
+        for file in getFileList(device_dir):
             if file.startswith(file_start):
                 try:
                     os.remove(os.path.join(device_dir, file))
                 except Exception as err:
                     print "Problem removing file: {0} ERROR: {1}".format(file, err)
-                else:
-                    return True
-            else:
-                return True
+        return True
     else:
         print "Directory does not exist: {0}".format(device_dir)
+        return False
 
 
 def get_file_number(record):
@@ -513,10 +511,7 @@ def config_compare(record):
             # Try to write diffList output to a list
             for item in change_list:
                 results.append(item)
-            if update_config(record['ip'], current_config):
-                results.append("* Config Update Successful *\n")
-            else:
-                results.append("* Config Update Failed *\n")
+            if not update_config(record['ip'], current_config):
                 returncode = 3
     results.append(returncode)
     return results
@@ -550,7 +545,6 @@ def template_scanner(regtmpl_list, record):
                     results.append(regline)
                     returncode = 2
         if nomatch:
-            results.append("No Template Commands Missing")
             returncode = 1
             return returncode
     except Exception as err:
@@ -794,24 +788,23 @@ def check_param_configs(listDict, myuser):
             # Check if template option was specified
             # Template Results: 0 = Error, 1 = No Deviations, 2 = Deviations
             if addl_opt == "template":
-                # Delete existing template file
+                # Delete existing template file(s)
                 remove_template_file(record)
 
                 # Run template check
                 templ_results = template_scanner(template_regex(), record)
 
-                print "Template File: {0}".format(temp_dev_log)
                 print_sl("Report: Template Deviation Check\n", temp_dev_log)
                 print_sl("User: {0}\n".format(myuser), temp_dev_log)
-                print_sl("Captured: {0}\n\n".format(now), temp_dev_log)
+                print_sl("Captured: {0}\n".format(now), temp_dev_log)
 
+                print_sl("\nTemplate Check:\n", temp_dev_log)
                 if templ_results[-1] == 2:
-                    for result in compare_results[:-1]:
+                    for result in templ_results[:-1]:
                         print_sl("\t- {0}\n".format(result), temp_dev_log)
                     templ_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
                 elif templ_results[-1] == 1:
-                    for result in compare_results[:-1]:
-                        print_sl("\t- {0}\n".format(result), temp_dev_log)
+                    print_sl("\t* Template Matches *\n", temp_dev_log)
                 else:
                     print_sl("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
                     print_sl("{0}:{1}:Config Check -> {2}\n".format(now, record['ip'], templ_results[0]), access_error_log)
