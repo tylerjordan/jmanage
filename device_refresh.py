@@ -323,15 +323,13 @@ def get_record(ip='', hostname='', sn='', code=''):
 def add_record(ip):
     """ Purpose: Adds a record to list of dictionaries.
     """
-    try:
-        items = run(ip, myuser, mypwd, port)
-    except Exception as err:
-        print 'ERROR: Unable to get record information: {0} | Device: {1}'.format(err, ip)
-        items['last_update_attempt'] = get_now_time()
-        listDict.append(items)
+    items = run(ip, myuser, mypwd, port)
+    if not items:
+        #print 'ERROR: Unable to get record information: {0}\n'.format(ip)
         return False
     else:
-        if save_config_file(fetch_config(ip), items):
+        if items:
+            save_config_file(fetch_config(ip), items)
             items['last_config_success'] = get_now_time()
             items['last_config_attempt'] = get_now_time()
             items['last_update_attempt'] = get_now_time()
@@ -465,7 +463,7 @@ def information(connection, ip, software_info, host_name):
         serial_number = chassis_inventory.xpath('//chassis-inventory/chassis/serial-number')[0].text
         return {'host_name': host_name, 'ip': ip, 'model': model, 'junos_code': junos_code, 'serial_number': serial_number}
     except:
-        print '\t- ERROR: Device was reachable, the information was not found.'
+        #print '\t- ERROR: Device was reachable, the information was not found.'
         return False
 
 
@@ -498,9 +496,10 @@ def run(ip, username, password, port):
         software_info = connection.get_software_information(format='xml')
         host_name = software_info.xpath('//software-information/host-name')[0].text
         output = information(connection, ip, software_info, host_name)
-        print "Output"
-        print output
+        if not output:
+            return False
         return output
+
 
 def config_compare(record):
     """ Purpose: To compare two configs and get the differences, log them
@@ -709,7 +708,7 @@ def summaryLog(myuser, total_devices, no_changes_ips, no_ping_ips, no_connect_ip
     print_log("=" * 50 + "\n", summary_log)
 
 
-def add_new_devices(iplistfile, myuser):
+def add_new_devices(iplistfile, myuser, access_error_log):
     now = get_now_time()
     new_devices_name = "Add_New_Devices_" + now + ".log"
     new_devices_log = os.path.join(log_dir, new_devices_name)
@@ -730,18 +729,18 @@ def add_new_devices(iplistfile, myuser):
                 # Make sure you can connect to the device before trying to add
                 if connect(ip):
                     if add_record(ip):
-                        print_sl("\t* Added device to database successfully *", new_devices_log)
+                        print_sl("\t* Added device to database successfully *\n", new_devices_log)
                     else:
-                        print_sl("\t* Failed adding device to database *", [new_devices_log, access_error_log])
+                        print_sl("\t* Failed adding device to database *\n", [new_devices_log, access_error_log])
                 else:
-                    print_sl("\t* Unable to connect to device *", [new_devices_log, access_error_log])
+                    print_sl("\t* Unable to connect to device *\n", [new_devices_log, access_error_log])
             else:
-                print_sl("\t* Unable to ping device *", [new_devices_log, access_error_log])
+                print_sl("\t* Unable to ping device *\n", [new_devices_log, access_error_log])
         else:
-            print_sl("\t* Device already in database *", new_devices_log)
+            print_sl("\t* Device already in database *\n", new_devices_log)
 
 
-def check_param_configs(listDict, myuser):
+def check_param_configs(listDict, myuser, access_error_log):
     # Performs the parameter check, configuration check, and template check
     total_devices = len(listDict)
     no_changes_ips = []
@@ -757,10 +756,8 @@ def check_param_configs(listDict, myuser):
     config_change_ips = []
     templ_change_ips = []
 
-    # Log to collect errors on devices
+    # A single running log of changes
     now = get_now_time()
-    access_error_name = "Access_Error_" + now + ".log"
-    access_error_log = os.path.join(log_dir, access_error_name)
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
 
     # Parameter/Configuration/Template Check loop
@@ -777,6 +774,7 @@ def check_param_configs(listDict, myuser):
             temp_dev_name = "Template_Deviation_" + now + ".log"
             temp_dev_log = os.path.join(device_dir, temp_dev_name)
 
+        print "\n" + "-" * 80
         print "Processing {0} -> Logging to {1}".format(record['host_name'], conf_chg_log)
         # Check if device is pingable
         if ping(record['ip']):
@@ -916,6 +914,11 @@ if __name__ == "__main__":
     myuser = creds['username']
     mypwd = creds['password']
 
+    # Create access_error_log
+    now = get_now_time()
+    access_error_name = "Access_Error_" + now + ".log"
+    access_error_log = os.path.join(log_dir, access_error_name)
+
     # Load records from existing CSV
     #print "Loading records..."
     listDict = csv_to_listdict(listDictCSV)
@@ -924,7 +927,7 @@ if __name__ == "__main__":
     print "\n > Add New Device Function:"
     if iplistfile:
         print " >> Running..."
-        add_new_devices(iplistfile, myuser)
+        add_new_devices(iplistfile, myuser, access_error_log)
         print " >> Completed"
     else:
         print " >> No Devices in List... Skipping\n"
@@ -933,7 +936,7 @@ if __name__ == "__main__":
     print "\n > Check Params, Config, Template Function:"
     if all(record for record in listDict):
         print " >> Running..."
-        check_param_configs(listDict, myuser)
+        check_param_configs(listDict, myuser, access_error_log)
         print " >> Completed"
     else:
         print " >> No Records... Skipping\n"
