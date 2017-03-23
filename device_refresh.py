@@ -32,6 +32,8 @@ mypwd = ''
 myuser = ''
 port = 22
 
+num_of_configs = 5
+
 
 def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
@@ -208,7 +210,7 @@ def save_config_file(myconfig, record):
         return False
     else:
         # Remove excess configurations if necessary
-        if get_file_number(record) > 2:
+        if get_file_number(record) > 5:
             del_file = get_old_new_file(record, newest=False)
             try:
                 os.remove(del_file)
@@ -775,7 +777,7 @@ def check_param_configs(listDict, myuser, access_error_log):
             temp_dev_log = os.path.join(device_dir, temp_dev_name)
 
         print "\n" + "-" * 80
-        print "Processing {0} -> Logging to {1}".format(record['host_name'], conf_chg_log)
+        print subHeading(record['host_name'] + " - (" + record['ip'] + ")", 15)
         # Check if device is pingable
         if ping(record['ip']):
             # Check if device can be connected by script
@@ -791,7 +793,7 @@ def check_param_configs(listDict, myuser, access_error_log):
                 elif param_results[-1] == 2 or compare_results[-1] == 2:         # If changes are detected
                     print_sl("Report: Parameter and Config Check\n", conf_chg_log)
                     print_sl("User: {0}\n".format(myuser), conf_chg_log)
-                    print_sl("Captured: {0}\n\n".format(now), conf_chg_log)
+                    print_sl("Checked: {0}\n\n".format(now), conf_chg_log)
                     add_to_csv_sort(record['ip'] + "," + record['host_name'] + "," + now, run_change_log)
 
                 # If param results detect changes
@@ -832,7 +834,7 @@ def check_param_configs(listDict, myuser, access_error_log):
 
                     print_sl("Report: Template Deviation Check\n", temp_dev_log)
                     print_sl("User: {0}\n".format(myuser), temp_dev_log)
-                    print_sl("Captured: {0}\n".format(now), temp_dev_log)
+                    print_sl("Checked: {0}\n".format(now), temp_dev_log)
 
                     print_sl("\nTemplate Check:\n", temp_dev_log)
                     if templ_results[-1] == 2:
@@ -853,19 +855,19 @@ def check_param_configs(listDict, myuser, access_error_log):
             print "\t * Unable to ping {0} at {1} *\n".format(record['host_name'], record['ip'])
 
     # End of processing
-    print "Process Ended: {0}\n\n".format(get_now_time())
+    print "\n" + "=" * 80
+    print "Device Processsing Ended: {0}\n\n".format(get_now_time())
 
     # Print brief results to screen
     print subHeading("Scan Results", 5)
-    print"=============================="
-    print"Total Number of Devices....{0}".format(total_devices)
-    print"=============================="
     print"Devices with..."
     print"------------------------------"
     print"Parameters Changed.........{0}".format(len(param_change_ips))
     print"Configs Changed............{0}".format(len(config_change_ips))
     if addl_opt == "template":
         print"Template Mismatches........{0}".format(len(templ_change_ips))
+    print"=============================="
+    print"Total Number of Devices....{0}".format(total_devices)
     print"==============================\n"
 
     # Print results to summary file

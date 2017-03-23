@@ -262,7 +262,7 @@ def add_to_csv_sort(entry, csv_file):
         return False
     else:
         try:
-            with open(csv_file, "w") as f:
+            with open(csv_file, "wb") as f:
                 fileWriter = csv.writer(f, delimiter=',')
                 for row in sortedlist:
                     fileWriter.writerow(row)
