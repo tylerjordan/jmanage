@@ -636,6 +636,25 @@ def summaryLog(myuser, total_devices, no_changes_ips, no_ping_ips, no_connect_ip
     print_log("Total Devices: {0}\n".format(total_devices), summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
+    # Connection Errors
+    print_log("[Connection Errors]\n", summary_log)
+    # Unable to Ping
+    print_log("\tUnable to Ping: {0}\n".format(len(no_ping_ips)), summary_log)
+    if len(no_ping_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in no_ping_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+
+    # Unable to Connect
+    print_log("\tUnable to Connect: {0}\n".format(len(no_connect_ips)), summary_log)
+    if len(no_connect_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in no_connect_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("=" * 50 + "\n", summary_log)
+
     # Parameter Content
     print_log("[Parameters]\n", summary_log)
     print_log("\tChanged Parameters: {0}\n".format(len(param_change_ips)), summary_log)
@@ -671,24 +690,6 @@ def summaryLog(myuser, total_devices, no_changes_ips, no_ping_ips, no_connect_ip
         print_log("\t\t* No Devices *\n", summary_log)
     else:
         for ip in config_update_error_ips:
-            print_log("\t\t-> " + ip + "\n", summary_log)
-    print_log("=" * 50 + "\n", summary_log)
-
-    # Unable to Ping
-    print_log("\tUnable to Ping: {0}\n".format(len(no_ping_ips)), summary_log)
-    if len(no_ping_ips) == 0:
-        print_log("\t\t* No Devices *\n", summary_log)
-    else:
-        for ip in no_ping_ips:
-            print_log("\t\t-> " + ip + "\n", summary_log)
-    print_log("=" * 50 + "\n", summary_log)
-
-    # Unable to Connect
-    print_log("\tUnable to Connect: {0}\n".format(len(no_connect_ips)), summary_log)
-    if len(no_connect_ips) == 0:
-        print_log("\t\t* No Devices *\n", summary_log)
-    else:
-        for ip in no_connect_ips:
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
