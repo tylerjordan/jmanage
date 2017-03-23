@@ -255,8 +255,9 @@ def add_to_csv_sort(entry, csv_file):
 
     # Sort the entire csv, by date, newest first
     try:
-        reader = csv.reader(open(csv_file), delimiter=",")
-        sortedlist = sorted(reader, key=operator.itemgetter(2), reverse=True)
+        if not os.stat(csv_file).st_size == 0:
+            reader = csv.reader(open(csv_file), delimiter=",")
+            sortedlist = sorted(reader, key=operator.itemgetter(2), reverse=True)
     except Exception as err:
         print "Issue reading or sorting file -> ERROR: {0}".format(err)
         return False

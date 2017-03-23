@@ -719,6 +719,7 @@ def summaryLog(myuser, total_devices, no_changes_ips, no_ping_ips, no_connect_ip
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
+# Simple function for adjusting tabs
 def iptab(ip):
     if len(ip) < 14:
         mytab = "\t\t"
@@ -727,6 +728,7 @@ def iptab(ip):
 
     return mytab
 
+# Function for adding new devices to the database
 def add_new_devices(iplistfile, myuser, access_error_log):
     now = get_now_time()
     new_devices_name = "Add_New_Devices_" + now + ".log"
@@ -749,19 +751,20 @@ def add_new_devices(iplistfile, myuser, access_error_log):
                 if connect(ip):
                     # Try adding this device to the database
                     if add_record(ip):
-                        print_sl("\t* Added device to database successfully *\n", new_devices_log)
+                        print_sl("\tSuccess - Added device to database\n", new_devices_log)
                     else:
-                        print_sl("\t* Failed adding device to database *\n", new_devices_log)
+                        print_sl("\t* Failed - Unable to add device to database *\n", new_devices_log)
                         add_to_csv_sort(ip + "," + "Unable to add device to database" + "," + get_now_time(), access_error_log)
                 else:
-                    print_sl("\t* Unable to connect to device *\n", new_devices_log)
+                    print_sl("\t* Failed - Unable to connect to device *\n", new_devices_log)
+                    add_to_csv_sort(ip + "," + "Unable to connect to device" + "," + get_now_time(), access_error_log)
             else:
-                print_sl("\t* Unable to ping device *\n", new_devices_log)
+                print_sl("\t* Failed - Unable to ping device *\n", new_devices_log)
                 add_to_csv_sort(ip + "," + "Unable to ping device" + "," + get_now_time(), access_error_log)
         else:
-            print_sl("\t* Device already in database *\n", new_devices_log)
+            print_sl("\tSkipping - Device already in database\n", new_devices_log)
 
-
+# Function for performing the checks
 def check_param_configs(listDict, myuser, access_error_log):
     # Performs the parameter check, configuration check, and template check
     total_devices = len(listDict)
