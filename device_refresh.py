@@ -17,27 +17,32 @@ from ncclient import manager  # https://github.com/ncclient/ncclient
 from ncclient.transport import errors
 from utility import *
 
-credsCSV = ''
-iplistfile = ''
+# Paths
 listDictCSV = ''
 iplist_dir = ''
 config_dir = ''
 log_dir = ''
-template_file = ''
 dir_path = ''
 
+# Files
+credsCSV = ''
+iplistfile = ''
+template_file = ''
+access_error_log = ""
+
+# Params
 addl_opt = ''
 listDict = []
 mypwd = ''
 myuser = ''
 port = 22
-
 num_of_configs = 5
 
 
 def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
     global template_file
+    global access_error_log
     global listDictCSV
     global credsCSV
     global iplist_dir
@@ -53,6 +58,7 @@ def detect_env():
         config_dir = os.path.join(dir_path, "data\\configs")
         log_dir = os.path.join(dir_path, "data\\logs")
         template_file = os.path.join(dir_path, config_dir, "Template.conf")
+        access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
     else:
         #print "Environment Linux/MAC!"
         listDictCSV = os.path.join(dir_path, "data/listdict.csv")
@@ -60,6 +66,7 @@ def detect_env():
         config_dir = os.path.join(dir_path, "data/configs")
         log_dir = os.path.join(dir_path, "data/logs")
         template_file = os.path.join(dir_path, config_dir, "Template.conf")
+        access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
 
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
@@ -206,7 +213,8 @@ def save_config_file(myconfig, record):
     try:
         newfile = open(fileandpath, "w+")
     except Exception as err:
-        print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, fileandpath)
+        #print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, fileandpath)
+        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
         return False
     else:
         # Remove excess configurations if necessary
@@ -215,11 +223,13 @@ def save_config_file(myconfig, record):
             try:
                 os.remove(del_file)
             except Exception as err:
-                print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
+                add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
+                #print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
         try:
             newfile.write(myconfig)
         except Exception as err:
-            print "ERROR: Unable to write config to file: {0}".format(err)
+            #print "ERROR: Unable to write config to file: {0}".format(err)
+            add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
             return False
         else:
             newfile.close()
@@ -360,7 +370,8 @@ def ping(ip):
                 stderr=DEVNULL
             )
             return True
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as err:
+            add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
             return False
 
 def get_now_time():
@@ -406,14 +417,8 @@ def connect(ip):
         #print "Connecting to: {0}".format(ip)
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
-    except ConnectRefusedError as err:
-        print "ERROR: Device refused the connection: {0} Device: {1}".format(err, ip)
-        return False
-    except ConnectTimeoutError as err:
-        print "ERROR: Connection attempt timed out: {0} Device: {1}".format(err, ip)
-        return False
     except Exception as err:
-        print "ERROR: Issue opening connection: {0} Device: {1}".format(err, ip)
+        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
         return False
     # If try arguments succeed...
     else:
@@ -466,6 +471,7 @@ def information(connection, ip, software_info, host_name):
         return {'host_name': host_name, 'ip': ip, 'model': model, 'junos_code': junos_code, 'serial_number': serial_number}
     except:
         #print '\t- ERROR: Device was reachable, the information was not found.'
+        add_to_csv_sort(ip + "," + "Unable to gather system information" + "," + get_now_time(), access_error_log)
         return False
 
 
@@ -486,13 +492,16 @@ def run(ip, username, password, port):
                                      hostkey_verify=False)
         connection.timeout = 300
     except errors.SSHError:
-        print '\t- ERROR: Unable to connect to device: {0} on port: {1}'.format(ip, port)
+        #print '\t- ERROR: Unable to connect to device: {0} on port: {1}'.format(ip, port)
+        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
         return False
     except errors.AuthenticationError:
-        print '\t- ERROR: Bad username or password for device: {0}'.format(ip)
+        #print '\t- ERROR: Bad username or password for device: {0}'.format(ip)
+        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
         return False
     except Exception as err:
-        print '\t- ERROR: Unable to connect to device: {0} with error: {1}'.format(ip, err)
+        #print '\t- ERROR: Unable to connect to device: {0} with error: {1}'.format(ip, err)
+        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
         return False
     else:
         software_info = connection.get_software_information(format='xml')
@@ -665,23 +674,6 @@ def summaryLog(myuser, total_devices, no_changes_ips, no_ping_ips, no_connect_ip
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
-    # Template Deviation Content
-    if addl_opt == "template":
-        print_log("[Template Deviation]\n", summary_log)
-        print_log("\tTemplate Deviation: {0}\n".format(len(templ_change_ips)), summary_log)
-        if len(templ_change_ips) == 0:
-            print_log("\t\t* No Devices *\n", summary_log)
-        else:
-            for ip in templ_change_ips:
-                print_log("\t\t-> " + ip + "\n", summary_log)
-        print_log("\tTemplate Errors: {0}\n".format(len(templ_error_ips)), summary_log)
-        if len(templ_error_ips) == 0:
-            print_log("\t\t* No Devices *\n", summary_log)
-        else:
-            for ip in templ_error_ips:
-                print_log("\t\t-> " + ip + "\n", summary_log)
-        print_log("=" * 50 + "\n", summary_log)
-
     # Unable to Ping
     print_log("\tUnable to Ping: {0}\n".format(len(no_ping_ips)), summary_log)
     if len(no_ping_ips) == 0:
@@ -700,6 +692,24 @@ def summaryLog(myuser, total_devices, no_changes_ips, no_ping_ips, no_connect_ip
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
+    # Template Deviation Content
+    if addl_opt == "template":
+        print_log("[Template Deviation]\n", summary_log)
+        print_log("\tTemplate Deviation: {0}\n".format(len(templ_change_ips)), summary_log)
+        if len(templ_change_ips) == 0:
+            print_log("\t\t* No Devices *\n", summary_log)
+        else:
+            for ip in templ_change_ips:
+                print_log("\t\t-> " + ip + "\n", summary_log)
+        print_log("=" * 50 + "\n", summary_log)
+        print_log("\tTemplate Errors: {0}\n".format(len(templ_error_ips)), summary_log)
+        if len(templ_error_ips) == 0:
+            print_log("\t\t* No Devices *\n", summary_log)
+        else:
+            for ip in templ_error_ips:
+                print_log("\t\t-> " + ip + "\n", summary_log)
+        print_log("=" * 50 + "\n", summary_log)
+
     # Unchanged Devices
     print_log("\tUnchanged Devices: {0}\n".format(len(no_changes_ips)), summary_log)
     if len(no_changes_ips) == 0:
@@ -709,6 +719,13 @@ def summaryLog(myuser, total_devices, no_changes_ips, no_ping_ips, no_connect_ip
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
+def iptab(ip):
+    if len(ip) < 14:
+        mytab = "\t\t"
+    else:
+        mytab = "\t"
+
+    return mytab
 
 def add_new_devices(iplistfile, myuser, access_error_log):
     now = get_now_time()
@@ -723,21 +740,24 @@ def add_new_devices(iplistfile, myuser, access_error_log):
     # Loop over the list of new IPs
     for raw_ip in line_list(os.path.join(iplist_dir, iplistfile)):
         ip = raw_ip.strip()
-        print_sl("\t-  Add {0} -> ".format(ip), new_devices_log)
+        print_sl("\t-  Add {0} ->{1}".format(ip, iptab(ip)), new_devices_log)
         # If a record doesn't exist, try to create one
         if not get_record(ip):
-            # Make sure you can ping the device before trying to configure
+            # Make sure you can ping the device
             if ping(ip):
-                # Make sure you can connect to the device before trying to add
+                # Make sure you can connect to the device
                 if connect(ip):
+                    # Try adding this device to the database
                     if add_record(ip):
                         print_sl("\t* Added device to database successfully *\n", new_devices_log)
                     else:
-                        print_sl("\t* Failed adding device to database *\n", [new_devices_log, access_error_log])
+                        print_sl("\t* Failed adding device to database *\n", new_devices_log)
+                        add_to_csv_sort(ip + "," + "Unable to add device to database" + "," + get_now_time(), access_error_log)
                 else:
-                    print_sl("\t* Unable to connect to device *\n", [new_devices_log, access_error_log])
+                    print_sl("\t* Unable to connect to device *\n", new_devices_log)
             else:
-                print_sl("\t* Unable to ping device *\n", [new_devices_log, access_error_log])
+                print_sl("\t* Unable to ping device *\n", new_devices_log)
+                add_to_csv_sort(ip + "," + "Unable to ping device" + "," + get_now_time(), access_error_log)
         else:
             print_sl("\t* Device already in database *\n", new_devices_log)
 
@@ -759,7 +779,6 @@ def check_param_configs(listDict, myuser, access_error_log):
     templ_change_ips = []
 
     # A single running log of changes
-    now = get_now_time()
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
 
     # Parameter/Configuration/Template Check loop
@@ -794,7 +813,8 @@ def check_param_configs(listDict, myuser, access_error_log):
                     print_sl("Report: Parameter and Config Check\n", conf_chg_log)
                     print_sl("User: {0}\n".format(myuser), conf_chg_log)
                     print_sl("Checked: {0}\n\n".format(now), conf_chg_log)
-                    add_to_csv_sort(record['ip'] + "," + record['host_name'] + "," + now, run_change_log)
+                    # The "run_change_log" format is "IP,HOSTNAME,DATE"
+                    add_to_csv_sort(record['ip'] + "," + record['host_name'] + "," + get_now_time(), run_change_log)
 
                 # If param results detect changes
                 if param_results[-1] == 2:
@@ -805,7 +825,7 @@ def check_param_configs(listDict, myuser, access_error_log):
                     param_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
                 # If param results are errors
                 elif param_results[-1] == 0:
-                    print_sl("{0}:{1}:Parameter Check -> {2}\n".format(now, record['ip'], param_results[0]), access_error_log)
+                    add_to_csv_sort(record['[ip]'] + "," + param_results[0] + "," + get_now_time(), access_error_log)
                     param_attrib_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
                 # If compare results detect differences
                 if compare_results[-1] == 2:
@@ -816,11 +836,11 @@ def check_param_configs(listDict, myuser, access_error_log):
                     config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
                 # If compare results are save errors
                 elif compare_results[-1] == 0:
-                    print_sl("{0}:{1}:Config Check -> {2}\n".format(now, record['ip'], compare_results[0]), access_error_log)
+                    add_to_csv_sort(record['[ip]'] + "," + compare_results[0] + "," + get_now_time(), access_error_log)
                     config_save_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
                 # If compare results are update errors
                 elif compare_results[-1] == 3:
-                    print_sl("{0}:{1}:Config Check -> {2}\n".format(now, record['ip'], compare_results[0]), access_error_log)
+                    add_to_csv_sort(record['[ip]'] + "," + compare_results[0] + "," + get_now_time(), access_error_log)
                     config_update_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
                 # Check if template option was specified
@@ -845,7 +865,7 @@ def check_param_configs(listDict, myuser, access_error_log):
                         print_sl("\t* Template Matches *\n", temp_dev_log)
                     else:
                         print_sl("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
-                        print_sl("{0}:{1}:Config Check -> {2}\n".format(now, record['ip'], templ_results[0]), access_error_log)
+                        add_to_csv_sort(record['[ip]'] + "," + templ_results[0] + "," + get_now_time(), access_error_log)
                         templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
             else:
                 no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
@@ -917,9 +937,8 @@ if __name__ == "__main__":
     mypwd = creds['password']
 
     # Create access_error_log
-    now = get_now_time()
-    access_error_name = "Access_Error_" + now + ".log"
-    access_error_log = os.path.join(log_dir, access_error_name)
+    # The "access_error_log" format is "IP,ERROR/MESSAGE,DATE"
+
 
     # Load records from existing CSV
     #print "Loading records..."
