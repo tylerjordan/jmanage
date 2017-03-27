@@ -22,6 +22,7 @@ listDictCSV = ''
 iplist_dir = ''
 config_dir = ''
 log_dir = ''
+template_dir = ''
 dir_path = ''
 
 # Files
@@ -58,6 +59,7 @@ def detect_env():
     global credsCSV
     global iplist_dir
     global config_dir
+    global template_dir
     global log_dir
     global dir_path
 
@@ -67,16 +69,18 @@ def detect_env():
         listDictCSV = os.path.join(dir_path, "data\\listdict.csv")
         iplist_dir = os.path.join(dir_path, "data\\iplists")
         config_dir = os.path.join(dir_path, "data\\configs")
+        template_dir = os.path.join(dir_path, "data\\templates")
         log_dir = os.path.join(dir_path, "data\\logs")
-        template_file = os.path.join(dir_path, config_dir, "Template.conf")
+        template_file = os.path.join(dir_path, template_dir, "Template.conf")
         access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
     else:
         #print "Environment Linux/MAC!"
         listDictCSV = os.path.join(dir_path, "data/listdict.csv")
         iplist_dir = os.path.join(dir_path, "data/iplists")
         config_dir = os.path.join(dir_path, "data/configs")
+        template_dir = os.path.join(dir_path, "data/templates")
         log_dir = os.path.join(dir_path, "data/logs")
-        template_file = os.path.join(dir_path, config_dir, "Template.conf")
+        template_file = os.path.join(dir_path, template_dir, "Template.conf")
         access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
 
 def load_config_file(ip, newest):
