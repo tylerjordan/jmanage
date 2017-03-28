@@ -872,45 +872,55 @@ def param_config_check(record, access_error_log, conf_chg_log):
         add_to_csv_sort(record['[ip]'] + "," + compare_results[0] + "," + get_now_time(), access_error_log)
         config_update_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
-# Function for performing the checks
-def check_main(access_error_log):
-    # Performs the selected checks (Parameter/Config, Template, or All)
-    for record in listDict:
-        directory_check(record)
-        device_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
 
-        # Create logs for capturing info
-        now = get_now_time()
-        if addl_opt == "configs" or addl_opt == "all":
-            conf_chg_name = "Config_Change_" + now + ".log"
-            conf_chg_log = os.path.join(device_dir, conf_chg_name)
-
-        if addl_opt == "template" or addl_opt == "all":
-            temp_dev_name = "Template_Deviation_" + now + ".log"
-            temp_dev_log = os.path.join(device_dir, temp_dev_name)
-
-        print "\n" + "-" * 80
-        print subHeading(record['host_name'] + " - (" + record['ip'] + ")", 15)
-        # Check if device is pingable
-        if ping(record['ip']):
-            # Check if device can be connected to
-            if connect(record['ip']):
-                if addl_opt == "configs" or addl_opt == "all":
-                    print "Running Param/Config Check..."
-                    param_config_check(record, access_error_log, conf_chg_log)
-                if addl_opt == "template" or addl_opt == "all":
-                    print "Running Template Check..."
-                    template_check(record, access_error_log, temp_dev_log)
-            else:
-                no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-                print "\t * Unable to connect to {0} at {1} *\n".format(record['host_name'], record['ip'])
-        else:
-            no_ping_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-            print "\t * Unable to ping {0} at {1} *\n".format(record['host_name'], record['ip'])
-
+# Function that checks if were using a subset or not
+def check_loop(subsetlist, access_error_log):
+    if subsetlist:
+        for record in listDict:
+            if record['ip'] in line_list(os.path.join(iplist_dir, subsetlist)):
+                check_main(record, access_error_log)
+    else:
+        for record in listDict:
+            check_main(record, access_error_log)
     # End of processing
     print "\n" + "=" * 80
     print "Device Processsing Ended: {0}\n\n".format(get_now_time())
+
+
+# Function for performing the checks
+def check_main(record, access_error_log):
+    # Performs the selected checks (Parameter/Config, Template, or All)
+    directory_check(record)
+    device_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+
+    # Create logs for capturing info
+    now = get_now_time()
+    if addl_opt == "configs" or addl_opt == "all":
+        conf_chg_name = "Config_Change_" + now + ".log"
+        conf_chg_log = os.path.join(device_dir, conf_chg_name)
+
+    if addl_opt == "template" or addl_opt == "all":
+        temp_dev_name = "Template_Deviation_" + now + ".log"
+        temp_dev_log = os.path.join(device_dir, temp_dev_name)
+
+    print "\n" + "-" * 80
+    print subHeading(record['host_name'] + " - (" + record['ip'] + ")", 15)
+    # Check if device is pingable
+    if ping(record['ip']):
+        # Check if device can be connected to
+        if connect(record['ip']):
+            if addl_opt == "configs" or addl_opt == "all":
+                print "Running Param/Config Check..."
+                param_config_check(record, access_error_log, conf_chg_log)
+            if addl_opt == "template" or addl_opt == "all":
+                print "Running Template Check..."
+                template_check(record, access_error_log, temp_dev_log)
+        else:
+            no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+            print "\t * Unable to connect to {0} at {1} *\n".format(record['host_name'], record['ip'])
+    else:
+        no_ping_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        print "\t * Unable to ping {0} at {1} *\n".format(record['host_name'], record['ip'])
 
 
 def main(argv):
@@ -928,16 +938,18 @@ def main(argv):
     global iplistfile
     global addl_opt
     try:
-        opts, args = getopt.getopt(argv, "hc:i:o:",["creds=","iplist=","funct="])
+        opts, args = getopt.getopt(argv, "hc:i:o:s:",["creds=","iplist=","funct=","subset="])
     except getopt.GetoptError:
-        print "device_refresh -c <credsfile> -i <iplistfile> -o <functions>"
+        print "device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions>"
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'device_refresh -c <credsfile> -i <iplistfile> -o <functions>'
+            print 'device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions>'
             sys.exit()
         elif opt in ("-c", "--creds"):
             credsCSV = arg
+        elif opt in ("-s", "--subset"):
+            subsetlist = arg
         elif opt in ("-i", "--iplist"):
             iplistfile = arg
         elif opt in ("-o", "--funct"):
@@ -945,6 +957,7 @@ def main(argv):
     print "Credentials file is: {0}".format(credsCSV)
     print "IP List file is: {0}".format(iplistfile)
     print "Function Choice is: {0}".format(addl_opt)
+    print "Subset List File is: {0}".format(subsetlist)
 
 # Main execution loop
 if __name__ == "__main__":
@@ -978,7 +991,7 @@ if __name__ == "__main__":
         print " >> Running check_main..."
         print subHeading("CHECK FUNCTIONS", 15)
         # Run the check main process
-        check_main(access_error_log)
+        check_loop(subsetlist, access_error_log)
         print " >> Completed check_main"
 
         # Print the scan results (troubleshooting)
