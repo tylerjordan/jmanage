@@ -519,7 +519,11 @@ def run(ip, username, password, port):
         add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
         return False
     else:
-        software_info = connection.get_software_information(format='xml')
+        try:
+            software_info = connection.get_software_information(format='xml')
+        except Exception as err:
+            print "Error getting software info. ERROR: {0}".format(err)
+            return False
         host_name = software_info.xpath('//software-information/host-name')[0].text
         output = information(connection, ip, software_info, host_name)
         if not output:
@@ -889,7 +893,7 @@ def check_main(access_error_log):
         print subHeading(record['host_name'] + " - (" + record['ip'] + ")", 15)
         # Check if device is pingable
         if ping(record['ip']):
-            # Check if device can be connected by script
+            # Check if device can be connected to
             if connect(record['ip']):
                 if addl_opt == "configs" or addl_opt == "all":
                     print "Running Param/Config Check..."
