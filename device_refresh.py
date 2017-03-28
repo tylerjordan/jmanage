@@ -33,6 +33,7 @@ access_error_log = ""
 
 # Params
 addl_opt = ''
+subsetlist = ''
 listDict = []
 mypwd = ''
 myuser = ''
@@ -937,6 +938,7 @@ def main(argv):
     global credsCSV
     global iplistfile
     global addl_opt
+    global subsetlist
     try:
         opts, args = getopt.getopt(argv, "hc:i:o:s:",["creds=","iplist=","funct=","subset="])
     except getopt.GetoptError:
