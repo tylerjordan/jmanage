@@ -248,7 +248,7 @@ def csv_to_dict(filePathName):
         return row
 
 
-# Apply lines to CSV, then sort it, newest entries first
+# Apply lines to CSV, then sort it, newest entries first ** USES SEMICOLONs **
 def add_to_csv_sort(entry, csv_file):
     # Add to csv file
     print_log(entry, csv_file)
@@ -256,7 +256,7 @@ def add_to_csv_sort(entry, csv_file):
     # Sort the entire csv, by date, newest first
     try:
         if not os.stat(csv_file).st_size == 0:
-            reader = csv.reader(open(csv_file), delimiter=",")
+            reader = csv.reader(open(csv_file), delimiter=";")
             sortedlist = sorted(reader, key=operator.itemgetter(2), reverse=True)
     except Exception as err:
         print "Issue reading or sorting file -> ERROR: {0}".format(err)
@@ -264,7 +264,7 @@ def add_to_csv_sort(entry, csv_file):
     else:
         try:
             with open(csv_file, "wb") as f:
-                fileWriter = csv.writer(f, delimiter=',')
+                fileWriter = csv.writer(f, delimiter=';')
                 for row in sortedlist:
                     fileWriter.writerow(row)
         except Exception as err:

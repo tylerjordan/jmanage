@@ -230,7 +230,7 @@ def save_config_file(myconfig, record):
         newfile = open(fileandpath, "w+")
     except Exception as err:
         #print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, fileandpath)
-        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
         return False
     else:
         # Remove excess configurations if necessary
@@ -239,13 +239,13 @@ def save_config_file(myconfig, record):
             try:
                 os.remove(del_file)
             except Exception as err:
-                add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
+                add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
                 #print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
         try:
             newfile.write(myconfig)
         except Exception as err:
             #print "ERROR: Unable to write config to file: {0}".format(err)
-            add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
+            add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
             return False
         else:
             newfile.close()
@@ -387,7 +387,7 @@ def ping(ip):
             )
             return True
         except subprocess.CalledProcessError as err:
-            add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
+            add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
             return False
 
 def get_now_time():
@@ -434,7 +434,7 @@ def connect(ip):
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
     except Exception as err:
-        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
         return False
     # If try arguments succeed...
     else:
@@ -487,7 +487,7 @@ def information(connection, ip, software_info, host_name):
         return {'host_name': host_name, 'ip': ip, 'model': model, 'junos_code': junos_code, 'serial_number': serial_number}
     except:
         #print '\t- ERROR: Device was reachable, the information was not found.'
-        add_to_csv_sort(ip + "," + "Unable to gather system information" + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(ip + ";" + "Unable to gather system information" + ";" + get_now_time(), access_error_log)
         return False
 
 
@@ -509,15 +509,15 @@ def run(ip, username, password, port):
         connection.timeout = 300
     except errors.SSHError:
         #print '\t- ERROR: Unable to connect to device: {0} on port: {1}'.format(ip, port)
-        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
         return False
     except errors.AuthenticationError:
         #print '\t- ERROR: Bad username or password for device: {0}'.format(ip)
-        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
         return False
     except Exception as err:
         #print '\t- ERROR: Unable to connect to device: {0} with error: {1}'.format(ip, err)
-        add_to_csv_sort(ip + "," + str(err) + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
         return False
     else:
         try:
@@ -789,13 +789,13 @@ def add_new_devices(iplistfile, access_error_log):
                         print_sl("\tSuccess - Added device to database\n", new_devices_log)
                     else:
                         print_sl("\t* Failed - Unable to add device to database *\n", new_devices_log)
-                        add_to_csv_sort(ip + "," + "Unable to add device to database" + "," + get_now_time(), access_error_log)
+                        add_to_csv_sort(ip + ";" + "Unable to add device to database" + ";" + get_now_time(), access_error_log)
                 else:
                     print_sl("\t* Failed - Unable to connect to device *\n", new_devices_log)
-                    add_to_csv_sort(ip + "," + "Unable to connect to device" + "," + get_now_time(), access_error_log)
+                    add_to_csv_sort(ip + ";" + "Unable to connect to device" + ";" + get_now_time(), access_error_log)
             else:
                 print_sl("\t* Failed - Unable to ping device *\n", new_devices_log)
-                add_to_csv_sort(ip + "," + "Unable to ping device" + "," + get_now_time(), access_error_log)
+                add_to_csv_sort(ip + ";" + "Unable to ping device" + ";" + get_now_time(), access_error_log)
         else:
             print_sl("\tSkipping - Device already in database\n", new_devices_log)
 
@@ -822,7 +822,7 @@ def template_check(record, access_error_log, temp_dev_log):
         print_sl("\t* Template Matches *\n", temp_dev_log)
     else:
         print_sl("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
-        add_to_csv_sort(record['[ip]'] + "," + templ_results[0] + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(record['[ip]'] + ";" + templ_results[0] + ";" + get_now_time(), access_error_log)
         templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
 # Parameter and Cconfiguration Check Function
@@ -844,7 +844,7 @@ def param_config_check(record, access_error_log, conf_chg_log):
         print_sl("User: {0}\n".format(myuser), conf_chg_log)
         print_sl("Checked: {0}\n\n".format(get_now_time()), conf_chg_log)
         # The "run_change_log" format is "IP,HOSTNAME,DATE"
-        add_to_csv_sort(record['ip'] + "," + record['host_name'] + "," + get_now_time(), run_change_log)
+        add_to_csv_sort(record['ip'] + ";" + record['host_name'] + ";" + get_now_time(), run_change_log)
 
     # If param results detect changes
     if param_results[-1] == 2:
@@ -855,7 +855,7 @@ def param_config_check(record, access_error_log, conf_chg_log):
         param_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If param results are errors
     elif param_results[-1] == 0:
-        add_to_csv_sort(record['[ip]'] + "," + param_results[0] + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(record['[ip]'] + ";" + param_results[0] + ";" + get_now_time(), access_error_log)
         param_attrib_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results detect differences
     if compare_results[-1] == 2:
@@ -866,11 +866,11 @@ def param_config_check(record, access_error_log, conf_chg_log):
         config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results are save errors
     elif compare_results[-1] == 0:
-        add_to_csv_sort(record['[ip]'] + "," + compare_results[0] + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(record['[ip]'] + ";" + compare_results[0] + ";" + get_now_time(), access_error_log)
         config_save_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results are update errors
     elif compare_results[-1] == 3:
-        add_to_csv_sort(record['[ip]'] + "," + compare_results[0] + "," + get_now_time(), access_error_log)
+        add_to_csv_sort(record['[ip]'] + ";" + compare_results[0] + ";" + get_now_time(), access_error_log)
         config_update_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
 
