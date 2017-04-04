@@ -523,7 +523,7 @@ def run(ip, username, password, port):
         try:
             software_info = connection.get_software_information(format='xml')
         except Exception as err:
-            print "Error getting software info. ERROR: {0}".format(err)
+            add_to_csv_sort(ip + ";" + "Error getting software info: " + err + ";" + get_now_time(), access_error_log)
             return False
         host_name = software_info.xpath('//software-information/host-name')[0].text
         output = information(connection, ip, software_info, host_name)
