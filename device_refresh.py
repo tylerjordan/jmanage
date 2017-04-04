@@ -877,8 +877,11 @@ def param_config_check(record, access_error_log, conf_chg_log):
 # Function that checks if were using a subset or not
 def check_loop(subsetlist, access_error_log):
     if subsetlist:
+        temp_list = []
+        for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
+            temp_list.append(ip_addr.strip())
         for record in listDict:
-            if record['ip'] in line_list(os.path.join(iplist_dir, subsetlist)):
+            if record['ip'] in temp_list:
                 check_main(record, access_error_log)
     else:
         for record in listDict:
