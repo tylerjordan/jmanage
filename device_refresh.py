@@ -371,11 +371,12 @@ def add_record(ip):
         listDict.append(items)
         return True
 
+"""
 def ping(ip):
-    """ Purpose: Determine if an IP is pingable
-    :param ip: IP address of host to ping
-    :return: True if ping successful
-    """
+    # Purpose: Determine if an IP is pingable
+    #:param ip: IP address of host to ping
+    #:return: True if ping successful
+    
     with open(os.devnull, 'w') as DEVNULL:
         try:
             # Check for Windows or Linux/MAC
@@ -389,6 +390,7 @@ def ping(ip):
         except subprocess.CalledProcessError as err:
             add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
             return False
+"""
 
 def get_now_time():
     """ Purpose: Create a correctly formatted timestamp
@@ -780,22 +782,36 @@ def add_new_devices(iplistfile, access_error_log):
         print_sl("\t-  Add {0} ->{1}".format(ip, iptab(ip)), new_devices_log)
         # If a record doesn't exist, try to create one
         if not get_record(ip):
-            # Make sure you can ping the device
-            if ping(ip):
-                # Make sure you can connect to the device
-                if connect(ip):
-                    # Try adding this device to the database
-                    if add_record(ip):
-                        print_sl("\tSuccess - Added device to database\n", new_devices_log)
-                    else:
-                        print_sl("\t* Failed - Unable to add device to database *\n", new_devices_log)
-                        add_to_csv_sort(ip + ";" + "Unable to add device to database" + ";" + get_now_time(), access_error_log)
-                else:
-                    print_sl("\t* Failed - Unable to connect to device *\n", new_devices_log)
-                    add_to_csv_sort(ip + ";" + "Unable to connect to device" + ";" + get_now_time(), access_error_log)
+            # Make sure you can connect to the device
+            try:
+                connect(ip)
+            except ConnectRefusedError as err:
+                no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+                add_to_csv_sort(
+                    ip + ";" + "Host Reachable, but NETCONF not configured. ERROR:(" + err + ")" + ";" + get_now_time(),
+                    access_error_log)
+            except ConnectAuthError as err:
+                no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+                add_to_csv_sort(
+                    ip + ";" + "Unable to connect with credentials. User:" + myuser + " ERROR:(" + err + ")" + ";" + get_now_time(),
+                    access_error_log)
+            except ConnectTimeoutError as err:
+                no_ping_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+                add_to_csv_sort(
+                    ip + ";" + "IP reachability issues. ERROR:(" + err + ")" + ";" + get_now_time(),
+                    access_error_log)
+            except ConnectError as err:
+                no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+                add_to_csv_sort(
+                    ip + ";" + "Unknown connection issue. DEBUG:(" + err + ")" + ";" + get_now_time(),
+                    access_error_log)
             else:
-                print_sl("\t* Failed - Unable to ping device *\n", new_devices_log)
-                add_to_csv_sort(ip + ";" + "Unable to ping device" + ";" + get_now_time(), access_error_log)
+                # Try adding this device to the database
+                if add_record(ip):
+                    print_sl("\tSuccess - Added device to database\n", new_devices_log)
+                else:
+                    print_sl("\t* Failed - Unable to add device to database *\n", new_devices_log)
+                    add_to_csv_sort(ip + ";" + "Unable to add device to database" + ";" + get_now_time(), access_error_log)
         else:
             print_sl("\tSkipping - Device already in database\n", new_devices_log)
 
@@ -866,11 +882,11 @@ def param_config_check(record, access_error_log, conf_chg_log):
         config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results are save errors
     elif compare_results[-1] == 0:
-        add_to_csv_sort(record['[ip]'] + ";" + compare_results[0] + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time(), access_error_log)
         config_save_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results are update errors
     elif compare_results[-1] == 3:
-        add_to_csv_sort(record['[ip]'] + ";" + compare_results[0] + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time(), access_error_log)
         config_update_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
 
@@ -909,22 +925,38 @@ def check_main(record, access_error_log):
 
     print "\n" + "-" * 80
     print subHeading(record['host_name'] + " - (" + record['ip'] + ")", 15)
-    # Check if device is pingable
-    if ping(record['ip']):
-        # Check if device can be connected to
-        if connect(record['ip']):
-            if addl_opt == "configs" or addl_opt == "all":
-                print "Running Param/Config Check..."
-                param_config_check(record, access_error_log, conf_chg_log)
-            if addl_opt == "template" or addl_opt == "all":
-                print "Running Template Check..."
-                template_check(record, access_error_log, temp_dev_log)
-        else:
-            no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-            print "\t * Unable to connect to {0} at {1} *\n".format(record['host_name'], record['ip'])
-    else:
+    # Try to connect to device
+    try:
+        connect(record['ip'])
+    # Connection Errors
+    except ConnectRefusedError as err:
+        no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        add_to_csv_sort(
+            record['ip'] + ";" + "Host Reachable, but NETCONF not configured. ERROR:(" + err + ")" + ";" + get_now_time(),
+            access_error_log)
+    except ConnectAuthError as err:
+        no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        add_to_csv_sort(
+            record['ip'] + ";" + "Unable to connect with credentials. User:" + myuser + " ERROR:(" + err + ")" + ";" + get_now_time(),
+            access_error_log)
+    except ConnectTimeoutError as err:
         no_ping_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-        print "\t * Unable to ping {0} at {1} *\n".format(record['host_name'], record['ip'])
+        add_to_csv_sort(
+            record['ip'] + ";" + "IP reachability issues. ERROR:(" + err + ")" + ";" + get_now_time(),
+            access_error_log)
+    except ConnectError as err:
+        no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        add_to_csv_sort(
+            record['ip'] + ";" + "Unknown connection issue. DEBUG:(" + err + ")" + ";" + get_now_time(),
+            access_error_log)
+    # Proceed with requested tasks
+    else:
+        if addl_opt == "configs" or addl_opt == "all":
+            print "Running Param/Config Check..."
+            param_config_check(record, access_error_log, conf_chg_log)
+        if addl_opt == "template" or addl_opt == "all":
+            print "Running Template Check..."
+            template_check(record, access_error_log, temp_dev_log)
 
 
 def main(argv):
