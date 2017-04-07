@@ -29,7 +29,8 @@ dir_path = ''
 credsCSV = ''
 iplistfile = ''
 template_file = ''
-access_error_log = ""
+access_error_log = ''
+new_devices_log = ''
 
 # Params
 addl_opt = ''
@@ -56,6 +57,7 @@ def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
     global template_file
     global access_error_log
+    global new_devices_log
     global listDictCSV
     global credsCSV
     global iplist_dir
@@ -72,8 +74,7 @@ def detect_env():
         config_dir = os.path.join(dir_path, "data\\configs")
         template_dir = os.path.join(dir_path, "data\\templates")
         log_dir = os.path.join(dir_path, "data\\logs")
-        template_file = os.path.join(dir_path, template_dir, "Template.conf")
-        access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
+
     else:
         #print "Environment Linux/MAC!"
         listDictCSV = os.path.join(dir_path, "data/listdict.csv")
@@ -81,8 +82,11 @@ def detect_env():
         config_dir = os.path.join(dir_path, "data/configs")
         template_dir = os.path.join(dir_path, "data/templates")
         log_dir = os.path.join(dir_path, "data/logs")
-        template_file = os.path.join(dir_path, template_dir, "Template.conf")
-        access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
+
+    # Statically defined files and logs
+    template_file = os.path.join(dir_path, template_dir, "Template.conf")
+    access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
+    new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
 
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
@@ -424,23 +428,44 @@ def change_record(ip, value, key):
                 myrecord.update(time_dict)
                 return True
 
-
+# This function attempts to open a connection with the device. If sucessful, session is returned,
 def connect(ip):
     """ Purpose: Get current configuration from device.
-        Returns: Text File
+        Returns: Device object / False
     """
     dev = Device(host=ip, user=myuser, passwd=mypwd)
     # Try to open a connection to the device
     try:
-        #print "Connecting to: {0}".format(ip)
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
-    except Exception as err:
-        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
+    except ConnectRefusedError as err:
+        no_connect_ips.append(ip)
+        add_to_csv_sort(
+            ip + ";" + "Host Reachable, but NETCONF not configured. ERROR:(" + str(err) + ");" + get_now_time(),
+            access_error_log)
+        return False
+    except ConnectAuthError as err:
+        no_connect_ips.append(ip)
+        add_to_csv_sort(
+            ip + ";" + "Unable to connect with credentials. User:" + myuser + " ERROR:(" + str(err) + ");" + get_now_time(),
+            access_error_log)
+        return False
+    except ConnectTimeoutError as err:
+        no_ping_ips.append(ip)
+        add_to_csv_sort(
+            ip + ";" + "IP reachability issues. ERROR:(" + str(err) + ");" + get_now_time(),
+            access_error_log)
+        return False
+    except ConnectError as err:
+        no_connect_ips.append(ip)
+        add_to_csv_sort(
+            ip + ";" + "Unknown connection issue. DEBUG:(" + str(err) + ");" + get_now_time(),
+            access_error_log)
         return False
     # If try arguments succeed...
     else:
         return dev
+
 
 def fetch_config(ip):
     """ Purpose: Get current configuration from device.
@@ -509,23 +534,15 @@ def run(ip, username, password, port):
                                      device_params={'name': 'junos'},
                                      hostkey_verify=False)
         connection.timeout = 300
-    except errors.SSHError:
-        #print '\t- ERROR: Unable to connect to device: {0} on port: {1}'.format(ip, port)
-        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
-        return False
-    except errors.AuthenticationError:
-        #print '\t- ERROR: Bad username or password for device: {0}'.format(ip)
-        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
-        return False
     except Exception as err:
-        #print '\t- ERROR: Unable to connect to device: {0} with error: {1}'.format(ip, err)
+        print '\t- ERROR: Unable to connect to device: {0} with error: {1}'.format(ip, err)
         add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
         return False
     else:
         try:
             software_info = connection.get_software_information(format='xml')
         except Exception as err:
-            add_to_csv_sort(ip + ";" + "Error getting software info: " + err + ";" + get_now_time(), access_error_log)
+            add_to_csv_sort(ip + ";" + str(err).strip('\b\r\n') + ";" + get_now_time(), access_error_log)
             return False
         host_name = software_info.xpath('//software-information/host-name')[0].text
         output = information(connection, ip, software_info, host_name)
@@ -766,56 +783,42 @@ def iptab(ip):
     return mytab
 
 # Function for adding new devices to the database
-def add_new_devices(iplistfile, access_error_log):
-    now = get_now_time()
-    new_devices_name = "Add_New_Devices_" + now + ".log"
-    new_devices_log = os.path.join(log_dir, new_devices_name)
+def add_new_devices_loop(iplistfile):
+    print "Report: Add New Devices\n"
+    print "User: {0}\n".format(myuser)
+    print "Captured: {0}\n\n".format(get_now_time())
 
-    print_sl("Report: Add New Devices\n", new_devices_log)
-    print_sl("User: {0}\n".format(myuser), new_devices_log)
-    print_sl("Captured: {0}\n\n".format(now), new_devices_log)
-
-    print_sl("Add New Devices:\n", new_devices_log)
+    print "Add New Devices:\n"
     # Loop over the list of new IPs
     for raw_ip in line_list(os.path.join(iplist_dir, iplistfile)):
-        ip = raw_ip.strip()
-        print_sl("\t-  Add {0} ->{1}".format(ip, iptab(ip)), new_devices_log)
-        # If a record doesn't exist, try to create one
-        if not get_record(ip):
-            # Make sure you can connect to the device
-            try:
-                connect(ip)
-            except ConnectRefusedError as err:
-                no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-                add_to_csv_sort(
-                    ip + ";" + "Host Reachable, but NETCONF not configured. ERROR:(" + err + ")" + ";" + get_now_time(),
-                    access_error_log)
-            except ConnectAuthError as err:
-                no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-                add_to_csv_sort(
-                    ip + ";" + "Unable to connect with credentials. User:" + myuser + " ERROR:(" + err + ")" + ";" + get_now_time(),
-                    access_error_log)
-            except ConnectTimeoutError as err:
-                no_ping_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-                add_to_csv_sort(
-                    ip + ";" + "IP reachability issues. ERROR:(" + err + ")" + ";" + get_now_time(),
-                    access_error_log)
-            except ConnectError as err:
-                no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-                add_to_csv_sort(
-                    ip + ";" + "Unknown connection issue. DEBUG:(" + err + ")" + ";" + get_now_time(),
-                    access_error_log)
-            else:
-                # Try adding this device to the database
-                if add_record(ip):
-                    print_sl("\tSuccess - Added device to database\n", new_devices_log)
-                else:
-                    print_sl("\t* Failed - Unable to add device to database *\n", new_devices_log)
-                    add_to_csv_sort(ip + ";" + "Unable to add device to database" + ";" + get_now_time(), access_error_log)
-        else:
-            print_sl("\tSkipping - Device already in database\n", new_devices_log)
+        # Attempt to add new device
+        add_new_device(raw_ip.strip())
 
-def template_check(record, access_error_log, temp_dev_log):
+# Function to add specific device
+def add_new_device(ip):
+    print "\t-  Trying to add device..."
+    # If a record doesn't exist, try to create one
+    if not get_record(ip):
+        # Make sure you can connect to the device
+        if connect(ip):
+            # Try adding this device to the database
+            if add_record(ip):
+                print "\t* Successfully added {0} to database.\n".format(ip)
+                add_to_csv_sort(
+                    ip + ";" + "Successfully added (" + ip + ") to database." + ";" + get_now_time(),
+                    new_devices_log)
+            else:
+                print "\t* Failed adding {0} to database *\n".format(ip)
+                add_to_csv_sort(
+                    ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
+                    new_devices_log)
+        else:
+            print "\t* Issue connecting to device, add failed.\n"
+    else:
+        print "\t* Skipping device, already in database.\n"
+
+
+def template_check(record, temp_dev_log):
     # Check if template option was specified
     # Template Results: 0 = Error, 1 = No Deviations, 2 = Deviations
     # Delete existing template file(s)
@@ -842,7 +845,7 @@ def template_check(record, access_error_log, temp_dev_log):
         templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
 # Parameter and Cconfiguration Check Function
-def param_config_check(record, access_error_log, conf_chg_log):
+def param_config_check(record, conf_chg_log):
     # A single running log of changes
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
 
@@ -891,24 +894,36 @@ def param_config_check(record, access_error_log, conf_chg_log):
 
 
 # Function that checks if were using a subset or not
-def check_loop(subsetlist, access_error_log):
+def check_loop(subsetlist):
+    # Check if subset option is defined
     if subsetlist:
         temp_list = []
         for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
             temp_list.append(ip_addr.strip())
-        for record in listDict:
-            if record['ip'] in temp_list:
-                check_main(record, access_error_log)
+        #for record in listDict:
+        #    if record['ip'] in temp_list:
+        #        check_main(record, access_error_log)
+        # Loop through IPs in the provided list
+        for ip in temp_list:
+            # Checks if the specified IP is NOT defined in the list of dictionaries. Add it as a new device.
+            if not any(ipaddr.get('ip', None) == ip for ipaddr in listDict):
+                print "\n" + "-" * 80
+                print subHeading(ip, 15)
+                add_new_device(ip)
+            # If the IP IS present, execute this...
+            else:
+                check_main(get_record(ip))
+    # Check the entire database
     else:
         for record in listDict:
-            check_main(record, access_error_log)
+            check_main(record)
     # End of processing
     print "\n" + "=" * 80
     print "Device Processsing Ended: {0}\n\n".format(get_now_time())
 
 
 # Function for performing the checks
-def check_main(record, access_error_log):
+def check_main(record):
     # Performs the selected checks (Parameter/Config, Template, or All)
     directory_check(record)
     device_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
@@ -926,38 +941,15 @@ def check_main(record, access_error_log):
     print "\n" + "-" * 80
     print subHeading(record['host_name'] + " - (" + record['ip'] + ")", 15)
     # Try to connect to device
-    try:
-        connect(record['ip'])
-    # Connection Errors
-    except ConnectRefusedError as err:
-        no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-        add_to_csv_sort(
-            record['ip'] + ";" + "Host Reachable, but NETCONF not configured. ERROR:(" + err + ")" + ";" + get_now_time(),
-            access_error_log)
-    except ConnectAuthError as err:
-        no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-        add_to_csv_sort(
-            record['ip'] + ";" + "Unable to connect with credentials. User:" + myuser + " ERROR:(" + err + ")" + ";" + get_now_time(),
-            access_error_log)
-    except ConnectTimeoutError as err:
-        no_ping_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-        add_to_csv_sort(
-            record['ip'] + ";" + "IP reachability issues. ERROR:(" + err + ")" + ";" + get_now_time(),
-            access_error_log)
-    except ConnectError as err:
-        no_connect_ips.append(record['host_name'] + " (" + record['ip'] + ")")
-        add_to_csv_sort(
-            record['ip'] + ";" + "Unknown connection issue. DEBUG:(" + err + ")" + ";" + get_now_time(),
-            access_error_log)
-    # Proceed with requested tasks
-    else:
+    if connect(record['ip']):
         if addl_opt == "configs" or addl_opt == "all":
             print "Running Param/Config Check..."
-            param_config_check(record, access_error_log, conf_chg_log)
+            param_config_check(record, conf_chg_log)
         if addl_opt == "template" or addl_opt == "all":
             print "Running Template Check..."
-            template_check(record, access_error_log, temp_dev_log)
-
+            template_check(record, temp_dev_log)
+    else:
+        print "Connection failed, check error log for details."
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
@@ -1005,10 +997,6 @@ if __name__ == "__main__":
     myuser = creds['username']
     mypwd = creds['password']
 
-    # Create access_error_log
-    # The "access_error_log" format is "IP,ERROR/MESSAGE,DATE"
-    access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
-
     # Load records from existing CSV
     #print "Loading records..."
     listDict = csv_to_listdict(listDictCSV)
@@ -1018,7 +1006,7 @@ if __name__ == "__main__":
     print subHeading("ADD DEVICES FUNCTION", 15)
     if iplistfile:
         print " >> Running add_new_devices..."
-        add_new_devices(iplistfile, access_error_log)
+        add_new_devices_loop(iplistfile)
         print " >> Completed add_new_devices"
     else:
         print "\n >> No devices to add.\n"
@@ -1028,7 +1016,7 @@ if __name__ == "__main__":
         print " >> Running check_main..."
         print subHeading("CHECK FUNCTIONS", 15)
         # Run the check main process
-        check_loop(subsetlist, access_error_log)
+        check_loop(subsetlist)
         print " >> Completed check_main"
 
         # Print the scan results (troubleshooting)
