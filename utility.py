@@ -396,3 +396,4 @@ def print_log(statement, logfile):
         print "Error opening log file {0}".format(err)
     else:
         logobj.write(statement)
+        logobj.close()

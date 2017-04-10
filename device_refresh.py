@@ -271,6 +271,7 @@ def line_list(filepath):
         print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, filepath)
     else:
         linelist = f.readlines()
+        f.close()
         return linelist
 
 
