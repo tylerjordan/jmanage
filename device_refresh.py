@@ -828,20 +828,20 @@ def template_check(record, temp_dev_log):
     # Run template check
     templ_results = template_scanner(template_regex(), record)
 
-    print_sl("Report: Template Deviation Check\n", temp_dev_log)
-    print_sl("Device: {0} ({1})\n".format(record['host_name'], record['ip']), temp_dev_log)
-    print_sl("User: {0}\n".format(myuser), temp_dev_log)
-    print_sl("Checked: {0}\n".format(get_now_time()), temp_dev_log)
+    print_log("Report: Template Deviation Check\n", temp_dev_log)
+    print_log("Device: {0} ({1})\n".format(record['host_name'], record['ip']), temp_dev_log)
+    print_log("User: {0}\n".format(myuser), temp_dev_log)
+    print_log("Checked: {0}\n".format(get_now_time()), temp_dev_log)
 
-    print_sl("\nMissing Configuration:\n", temp_dev_log)
+    print_log("\nMissing Configuration:\n", temp_dev_log)
     if templ_results[-1] == 2:
         for result in templ_results[:-1]:
-            print_sl("\t> {0}\n".format(result), temp_dev_log)
+            print_log("\t> {0}\n".format(result), temp_dev_log)
         templ_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     elif templ_results[-1] == 1:
-        print_sl("\t* Template Matches *\n", temp_dev_log)
+        print_log("\t* Template Matches *\n", temp_dev_log)
     else:
-        print_sl("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
+        print_log("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
         add_to_csv_sort(record['ip'] + ";" + templ_results[0] + ";" + get_now_time(), access_error_log)
         templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
