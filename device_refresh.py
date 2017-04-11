@@ -842,7 +842,7 @@ def template_check(record, temp_dev_log):
         print_sl("\t* Template Matches *\n", temp_dev_log)
     else:
         print_sl("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
-        add_to_csv_sort(record['[ip]'] + ";" + templ_results[0] + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + templ_results[0] + ";" + get_now_time(), access_error_log)
         templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
 # Parameter and Cconfiguration Check Function
@@ -875,7 +875,7 @@ def param_config_check(record, conf_chg_log):
         param_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If param results are errors
     elif param_results[-1] == 0:
-        add_to_csv_sort(record['[ip]'] + ";" + param_results[0] + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + param_results[0] + ";" + get_now_time(), access_error_log)
         param_attrib_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results detect differences
     if compare_results[-1] == 2:
