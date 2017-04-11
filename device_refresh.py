@@ -115,20 +115,21 @@ def get_old_new_file(record, newest):
         # Create the appropriate absolute path for the config file
         my_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
         if os.path.exists(my_dir):
+            for file in listdir(my_dir):
+                if file.startswith(record['host_name']):
+                    filtered_list.append(os.path.join(my_dir, file))
             try:
-                for file in listdir(my_dir):
-                    if file.startswith(record['host_name']):
-                        filtered_list.append(os.path.join(my_dir, file))
                 sorted_list = sorted(filtered_list, key=os.path.getctime)
             except Exception as err:
-                print "Issue"
-            if sorted_list:
-                if newest:
-                    return sorted_list[-1]
-                else:
-                    return sorted_list[0]
+                print "Error with sorted function. ERROR: {0}".format(err)
             else:
-                return sorted_list
+                if sorted_list:
+                    if newest:
+                        return sorted_list[-1]
+                    else:
+                        return sorted_list[0]
+                else:
+                    return filtered_list
         # Returns an empty list, if directory doesn't exist
         else:
             return filtered_list
