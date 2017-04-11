@@ -546,8 +546,12 @@ def run(ip, username, password, port):
         except Exception as err:
             add_to_csv_sort(ip + ";" + str(err).strip('\b\r\n') + ";" + get_now_time(), access_error_log)
             return False
+        # Collect information from device
         host_name = software_info.xpath('//software-information/host-name')[0].text
         output = information(connection, ip, software_info, host_name)
+        # Close the session
+        connection.close_session()
+        # Determine what to return
         if not output:
             return False
         return output
