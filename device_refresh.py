@@ -29,6 +29,7 @@ dir_path = ''
 credsCSV = ''
 iplistfile = ''
 template_file = ''
+template_csv = ''
 access_error_log = ''
 new_devices_log = ''
 
@@ -56,6 +57,7 @@ templ_change_ips = []
 def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
     global template_file
+    global template_csv
     global access_error_log
     global new_devices_log
     global listDictCSV
@@ -84,6 +86,7 @@ def detect_env():
         log_dir = os.path.join(dir_path, "data/logs")
 
     # Statically defined files and logs
+    template_csv = os.path.join(dir_path, template_dir, "Template_Regex.csv")
     template_file = os.path.join(dir_path, template_dir, "Template.conf")
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
@@ -632,7 +635,7 @@ def template_scanner(regtmpl_list, record):
 
 def template_regex():
     # Regexs for template comparisons
-    var_regex = '{{[A-Z]+}}'
+    '''
     d = {
         "{{VERSION}}": r'\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}',
         "{{HOSTNAME}}": r'SW?[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]',
@@ -645,6 +648,10 @@ def template_regex():
         "{{REV}}": r'\d{1,2}\.\d{1,2}',
         "{{TEXT}}": r'.*'
         }
+    '''
+    with open(template_csv) as f:
+        d = dict(filter(None, csv.reader(f, delimiter=";")))
+
 
     # Process for replacing placeholders with regexs
     varindc = "{{"
