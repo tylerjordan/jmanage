@@ -446,25 +446,25 @@ def connect(ip):
     except ConnectRefusedError as err:
         no_connect_ips.append(ip)
         add_to_csv_sort(
-            ip + ";" + "Host Reachable, but NETCONF not configured. ERROR:(" + str(err) + ");" + get_now_time(),
+            ip + ";" + "Host Reachable, but NETCONF not configured. ERROR:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
         return False
     except ConnectAuthError as err:
         no_connect_ips.append(ip)
         add_to_csv_sort(
-            ip + ";" + "Unable to connect with credentials. User:" + myuser + " ERROR:(" + str(err) + ");" + get_now_time(),
+            ip + ";" + "Unable to connect with credentials. User:" + myuser + " ERROR:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
         return False
     except ConnectTimeoutError as err:
         no_ping_ips.append(ip)
         add_to_csv_sort(
-            ip + ";" + "IP reachability issues. ERROR:(" + str(err) + ");" + get_now_time(),
+            ip + ";" + "IP reachability issues. ERROR:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
         return False
     except ConnectError as err:
         no_connect_ips.append(ip)
         add_to_csv_sort(
-            ip + ";" + "Unknown connection issue. DEBUG:(" + str(err) + ");" + get_now_time(),
+            ip + ";" + "Unknown connection issue. DEBUG:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
         return False
     # If try arguments succeed...
@@ -519,7 +519,7 @@ def information(connection, ip, software_info, host_name):
         return {'host_name': host_name, 'ip': ip, 'model': model, 'junos_code': junos_code, 'serial_number': serial_number}
     except:
         #print '\t- ERROR: Device was reachable, the information was not found.'
-        add_to_csv_sort(ip + ";" + "Unable to gather system information" + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(ip + ";" + "Unable to gather system information" + ";" + get_now_time() + "\n", access_error_log)
         return False
 
 
@@ -547,7 +547,7 @@ def run(ip, username, password, port):
         try:
             software_info = connection.get_software_information(format='xml')
         except Exception as err:
-            add_to_csv_sort(ip + ";" + str(err).strip('\b\r\n') + ";" + get_now_time(), access_error_log)
+            add_to_csv_sort(ip + ";" + str(err).strip('\b\r\n') + ";" + get_now_time() + "\n", access_error_log)
             return False
         # Collect information from device
         host_name = software_info.xpath('//software-information/host-name')[0].text
@@ -839,7 +839,7 @@ def template_check(record, temp_dev_log):
         print_log("\t* Template Matches *\n", temp_dev_log)
     else:
         print_log("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
-        add_to_csv_sort(record['ip'] + ";" + templ_results[0] + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + templ_results[0] + ";" + get_now_time() + "\n", access_error_log)
         templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
 # Parameter and Cconfiguration Check Function
@@ -872,7 +872,7 @@ def param_config_check(record, conf_chg_log):
         param_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If param results are errors
     elif param_results[-1] == 0:
-        add_to_csv_sort(record['ip'] + ";" + param_results[0] + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + param_results[0] + ";" + get_now_time() + "\n", access_error_log)
         param_attrib_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results detect differences
     if compare_results[-1] == 2:
@@ -883,11 +883,11 @@ def param_config_check(record, conf_chg_log):
         config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results are save errors
     elif compare_results[-1] == 0:
-        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", access_error_log)
         config_save_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results are update errors
     elif compare_results[-1] == 3:
-        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", access_error_log)
         config_update_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
 
