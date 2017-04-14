@@ -254,14 +254,16 @@ def add_to_csv_sort(entry, csv_file):
     print_log(entry, csv_file)
 
     # Sort the entire csv, by date, newest first
-    try:
-        if not os.stat(csv_file).st_size == 0:
-            with open(csv_file, "rb") as f:
-                reader = csv.reader(f, delimiter=";")
+    if not os.stat(csv_file).st_size == 0:
+        with open(csv_file, "r") as f:
+            reader = csv.reader(f, delimiter=";")
+            try:
                 sortedlist = sorted(reader, key=operator.itemgetter(2), reverse=True)
-    except Exception as err:
-        print "Issue reading or sorting file -> ERROR: {0}".format(err)
-        return False
+            except Exception as err:
+                print "Issue reading or sorting file -> ERROR: {0}".format(err)
+                return False
+            else:
+                return True
     else:
         try:
             with open(csv_file, "wb") as f:

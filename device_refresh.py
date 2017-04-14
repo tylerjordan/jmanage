@@ -635,23 +635,8 @@ def template_scanner(regtmpl_list, record):
 
 def template_regex():
     # Regexs for template comparisons
-    '''
-    d = {
-        "{{VERSION}}": r'\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}',
-        "{{HOSTNAME}}": r'SW?[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]',
-        "{{ENCPASS}}": r'\$1\$[A-Z|a-z|\.|\$|\/|\-|\d]{31}',
-        "{{TACSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{18,21}',
-        "{{SNMPSECRET}}": r'\$9\$[A-Z|a-z|\.|\$|\/|\-|\d]{184,187}',
-        "{{IPADDRESS}}": r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
-        "{{CITY}}": r'[A-Z][A-Z|a-z|\s]+',
-        "{{STATE}}": r'[A-Z]{2}',
-        "{{REV}}": r'\d{1,2}\.\d{1,2}',
-        "{{TEXT}}": r'.*'
-        }
-    '''
     with open(template_csv) as f:
         d = dict(filter(None, csv.reader(f, delimiter=";")))
-
 
     # Process for replacing placeholders with regexs
     varindc = "{{"
