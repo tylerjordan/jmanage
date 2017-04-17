@@ -971,7 +971,14 @@ def main(argv):
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions>'
+            print 'SYNTAX: device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions>'
+            print '  -c : (REQUIRED) A CSV file in the root of the jmanage folder. It contains the username or hashid and password.'
+            print '  -s : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IP addresses to scan.'
+            print '  -i : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the directory.'
+            print '  -o : (OPTIONAL) Allows various options, provide one of the following three arguments:'
+            print '      - "configs"  : Performs the parameter and configuration checks.'
+            print '      - "template" : Performs the template scan.'
+            print '      - "all"      : Performs all the above checks.'
             sys.exit()
         elif opt in ("-c", "--creds"):
             credsCSV = arg
