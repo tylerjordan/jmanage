@@ -467,6 +467,12 @@ def connect(ip):
             ip + ";" + "Unknown connection issue. DEBUG:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
         return False
+    except Exception as err:
+        no_connect_ips.append(ip)
+        add_to_csv_sort(
+            ip + ";" + "Undefined exception. DEBUG:(" + str(err) + ");" + get_now_time() + "\n",
+            access_error_log)
+        return False
     # If try arguments succeed...
     else:
         return dev
@@ -952,12 +958,13 @@ def check_main(record):
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
         Arguments:
-            -c    -  The file containing credentials to be used to access devices
-            -o    -  What functions to run
+            -c    -  (Required) The CSV file containing credentials to be used to access devices.
+            -s    -  (Optional) The TEXT file that contains a list of device IPs to scan.
+            -o    -  (Optional) Run one of the following options.
                         - "configs" will run the Param and Config Check Function
                         - "template" will run the Template Scan Function of existing devices
                         - "all" will run both of the above functions
-            -i    -  (Optional) A file containing a list of ip addresses (for adding to the database)
+            -i    -  (Optional) A TEXT file containing a list of ip addresses to add to the database.
 
     """
     global credsCSV
