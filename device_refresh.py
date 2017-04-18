@@ -45,6 +45,8 @@ num_of_configs = 5
 # Check Lists
 no_changes_ips = []
 no_ping_ips = []
+no_netconf_ips = []
+no_auth_ips = []
 no_connect_ips = []
 config_save_error_ips = []
 config_update_error_ips = []
@@ -444,13 +446,13 @@ def connect(ip):
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
-        no_connect_ips.append(ip)
+        no_netconf_ips.append(ip)
         add_to_csv_sort(
             ip + ";" + "Host Reachable, but NETCONF not configured. ERROR:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
         return False
     except ConnectAuthError as err:
-        no_connect_ips.append(ip)
+        no_auth_ips.append(ip)
         add_to_csv_sort(
             ip + ";" + "Unable to connect with credentials. User:" + myuser + " ERROR:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
@@ -546,7 +548,7 @@ def run(ip, username, password, port):
                                      hostkey_verify=False)
         connection.timeout = 300
     except Exception as err:
-        print '\t- ERROR: Unable to connect to device: {0} with error: {1}'.format(ip, err)
+        print '\t- ERROR: Unable to connect with NCCLIENT. ERROR: {1}'.format(err)
         add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
         return False
     else:
@@ -680,7 +682,7 @@ def summaryLog():
     print_log("Total Devices: {0}\n".format(total_devices), summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
-    # Connection Errors
+    # ********** CONNECTION ERRORS ***************
     print_log("[Connection Errors]\n", summary_log)
     # Unable to Ping
     print_log("\tUnable to Ping: {0}\n".format(len(no_ping_ips)), summary_log)
@@ -689,9 +691,22 @@ def summaryLog():
     else:
         for ip in no_ping_ips:
             print_log("\t\t-> " + ip + "\n", summary_log)
-
-    # Unable to Connect
-    print_log("\tUnable to Connect: {0}\n".format(len(no_connect_ips)), summary_log)
+    # No NETCONF configured
+    print_log("\tNo NETCONF configured: {0}\n".format(len(no_netconf_ips)), summary_log)
+    if len(no_netconf_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in no_netconf_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    # Bad authentication credentials
+    print_log("\tAuth credentials failed: {0}\n".format(len(no_auth_ips)), summary_log)
+    if len(no_auth_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in no_auth_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    # Generic Connection Issue
+    print_log("\tUnknown connection issue: {0}\n".format(len(no_connect_ips)), summary_log)
     if len(no_connect_ips) == 0:
         print_log("\t\t* No Devices *\n", summary_log)
     else:
@@ -699,7 +714,7 @@ def summaryLog():
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
-    # Parameter Content
+    # PARAMETER CONTENT
     print_log("[Parameters]\n", summary_log)
     print_log("\tChanged Parameters: {0}\n".format(len(param_change_ips)), summary_log)
     if len(param_change_ips) == 0:
@@ -715,7 +730,7 @@ def summaryLog():
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
-    # Config Compare Content
+    # CONFIG COMPARE CONTENT
     print_log("[Configuration Compare]\n", summary_log)
     print_log("\tChanged Configurations: {0}\n".format(len(config_change_ips)), summary_log)
     if len(config_change_ips) == 0:
@@ -737,7 +752,7 @@ def summaryLog():
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
-    # Template Deviation Content
+    # TEMPLATE DEVIATION CONTENT
     if addl_opt == "template" or addl_opt == "all":
         print_log("[Template Deviation]\n", summary_log)
         print_log("\tTemplate Deviation: {0}\n".format(len(templ_change_ips)), summary_log)
