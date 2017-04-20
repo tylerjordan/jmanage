@@ -253,28 +253,33 @@ def add_to_csv_sort(entry, csv_file):
     # Add to csv file
     print_log(entry, csv_file)
 
-    # Sort the entire csv, by date, newest first
-    if not os.stat(csv_file).st_size == 0:
+    # Check that the file exists
+    if os.path.isfile(csv_file):
+        # Opens the file for reading only, places pointer at beginning
         with open(csv_file, "r") as f:
             reader = csv.reader(f, delimiter=";")
             try:
+                # Attempt to sort the contents, sorting by the third column values, from newest to oldest
                 sortedlist = sorted(reader, key=operator.itemgetter(2), reverse=True)
             except Exception as err:
-                print "Issue reading or sorting file -> ERROR: {0}".format(err)
+                print "Issue sorting file -> ERROR: {0}".format(err)
                 return False
             else:
-                return True
+                try:
+                    # Opens the file and overwrites if it already exists
+                    with open(csv_file, "w") as f:
+                        # This writes the newly sorted data to the file
+                        fileWriter = csv.writer(f, delimiter=';')
+                        for row in sortedlist:
+                            fileWriter.writerow(row)
+                except Exception as err:
+                    print "Issue writing to file -> ERROR: {0}".format(err)
+                    return False
+                else:
+                    return True
     else:
-        try:
-            with open(csv_file, "wb") as f:
-                fileWriter = csv.writer(f, delimiter=';')
-                for row in sortedlist:
-                    fileWriter.writerow(row)
-        except Exception as err:
-            print "Issue opening or writing to file -> ERROR: {0}".format(err)
-            return False
-        else:
-            return True
+        print "File does not exist - {0}".format(csv_file)
+        return False
 
 
 # Gets a target code
