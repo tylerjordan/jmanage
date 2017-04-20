@@ -364,21 +364,13 @@ def add_record(ip):
     """
     items = run(ip, myuser, mypwd, port)
     if not items:
-        #print 'ERROR: Unable to get record information: {0}\n'.format(ip)
+        # Record an error if the items doesn't return anything
         return False
     else:
-        if items:
-            save_config_file(fetch_config(ip), items)
-            items['last_config_success'] = get_now_time()
-            items['last_config_attempt'] = get_now_time()
-            items['last_update_attempt'] = get_now_time()
-            items['last_update_success'] = get_now_time()
-            #print '\t- Configuration retrieved and saved'.format(ip)
-        else:
-            items['last_config_attempt'] = get_now_time()
-            items['last_update_attempt'] = get_now_time()
-            items['last_update_success'] = get_now_time()
-            #print '\t- Configuration retrieved, but save failed'.format(ip)
+        # Save config file and add attributes to
+        save_config_file(fetch_config(ip), items)
+        items['last_access'] = get_now_time()
+        items['last_param_change'] = get_now_time()
         listDict.append(items)
         return True
 
@@ -420,8 +412,6 @@ def change_record(ip, value, key):
         if myrecord['ip'] == ip:
             try:
                 # Trying to update the record...
-                now = get_now_time()
-                time_dict = {'last_update_attempt': now}
                 myrecord.update(time_dict)
                 myrecord.update(change_dict)
             except Exception as err:
@@ -430,8 +420,7 @@ def change_record(ip, value, key):
                 return False
             else:
                 # If the record change was successful...
-                now = get_now_time()
-                time_dict = {'last_update_success': now}
+                time_dict = {'last_param_change': get_now_time()}
                 myrecord.update(time_dict)
                 return True
 
