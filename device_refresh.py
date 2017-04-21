@@ -601,10 +601,11 @@ def config_compare(record):
     else:
         current_config = fetch_config(record['ip'])
         if current_config:
+            # Compare configurations
             change_list = compare_configs(loaded_config, current_config)
+            # Update config check date in record
+            record.update({'last_config_check': get_now_time()})
             if change_list:
-                # Update config check date in record
-                record.update({'last_config_check': get_now_time()})
                 returncode = 2
                 # Try to write diffList output to a list
                 for item in change_list:
@@ -849,6 +850,9 @@ def add_new_device(ip):
                     new_devices_log)
         else:
             print "\t* Issue connecting to device, add failed.\n"
+            add_to_csv_sort(
+                ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
+                new_devices_log)
     else:
         print "\t* Skipping device, already in database.\n"
 
