@@ -2,6 +2,30 @@ __copyright__ = "Copyright 2016 Tyler Jordan"
 __version__ = "0.1.1"
 __email__ = "tjordan@juniper.net"
 
+# ------------------------------------------------------------------------------------------------------------------- #
+# listDictCSV Database Attributes:
+# ip ................. Management IP of Device
+# host_name .......... Hostname of Device
+# junos_code ......... Juniper Code Version (ie 13.2X51-D35.3)
+# serial_number ...... Serial Number of Chassis
+# model .............. Juniper Model Number (ie. EX4300-48P)
+# last_access......... Last time device was accessed by script
+# last_config_check .. Last time device config was checked by script
+# last_config_change . Last time device config was changed by script
+# last_param_check ... Last time device parameters were checked by script
+# last_param_change .. Last time device parameter was changed by script
+# last_temp_check .... Last time device template was checked by script
+#
+
+# Logs:
+# Access_Error_Log.csv - Timestamped error messages returned from attempting to connect to devices
+# Ops_Error_Log.csv ---- Timestamped error messages returned from running param, config, or template funtions
+# New_Devices_Log.csv -- Timestamped list of devices that have been added
+#
+
+# Miscellaneous Files:
+# ------------------------------------------------------------------------------------------------------------------- #
+
 import os
 import platform
 import subprocess
@@ -31,6 +55,7 @@ iplistfile = ''
 template_file = ''
 template_csv = ''
 access_error_log = ''
+ops_error_log = ''
 new_devices_log = ''
 
 # Params
@@ -61,6 +86,7 @@ def detect_env():
     global template_file
     global template_csv
     global access_error_log
+    global ops_error_log
     global new_devices_log
     global listDictCSV
     global credsCSV
@@ -91,6 +117,7 @@ def detect_env():
     template_csv = os.path.join(dir_path, template_dir, "Template_Regex.csv")
     template_file = os.path.join(dir_path, template_dir, "Template.conf")
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
+    ops_error_log = os.path.join(log_dir, "Ops_Error_Log.csv")
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
 
 def load_config_file(ip, newest):
@@ -258,6 +285,8 @@ def save_config_file(myconfig, record):
             add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
             return False
         else:
+            # Update configuration change time for record
+            record.update({'last_config_change': get_now_time()})
             newfile.close()
             return True
 
@@ -283,49 +312,52 @@ def line_list(filepath):
 
 def check_params(ip):
     """ Purpose: Scans the device with the IP and handles action. """
-    has_record = False
-    #print "Recalling any stored records..."
-    if get_record(ip):
-        has_record = True
-    record_attribs = [ 'serial_number', 'model', 'host_name', 'junos_code' ]
 
     # 0 = Unable to Check, 1 = No Changes, 2 = Changes Detected
     returncode = 1
     # Store the results of check and returncode
     results = []
-
     # Try to collect current chassis info
     remoteDict = run(ip, myuser, mypwd, port)
     # If info was collected...
     if remoteDict:
-        # Check that the existing record is up-to-date. If not, update.
+        # Get current information to compare against database info
         localDict = get_record(ip)
-        if not localDict['host_name'] == remoteDict['host_name']:
-            results.append("Hostname changed from " + localDict['host_name'] + " to " + remoteDict['host_name'])
-            change_record(ip, remoteDict['host_name'], key='host_name')
-            returncode = 2
+        if localDict:
+            # Update database date for parameter check
+            localDict.update({'last_param_check': get_now_time()})
+            # Check that the existing record is up-to-date. If not, update.
+            if not localDict['host_name'] == remoteDict['host_name']:
+                results.append("Hostname changed from " + localDict['host_name'] + " to " + remoteDict['host_name'])
+                change_record(ip, remoteDict['host_name'], key='host_name')
+                returncode = 2
 
-        if not localDict['serial_number'] == remoteDict['serial_number']:
-            results.append("S/N changed from " + localDict['serial_number'] + " to " + remoteDict['serial_number'])
-            change_record(ip, remoteDict['serial_number'], key='serial_number')
-            returncode = 2
+            if not localDict['serial_number'] == remoteDict['serial_number']:
+                results.append("S/N changed from " + localDict['serial_number'] + " to " + remoteDict['serial_number'])
+                change_record(ip, remoteDict['serial_number'], key='serial_number')
+                returncode = 2
 
-        if not localDict['junos_code'] == remoteDict['junos_code']:
-            results.append("JunOS changed from " + localDict['junos_code'] + " to " + remoteDict['junos_code'])
-            change_record(ip, remoteDict['junos_code'], key='junos_code')
-            returncode = 2
+            if not localDict['junos_code'] == remoteDict['junos_code']:
+                results.append("JunOS changed from " + localDict['junos_code'] + " to " + remoteDict['junos_code'])
+                change_record(ip, remoteDict['junos_code'], key='junos_code')
+                returncode = 2
 
-        if not localDict['model'] == remoteDict['model']:
-            results.append("Model changed from " + localDict['model'] + " to " + remoteDict['model'])
-            change_record(ip, remoteDict['model'], key='model')
-            returncode = 2
+            if not localDict['model'] == remoteDict['model']:
+                results.append("Model changed from " + localDict['model'] + " to " + remoteDict['model'])
+                change_record(ip, remoteDict['model'], key='model')
+                returncode = 2
+        else:
+            returncode = 0
+            results.append("ERROR: Unable to collect params from database.")
     # If we are unable to collect info from this device
     else:
         returncode = 0
-        results.append("ERROR: Unable to collect params from device")
+        results.append("ERROR: Unable to collect current params from device")
 
+    # Return the info to caller
     results.append(returncode)
     return results
+
 
 def get_record(ip='', hostname='', sn='', code=''):
     """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
@@ -368,9 +400,13 @@ def add_record(ip):
         return False
     else:
         # Save config file and add attributes to
-        save_config_file(fetch_config(ip), items)
-        items['last_access'] = get_now_time()
-        items['last_param_change'] = get_now_time()
+        now = get_now_time()
+        if save_config_file(fetch_config(ip), items):
+            items['last_config_check'] = now
+            items['last_config_change'] = now
+        items['last_access'] = now
+        items['last_param_change'] = now
+        items['last_param_check'] = now
         listDict.append(items)
         return True
 
@@ -412,16 +448,17 @@ def change_record(ip, value, key):
         if myrecord['ip'] == ip:
             try:
                 # Trying to update the record...
-                myrecord.update(time_dict)
                 myrecord.update(change_dict)
             except Exception as err:
                 # Error checking...
                 print "ERROR: Unable to update record value: {0} | Device: {1}".format(err, ip)
+                add_to_csv_sort(
+                    ip + ";" + "Error changing " + key + " to " + value + ". ERROR:(" + str(err) + ");" + get_now_time() + "\n",
+                    ops_error_log)
                 return False
+            # If the record change was successful...
             else:
-                # If the record change was successful...
-                time_dict = {'last_param_change': get_now_time()}
-                myrecord.update(time_dict)
+                localDict.update({'last_param_change': get_now_time()})
                 return True
 
 # This function attempts to open a connection with the device. If sucessful, session is returned,
@@ -483,20 +520,6 @@ def fetch_config(ip):
     else:
         return False
 
-def update_config(ip, current_config):
-    """ Purpose: Save the configuration for this """
-    iprec = get_record(ip=ip)
-    try:
-        now = get_now_time()
-        iprec.update({'last_config_attempt': now})
-        save_config_file(current_config, get_record(ip=ip))
-    except Exception as err:
-        print "Unable to save config {0} : {1}".format(ip, err)
-        return False
-    else:
-        now = get_now_time()
-        iprec.update({'last_config_success': now})
-        return True
 
 def information(connection, ip, software_info, host_name):
     """ Purpose: This is the function called when using -info.
@@ -580,11 +603,14 @@ def config_compare(record):
         if current_config:
             change_list = compare_configs(loaded_config, current_config)
             if change_list:
+                # Update config check date in record
+                record.update({'last_config_check': get_now_time()})
                 returncode = 2
                 # Try to write diffList output to a list
                 for item in change_list:
                     results.append(item)
-                if not update_config(record['ip'], current_config):
+                    save_config_file(current_config, record['ip'])
+                if not save_config_file(current_config, record['ip']):
                     returncode = 3
         else:
             results.append("Unable to retrieve configuration\n")
@@ -620,15 +646,16 @@ def template_scanner(regtmpl_list, record):
                     nomatch = False
                     results.append(regline)
                     returncode = 2
-        if nomatch:
-            returncode = 1
-            return returncode
     except Exception as err:
         results.append("ERROR: Problems preforming template scan")
         returncode = 0
-
-    results.append(returncode)
-    return results
+    else:
+        myrecord.update({'last_temp_check': get_now_time()})
+        if nomatch:
+            returncode = 1
+    finally:
+        results.append(returncode)
+        return results
 
 def template_regex():
     # Regexs for template comparisons
@@ -880,9 +907,10 @@ def param_config_check(record, conf_chg_log):
             print_sl("\t> {0}\n".format(result), conf_chg_log)
         print_sl("\n", conf_chg_log)
         param_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+
     # If param results are errors
     elif param_results[-1] == 0:
-        add_to_csv_sort(record['ip'] + ";" + param_results[0] + ";" + get_now_time() + "\n", access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + param_results[0] + ";" + get_now_time() + "\n", ops_error_log)
         param_attrib_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results detect differences
     if compare_results[-1] == 2:
@@ -893,11 +921,11 @@ def param_config_check(record, conf_chg_log):
         config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results are save errors
     elif compare_results[-1] == 0:
-        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", ops_error_log)
         config_save_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
     # If compare results are update errors
     elif compare_results[-1] == 3:
-        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", ops_error_log)
         config_update_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
 
@@ -950,6 +978,7 @@ def check_main(record):
     print subHeading(record['host_name'] + " - (" + record['ip'] + ")", 15)
     # Try to connect to device
     if connect(record['ip']):
+        record.update({'last_access': get_now_time()})
         if addl_opt == "configs" or addl_opt == "all":
             print "Running Param/Config Check..."
             param_config_check(record, conf_chg_log)
