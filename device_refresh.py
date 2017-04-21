@@ -267,7 +267,7 @@ def save_config_file(myconfig, record):
         newfile = open(fileandpath, "w+")
     except Exception as err:
         #print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, fileandpath)
-        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
+        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), ops_error_log)
         return False
     else:
         # Remove excess configurations if necessary
@@ -276,13 +276,13 @@ def save_config_file(myconfig, record):
             try:
                 os.remove(del_file)
             except Exception as err:
-                add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
+                add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), ops_error_log)
                 #print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
         try:
             newfile.write(myconfig)
         except Exception as err:
             #print "ERROR: Unable to write config to file: {0}".format(err)
-            add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
+            add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), ops_error_log)
             return False
         else:
             # Update configuration change time for record
@@ -407,6 +407,7 @@ def add_record(ip):
         items['last_access'] = now
         items['last_param_change'] = now
         items['last_param_check'] = now
+        items['last_temp_check'] = ''
         listDict.append(items)
         return True
 
@@ -539,7 +540,7 @@ def information(connection, ip, software_info, host_name):
         return {'host_name': host_name, 'ip': ip, 'model': model, 'junos_code': junos_code, 'serial_number': serial_number}
     except:
         #print '\t- ERROR: Device was reachable, the information was not found.'
-        add_to_csv_sort(ip + ";" + "Unable to gather system information" + ";" + get_now_time() + "\n", access_error_log)
+        add_to_csv_sort(ip + ";" + "Unable to gather system information" + ";" + get_now_time() + "\n", ops_error_log)
         return False
 
 
@@ -567,7 +568,7 @@ def run(ip, username, password, port):
         try:
             software_info = connection.get_software_information(format='xml')
         except Exception as err:
-            add_to_csv_sort(ip + ";" + str(err).strip('\b\r\n') + ";" + get_now_time() + "\n", access_error_log)
+            add_to_csv_sort(ip + ";" + str(err).strip('\b\r\n') + ";" + get_now_time() + "\n", ops_error_log)
             return False
         # Collect information from device
         host_name = software_info.xpath('//software-information/host-name')[0].text
@@ -880,7 +881,7 @@ def template_check(record, temp_dev_log):
         print_log("\t* Template Matches *\n", temp_dev_log)
     else:
         print_log("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
-        add_to_csv_sort(record['ip'] + ";" + templ_results[0] + ";" + get_now_time() + "\n", access_error_log)
+        add_to_csv_sort(record['ip'] + ";" + templ_results[0] + ";" + get_now_time() + "\n", ops_error_log)
         templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
 
 # Parameter and Cconfiguration Check Function
@@ -1083,7 +1084,12 @@ if __name__ == "__main__":
 
     # Save the changes of the listDict to CSV
     if listDict:
-        listdict_to_csv(listDict, listDictCSV)
+        # Order to print the CSV in
+        attribOrder = ['host_name', 'ip', 'junos_code', 'model', 'serial_number', 'last_access',
+                      'last_param_check', 'last_config_check', 'last_temp_check', 'last_param_change',
+                      'last_config_change']
+        # Print the list dictionary to a CSV file
+        listdict_to_csv(listDict, listDictCSV, attribOrder)
         print "\nSaved any changes. We're done!"
     else:
         print "\nNo content in database. Exiting!"

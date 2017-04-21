@@ -215,9 +215,8 @@ def listDictCSV(myListDict, filePathName, keys):
 
 
 # Convert listDict to CSV file
-def listdict_to_csv(listDict, filePathName):
+def listdict_to_csv(listDict, filePathName, fieldNames):
     try:
-        fieldNames = listDict[0].keys()
         with open(filePathName, 'wb') as csvfile:
             writer = csv.DictWriter(csvfile, fieldNames)
             writer.writeheader()
