@@ -821,11 +821,11 @@ def iptab(ip):
 
 # Function for adding new devices to the database
 def add_new_devices_loop(iplistfile):
-    print "Report: Add New Devices\n"
-    print "User: {0}\n".format(myuser)
-    print "Captured: {0}\n\n".format(get_now_time())
+    print "Report: Add New Devices"
+    print "User: {0}".format(myuser)
+    print "Captured: {0}\n".format(get_now_time())
 
-    print "Add New Devices:\n"
+    print "Add New Devices:"
     # Loop over the list of new IPs
     for raw_ip in line_list(os.path.join(iplist_dir, iplistfile)):
         # Attempt to add new device
@@ -840,22 +840,22 @@ def add_new_device(ip):
         if connect(ip):
             # Try adding this device to the database
             if add_record(ip):
-                print "\t* Successfully added {0} to database.\n".format(ip)
+                print "\t* Successfully added {0} to database.".format(ip)
                 add_to_csv_sort(
                     ip + ";" + "Successfully added (" + ip + ") to database." + ";" + get_now_time(),
                     new_devices_log)
             else:
-                print "\t* Failed adding {0} to database *\n".format(ip)
+                print "\t* Failed adding {0} to database *".format(ip)
                 add_to_csv_sort(
                     ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
                     new_devices_log)
         else:
-            print "\t* Issue connecting to device, add failed.\n"
+            print "\t* Issue connecting to device, add failed."
             add_to_csv_sort(
                 ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
                 new_devices_log)
     else:
-        print "\t* Skipping device, already in database.\n"
+        print "\t* Skipping device, already in database."
 
 
 def template_check(record, temp_dev_log):
@@ -872,7 +872,7 @@ def template_check(record, temp_dev_log):
     print_log("User: {0}\n".format(myuser), temp_dev_log)
     print_log("Checked: {0}\n".format(get_now_time()), temp_dev_log)
 
-    print_log("\nMissing Configuration:\n", temp_dev_log)
+    print_log("\nMissing Configuration:", temp_dev_log)
     if templ_results[-1] == 2:
         for result in templ_results[:-1]:
             print_log("\t> {0}\n".format(result), temp_dev_log)
@@ -901,7 +901,7 @@ def param_config_check(record, conf_chg_log):
         print_sl("Report: Parameter and Config Check\n", conf_chg_log)
         print_sl("Device: {0} ({1})\n".format(record['host_name'], record['ip']), conf_chg_log)
         print_sl("User: {0}\n".format(myuser), conf_chg_log)
-        print_sl("Checked: {0}\n\n".format(get_now_time()), conf_chg_log)
+        print_sl("Checked: {0}\n".format(get_now_time()), conf_chg_log)
         # The "run_change_log" format is "IP,HOSTNAME,DATE"
         add_to_csv_sort(record['ip'] + ";" + record['host_name'] + ";" + get_now_time(), run_change_log)
 

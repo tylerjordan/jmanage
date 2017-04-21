@@ -235,12 +235,12 @@ def csv_to_listdict(filePathName):
             listDict = [{csvfile: v for csvfile, v in row.items()}
                         for row in csv.DictReader(csvfile, skipinitialspace=True)]
         return listDict
-    except (FileNotFoundError, IOError) as err:
+    except IOError as err:
         print "Database file not found: Using empty database."
         return emptyList
 
     except Exception as err:
-        print "ERROR: Problem reading from file {0} : {1}".format(filePathName, err)
+        print "Non-IOError problem with: {0} ERROR: {1}".format(filePathName, err)
         return emptyList
 
 
