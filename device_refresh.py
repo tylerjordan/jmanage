@@ -833,29 +833,29 @@ def add_new_devices_loop(iplistfile):
 
 # Function to add specific device
 def add_new_device(ip):
-    print "\t-  Trying to add device..."
+    print "\t-  Trying to add {0}...".format(ip)
     # If a record doesn't exist, try to create one
     if not get_record(ip):
         # Make sure you can connect to the device
         if connect(ip):
             # Try adding this device to the database
             if add_record(ip):
-                print "\t* Successfully added {0} to database.".format(ip)
+                print "\t\t* Successfully added device to database."
                 add_to_csv_sort(
                     ip + ";" + "Successfully added (" + ip + ") to database." + ";" + get_now_time(),
                     new_devices_log)
             else:
-                print "\t* Failed adding {0} to database *".format(ip)
+                print "\t\t* Failed adding device to database *"
                 add_to_csv_sort(
                     ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
                     new_devices_log)
         else:
-            print "\t* Issue connecting to device, add failed."
+            print "\t\t* Issue connecting to device, add failed."
             add_to_csv_sort(
                 ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
                 new_devices_log)
     else:
-        print "\t* Skipping device, already in database."
+        print "\t\t* Skipping device, already in database."
 
 
 def template_check(record, temp_dev_log):
