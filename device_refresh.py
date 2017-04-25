@@ -5,9 +5,9 @@ __email__ = "tjordan@juniper.net"
 # ------------------------------------------------------------------------------------------------------------------- #
 # listDictCSV Database Attributes:
 # ip ................. Management IP of Device
-# host_name .......... Hostname of Device
-# junos_code ......... Juniper Code Version (ie 13.2X51-D35.3)
-# serial_number ...... Serial Number of Chassis
+# hostname .......... Hostname of Device
+# version ......... Juniper Code Version (ie 13.2X51-D35.3)
+# serialnumber ...... Serial Number of Chassis
 # model .............. Juniper Model Number (ie. EX4300-48P)
 # last_access......... Last time device was accessed by script
 # last_config_check .. Last time device config was checked by script
@@ -145,10 +145,10 @@ def get_old_new_file(record, newest):
     filtered_list = []
     if record:
         # Create the appropriate absolute path for the config file
-        my_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+        my_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
         if os.path.exists(my_dir):
             for file in listdir(my_dir):
-                if file.startswith(record['host_name']):
+                if file.startswith(record['hostname']):
                     filtered_list.append(os.path.join(my_dir, file))
             try:
                 sorted_list = sorted(filtered_list, key=os.path.getctime)
@@ -169,7 +169,7 @@ def get_old_new_file(record, newest):
 
 def remove_template_file(record):
     file_start = "Template_Deviation_"
-    device_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+    device_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
     if os.path.exists(device_dir):
         for file in getFileList(device_dir):
             if file.startswith(file_start):
@@ -186,9 +186,9 @@ def remove_template_file(record):
 def get_file_number(record):
     file_num = 0
     if record:
-        my_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+        my_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
         for file in listdir(my_dir):
-            if file.startswith(record['host_name']):
+            if file.startswith(record['hostname']):
                 file_num += 1
     return file_num
 
@@ -223,11 +223,11 @@ def directory_check(record):
             return False
 
     # Check for the device specific directory
-    if os.path.isdir(os.path.join(config_dir, getSiteCode(record), record['host_name'])):
+    if os.path.isdir(os.path.join(config_dir, getSiteCode(record), record['hostname'])):
         return True
     else:
         try:
-            os.mkdir(os.path.join(config_dir, getSiteCode(record), record['host_name']))
+            os.mkdir(os.path.join(config_dir, getSiteCode(record), record['hostname']))
         except Exception as err:
             print "Failed Creating Directory -> ERROR: {0}".format(err)
             return False
@@ -236,7 +236,7 @@ def directory_check(record):
 
     '''
     try:
-        site_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+        site_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
     except Exception as err:
         print "Failed Creating Site Path -> ERROR: {0}".format(err)
         return False
@@ -260,8 +260,8 @@ def save_config_file(myconfig, record):
 
     # Create the filename
     now = get_now_time()
-    site_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
-    filename = record['host_name'] + "_" + now + ".conf"
+    site_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
+    filename = record['hostname'] + "_" + now + ".conf"
     fileandpath = os.path.join(site_dir, filename)
     try:
         newfile = open(fileandpath, "w+")
@@ -318,6 +318,7 @@ def check_params(ip):
     # Store the results of check and returncode
     results = []
     # Try to collect current chassis info
+    #remoteDict = fetch_params(ip)
     remoteDict = run(ip, myuser, mypwd, port)
     # If info was collected...
     if remoteDict:
@@ -327,19 +328,19 @@ def check_params(ip):
             # Update database date for parameter check
             localDict.update({'last_param_check': get_now_time()})
             # Check that the existing record is up-to-date. If not, update.
-            if not localDict['host_name'] == remoteDict['host_name']:
-                results.append("Hostname changed from " + localDict['host_name'] + " to " + remoteDict['host_name'])
-                change_record(ip, remoteDict['host_name'], key='host_name')
+            if not localDict['hostname'] == remoteDict['hostname']:
+                results.append("Hostname changed from " + localDict['hostname'] + " to " + remoteDict['hostname'])
+                change_record(ip, remoteDict['hostname'], key='hostname')
                 returncode = 2
 
-            if not localDict['serial_number'] == remoteDict['serial_number']:
-                results.append("S/N changed from " + localDict['serial_number'] + " to " + remoteDict['serial_number'])
-                change_record(ip, remoteDict['serial_number'], key='serial_number')
+            if not localDict['serialnumber'] == remoteDict['serialnumber']:
+                results.append("S/N changed from " + localDict['serialnumber'] + " to " + remoteDict['serialnumber'])
+                change_record(ip, remoteDict['serialnumber'], key='serialnumber')
                 returncode = 2
 
-            if not localDict['junos_code'] == remoteDict['junos_code']:
-                results.append("JunOS changed from " + localDict['junos_code'] + " to " + remoteDict['junos_code'])
-                change_record(ip, remoteDict['junos_code'], key='junos_code')
+            if not localDict['version'] == remoteDict['version']:
+                results.append("JunOS changed from " + localDict['version'] + " to " + remoteDict['version'])
+                change_record(ip, remoteDict['version'], key='version')
                 returncode = 2
 
             if not localDict['model'] == remoteDict['model']:
@@ -378,15 +379,15 @@ def get_record(ip='', hostname='', sn='', code=''):
                 return record
     elif hostname:
         for record in listDict:
-            if record['host_name'] == hostname:
+            if record['hostname'] == hostname:
                 return record
     elif sn:
         for record in listDict:
-            if record['serial_number'] == sn:
+            if record['serialnumber'] == sn:
                 return record
     elif code:
         for record in listDict:
-            if record['junos_code'] == code:
+            if record['version'] == code:
                 return record
     else:
         return has_record
@@ -394,6 +395,7 @@ def get_record(ip='', hostname='', sn='', code=''):
 def add_record(ip):
     """ Purpose: Adds a record to list of dictionaries.
     """
+    #items = fetch_params(ip)
     items = run(ip, myuser, mypwd, port)
     if not items:
         # Record an error if the items doesn't return anything
@@ -410,6 +412,19 @@ def add_record(ip):
         items['last_temp_check'] = ''
         listDict.append(items)
         return True
+
+# Return the site code by extracting from a provided hostname
+def getSiteCode(record):
+    hostname = record['hostname'].upper()
+    if re.match(r'SW[A-Z]{3}', hostname):
+        siteObj = re.match(r'SW[A-Z]{3}', hostname)
+    elif re.match(r'S[A-Z]{3}', hostname):
+        siteObj = re.match(r'S[A-Z]{3}', hostname)
+    else:
+        mydirect = "MISC"
+        return mydirect
+
+    return siteObj.group()[-3:]
 
 """
 def ping(ip):
@@ -459,7 +474,7 @@ def change_record(ip, value, key):
                 return False
             # If the record change was successful...
             else:
-                localDict.update({'last_param_change': get_now_time()})
+                myrecord.update({'last_param_change': get_now_time()})
                 return True
 
 # This function attempts to open a connection with the device. If sucessful, session is returned,
@@ -467,10 +482,16 @@ def connect(ip):
     """ Purpose: Get current configuration from device.
         Returns: Device object / False
     """
+    #make_dev_start = time.clock()
     dev = Device(host=ip, user=myuser, passwd=mypwd)
+    #make_dev = time.clock() - make_dev_start
+    #print('Create device time: %8.3f sec.' % make_dev)
     # Try to open a connection to the device
     try:
+        #open_dev_start = time.clock()
         dev.open()
+        #open_dev = time.clock() - open_dev_start
+        #print('Open device time: %8.3f sec.' % open_dev)
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
         no_netconf_ips.append(ip)
@@ -522,22 +543,48 @@ def fetch_config(ip):
         return False
 
 
-def information(connection, ip, software_info, host_name):
+def fetch_params(ip):
+    # Purpose: Collect the parameters needed for the database.
+    # Returns: Dictionary
+    
+    fact_list = ['hostname', 'serialnumber', 'model', 'version']
+    facts = {}
+    dev = connect(ip)
+    if dev:
+        dev.timeout = 300
+        #gather_facts_start = time.clock()
+        facts['hostname'] = dev.facts['hostname']
+        facts['serialnumber'] = dev.facts['serialnumber']
+        facts['model'] = dev.facts['model']
+        facts['version'] = dev.facts['version']
+        #for key,val in dev.facts.items():
+        #    if key in fact_list:
+        #        facts[key] = val
+        #gather_facts = time.clock() - gather_facts_start
+        #print('Gather facts time: %8.3f sec.' % gather_facts)
+        #close_dev_start = time.clock()
+        dev.close()
+        #close_dev = time.clock() - close_dev_start
+        #print('Close device time: %8.3f sec.' % close_dev)
+    return facts
+
+
+def information(connection, ip, software_info, hostname):
     """ Purpose: This is the function called when using -info.
                  It is grabs the model, running version, and serial number of the device.
 
     :param: connection:    This is the ncclient manager connection to the remote device.
             ip:            String containing the IP of the remote device, used for logging purposes.
             software_info: A "show version" aka "get-software-information".
-            host_name:     The device host-name for output purposes.
+            hostname:     The device host-name for output purposes.
     :return: text of requested output
     """
     try:
         model = software_info.xpath('//software-information/product-model')[0].text
-        junos_code = (software_info.xpath('//software-information/package-information/comment')[0].text.split('[')[1].split(']')[0])
+        version = (software_info.xpath('//software-information/package-information/comment')[0].text.split('[')[1].split(']')[0])
         chassis_inventory = connection.get_chassis_inventory(format='xml')
-        serial_number = chassis_inventory.xpath('//chassis-inventory/chassis/serial-number')[0].text
-        return {'host_name': host_name, 'ip': ip, 'model': model, 'junos_code': junos_code, 'serial_number': serial_number}
+        serialnumber = chassis_inventory.xpath('//chassis-inventory/chassis/serial-number')[0].text
+        return {'hostname': hostname, 'ip': ip, 'model': model, 'version': version, 'serialnumber': serialnumber}
     except:
         #print '\t- ERROR: Device was reachable, the information was not found.'
         add_to_csv_sort(ip + ";" + "Unable to gather system information" + ";" + get_now_time() + "\n", ops_error_log)
@@ -552,6 +599,7 @@ def run(ip, username, password, port):
             password    -   The string password used to connect to the device.
     """
     try:
+        #make_conn_start = time.clock()
         connection = manager.connect(host=ip,
                                      port=port,
                                      username=username,
@@ -559,22 +607,30 @@ def run(ip, username, password, port):
                                      timeout=15,
                                      device_params={'name': 'junos'},
                                      hostkey_verify=False)
+        #make_conn = time.clock() - make_conn_start
+        #print('Make conn time: %8.3f sec.' % make_conn)
         connection.timeout = 300
     except Exception as err:
-        print '\t- ERROR: Unable to connect with NCCLIENT. ERROR: {1}'.format(err)
+        print '\t- ERROR: Unable to connect using NCCLIENT. ERROR: {0}'.format(err)
         add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
         return False
     else:
+        #gather_info_start = time.clock()
         try:
             software_info = connection.get_software_information(format='xml')
         except Exception as err:
             add_to_csv_sort(ip + ";" + str(err).strip('\b\r\n') + ";" + get_now_time() + "\n", ops_error_log)
             return False
         # Collect information from device
-        host_name = software_info.xpath('//software-information/host-name')[0].text
-        output = information(connection, ip, software_info, host_name)
+        hostname = software_info.xpath('//software-information/host-name')[0].text
+        output = information(connection, ip, software_info, hostname)
+        #gather_info = time.clock() - gather_info_start
+        #print('Gather info time: %8.3f sec.' % gather_info)
         # Close the session
+        #close_conn_start = time.clock()
         connection.close_session()
+        #close_conn = time.clock() - close_conn_start
+        #print('Close conn time: %8.3f sec.' % close_conn)
         # Determine what to return
         if not output:
             return False
@@ -836,21 +892,14 @@ def add_new_device(ip):
     print "\t-  Trying to add {0}...".format(ip)
     # If a record doesn't exist, try to create one
     if not get_record(ip):
-        # Make sure you can connect to the device
-        if connect(ip):
-            # Try adding this device to the database
-            if add_record(ip):
-                print "\t\t* Successfully added device to database."
-                add_to_csv_sort(
-                    ip + ";" + "Successfully added (" + ip + ") to database." + ";" + get_now_time(),
-                    new_devices_log)
-            else:
-                print "\t\t* Failed adding device to database *"
-                add_to_csv_sort(
-                    ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
-                    new_devices_log)
+        # Try adding this device to the database
+        if add_record(ip):
+            print "\t\t* Successfully added device to database."
+            add_to_csv_sort(
+                ip + ";" + "Successfully added (" + ip + ") to database." + ";" + get_now_time(),
+                new_devices_log)
         else:
-            print "\t\t* Issue connecting to device, add failed."
+            print "\t\t* Failed adding device to database *"
             add_to_csv_sort(
                 ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
                 new_devices_log)
@@ -868,7 +917,7 @@ def template_check(record, temp_dev_log):
     templ_results = template_scanner(template_regex(), record)
 
     print_log("Report: Template Deviation Check\n", temp_dev_log)
-    print_log("Device: {0} ({1})\n".format(record['host_name'], record['ip']), temp_dev_log)
+    print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), temp_dev_log)
     print_log("User: {0}\n".format(myuser), temp_dev_log)
     print_log("Checked: {0}\n".format(get_now_time()), temp_dev_log)
 
@@ -876,13 +925,13 @@ def template_check(record, temp_dev_log):
     if templ_results[-1] == 2:
         for result in templ_results[:-1]:
             print_log("\t> {0}\n".format(result), temp_dev_log)
-        templ_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        templ_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
     elif templ_results[-1] == 1:
         print_log("\t* Template Matches *\n", temp_dev_log)
     else:
         print_log("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
         add_to_csv_sort(record['ip'] + ";" + templ_results[0] + ";" + get_now_time() + "\n", ops_error_log)
-        templ_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
 # Parameter and Cconfiguration Check Function
 def param_config_check(record, conf_chg_log):
@@ -896,14 +945,14 @@ def param_config_check(record, conf_chg_log):
 
     # Scan param results
     if param_results[-1] == 1 and compare_results[-1] == 1:  # If no changes are detected
-        no_changes_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        no_changes_ips.append(record['hostname'] + " (" + record['ip'] + ")")
     elif param_results[-1] == 2 or compare_results[-1] == 2:  # If changes are detected
         print_sl("Report: Parameter and Config Check\n", conf_chg_log)
-        print_sl("Device: {0} ({1})\n".format(record['host_name'], record['ip']), conf_chg_log)
+        print_sl("Device: {0} ({1})\n".format(record['hostname'], record['ip']), conf_chg_log)
         print_sl("User: {0}\n".format(myuser), conf_chg_log)
         print_sl("Checked: {0}\n".format(get_now_time()), conf_chg_log)
         # The "run_change_log" format is "IP,HOSTNAME,DATE"
-        add_to_csv_sort(record['ip'] + ";" + record['host_name'] + ";" + get_now_time(), run_change_log)
+        add_to_csv_sort(record['ip'] + ";" + record['hostname'] + ";" + get_now_time(), run_change_log)
 
     # If param results detect changes
     if param_results[-1] == 2:
@@ -911,27 +960,27 @@ def param_config_check(record, conf_chg_log):
         for result in param_results[:-1]:
             print_sl("\t> {0}\n".format(result), conf_chg_log)
         print_sl("\n", conf_chg_log)
-        param_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        param_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
     # If param results are errors
     elif param_results[-1] == 0:
         add_to_csv_sort(record['ip'] + ";" + param_results[0] + ";" + get_now_time() + "\n", ops_error_log)
-        param_attrib_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        param_attrib_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
     # If compare results detect differences
     if compare_results[-1] == 2:
         print_sl("Config Check:\n", conf_chg_log)
         for result in compare_results[:-1]:
             print_sl("\t> {0}".format(result), conf_chg_log)
         print_sl("\n", conf_chg_log)
-        config_change_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        config_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
     # If compare results are save errors
     elif compare_results[-1] == 0:
         add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", ops_error_log)
-        config_save_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        config_save_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
     # If compare results are update errors
     elif compare_results[-1] == 3:
         add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", ops_error_log)
-        config_update_error_ips.append(record['host_name'] + " (" + record['ip'] + ")")
+        config_update_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
 
 # Function that checks if were using a subset or not
@@ -967,7 +1016,7 @@ def check_loop(subsetlist):
 def check_main(record):
     # Performs the selected checks (Parameter/Config, Template, or All)
     directory_check(record)
-    device_dir = os.path.join(config_dir, getSiteCode(record), record['host_name'])
+    device_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
 
     # Create logs for capturing info
     now = get_now_time()
@@ -980,18 +1029,15 @@ def check_main(record):
         temp_dev_log = os.path.join(device_dir, temp_dev_name)
 
     print "\n" + "-" * 80
-    print subHeading(record['host_name'] + " - (" + record['ip'] + ")", 15)
+    print subHeading(record['hostname'] + " - (" + record['ip'] + ")", 15)
     # Try to connect to device
-    if connect(record['ip']):
-        record.update({'last_access': get_now_time()})
-        if addl_opt == "configs" or addl_opt == "all":
-            print "Running Param/Config Check..."
-            param_config_check(record, conf_chg_log)
-        if addl_opt == "template" or addl_opt == "all":
-            print "Running Template Check..."
-            template_check(record, temp_dev_log)
-    else:
-        print "Connection failed, check error log for details."
+    record.update({'last_access': get_now_time()})
+    if addl_opt == "configs" or addl_opt == "all":
+        print "Running Param/Config Check..."
+        param_config_check(record, conf_chg_log)
+    if addl_opt == "template" or addl_opt == "all":
+        print "Running Template Check..."
+        template_check(record, temp_dev_log)
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
@@ -1085,7 +1131,7 @@ if __name__ == "__main__":
     # Save the changes of the listDict to CSV
     if listDict:
         # Order to print the CSV in
-        attribOrder = ['host_name', 'ip', 'junos_code', 'model', 'serial_number', 'last_access',
+        attribOrder = ['hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access',
                       'last_param_check', 'last_config_check', 'last_temp_check', 'last_param_change',
                       'last_config_change']
         # Print the list dictionary to a CSV file

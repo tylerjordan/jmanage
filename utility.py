@@ -285,40 +285,6 @@ def add_to_csv_sort(entry, csv_file):
         return False
 
 
-# Gets a target code
-def getCode(device, mypath):
-    tar_code = ""
-
-    # Does not have a target code, let's ask for one
-    print("\n" + "*"*10)
-    print("Hostname: " + device.hostname)
-    print("IP: " + device.ip)
-    print("Model: " + device.model)
-    print("Current Code: " + device.curr_code)
-
-    fileList = getFileList(mypath)
-    if fileList:
-        tar_code = getOptionAnswer("Choose an image", fileList)
-    else:
-        print("No images available.")
-    print("*"*10 + "\n")
-
-    return tar_code
-
-# Return the site code by extracting from a provided hostname
-def getSiteCode(record):
-    hostname = record['host_name'].upper()
-    if re.match(r'SW[A-Z]{3}', hostname):
-        siteObj = re.match(r'SW[A-Z]{3}', hostname)
-    elif re.match(r'S[A-Z]{3}', hostname):
-        siteObj = re.match(r'S[A-Z]{3}', hostname)
-    else:
-        mydirect = "MISC"
-        return mydirect
-
-    return siteObj.group()[-3:]
-
-
 # Analyze listDict and create statistics (Upgrade)
 def tabulateUpgradeResults(listDict):
     statusDict = {'success_rebooted': [],'success_not_rebooted': [], 'connect_fails': [], 'software_install_fails': [], 'total_devices': 0}
