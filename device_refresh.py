@@ -21,6 +21,7 @@ __email__ = "tjordan@juniper.net"
 # Access_Error_Log.csv - Timestamped error messages returned from attempting to connect to devices
 # Ops_Error_Log.csv ---- Timestamped error messages returned from running param, config, or template funtions
 # New_Devices_Log.csv -- Timestamped list of devices that have been added
+# Fail_Devices_Log.csv - Timestamped list of devices that are not accessible
 #
 
 # Miscellaneous Files:
@@ -57,6 +58,7 @@ template_csv = ''
 access_error_log = ''
 ops_error_log = ''
 new_devices_log = ''
+fail_devices_log = ''
 
 # Params
 addl_opt = ''
@@ -88,6 +90,7 @@ def detect_env():
     global access_error_log
     global ops_error_log
     global new_devices_log
+    global fail_devices_log
     global listDictCSV
     global credsCSV
     global iplist_dir
@@ -119,6 +122,7 @@ def detect_env():
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
     ops_error_log = os.path.join(log_dir, "Ops_Error_Log.csv")
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
+    fail_devices_log = os.path.join(log_dir, "Fail_Devices_Log.csv")
 
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
@@ -312,14 +316,13 @@ def line_list(filepath):
 
 def check_params(ip):
     """ Purpose: Scans the device with the IP and handles action. """
-
     # 0 = Unable to Check, 1 = No Changes, 2 = Changes Detected
     returncode = 1
     # Store the results of check and returncode
     results = []
     # Try to collect current chassis info
-    #remoteDict = fetch_params(ip)
-    remoteDict = run(ip, myuser, mypwd, port)
+    remoteDict = fetch_params(ip, indbase=True)
+    #remoteDict = run(ip, myuser, mypwd, port)
     # If info was collected...
     if remoteDict:
         # Get current information to compare against database info
@@ -395,8 +398,8 @@ def get_record(ip='', hostname='', sn='', code=''):
 def add_record(ip):
     """ Purpose: Adds a record to list of dictionaries.
     """
-    #items = fetch_params(ip)
-    items = run(ip, myuser, mypwd, port)
+    items = fetch_params(ip, indbase=False)
+    #items = run(ip, myuser, mypwd, port)
     if not items:
         # Record an error if the items doesn't return anything
         return False
@@ -477,8 +480,8 @@ def change_record(ip, value, key):
                 myrecord.update({'last_param_change': get_now_time()})
                 return True
 
-# This function attempts to open a connection with the device. If sucessful, session is returned,
-def connect(ip):
+# This function attempts to open a connection with the device. If successful, session is returned,
+def connect(ip, indbase=False):
     """ Purpose: Get current configuration from device.
         Returns: Device object / False
     """
@@ -510,22 +513,36 @@ def connect(ip):
         add_to_csv_sort(
             ip + ";" + "IP reachability issues. ERROR:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
+        fail_check(ip, get_now_time(), indbase)
         return False
     except ConnectError as err:
         no_connect_ips.append(ip)
         add_to_csv_sort(
             ip + ";" + "Unknown connection issue. DEBUG:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
+        fail_check(ip, get_now_time(), indbase)
         return False
     except Exception as err:
         no_connect_ips.append(ip)
         add_to_csv_sort(
             ip + ";" + "Undefined exception. DEBUG:(" + str(err) + ");" + get_now_time() + "\n",
             access_error_log)
+        fail_check(ip, get_now_time(), indbase)
         return False
     # If try arguments succeed...
     else:
         return dev
+
+# Perform database steps on failed devices
+def fail_check(ip, now, indbase):
+    if indbase:
+        myListDict = csv_to_listdict(fail_devices_log)
+        # Go through failed devices log, find a specific ip
+        for key,val in myListDict:
+            # This fails if we find the IP in this list
+            if key == 'ip' and str(val) == ip:
+                myListDict.update({'last_attempt': get_now_time()})
+
 
 
 def fetch_config(ip):
@@ -543,13 +560,12 @@ def fetch_config(ip):
         return False
 
 
-def fetch_params(ip):
+def fetch_params(ip, indbase):
     # Purpose: Collect the parameters needed for the database.
     # Returns: Dictionary
-    
     fact_list = ['hostname', 'serialnumber', 'model', 'version']
     facts = {}
-    dev = connect(ip)
+    dev = connect(ip, indbase)
     if dev:
         dev.timeout = 300
         #gather_facts_start = time.clock()
@@ -938,11 +954,12 @@ def param_config_check(record, conf_chg_log):
     # A single running log of changes
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
 
-    # Param Results: 0 = Error, 1 = No Changes, 2 = Changes
-    # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
+    # Functions for checking parameters and configurations
     param_results = check_params(str(record['ip']))
     compare_results = config_compare(record)
 
+    # Param Results: 0 = Error, 1 = No Changes, 2 = Changes
+    # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
     # Scan param results
     if param_results[-1] == 1 and compare_results[-1] == 1:  # If no changes are detected
         no_changes_ips.append(record['hostname'] + " (" + record['ip'] + ")")
@@ -1012,7 +1029,7 @@ def check_loop(subsetlist):
     print "Device Processsing Ended: {0}\n\n".format(get_now_time())
 
 
-# Function for performing the checks
+# Function checking devices that are in the database
 def check_main(record):
     # Performs the selected checks (Parameter/Config, Template, or All)
     directory_check(record)
