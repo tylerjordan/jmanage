@@ -43,7 +43,6 @@ from ncclient.transport import errors
 from utility import *
 
 # Paths
-listDictCSV = ''
 iplist_dir = ''
 config_dir = ''
 log_dir = ''
@@ -51,6 +50,7 @@ template_dir = ''
 dir_path = ''
 
 # Files
+listDictCSV = ''
 credsCSV = ''
 iplistfile = ''
 template_file = ''
@@ -58,7 +58,7 @@ template_csv = ''
 access_error_log = ''
 ops_error_log = ''
 new_devices_log = ''
-fail_devices_log = ''
+fail_devices_csv = ''
 
 # Params
 addl_opt = ''
@@ -90,7 +90,7 @@ def detect_env():
     global access_error_log
     global ops_error_log
     global new_devices_log
-    global fail_devices_log
+    global fail_devices_csv
     global listDictCSV
     global credsCSV
     global iplist_dir
@@ -122,7 +122,7 @@ def detect_env():
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
     ops_error_log = os.path.join(log_dir, "Ops_Error_Log.csv")
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
-    fail_devices_log = os.path.join(log_dir, "Fail_Devices_Log.csv")
+    fail_devices_csv = os.path.join(log_dir, "Fail_Devices_Log.csv")
 
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
@@ -413,6 +413,7 @@ def add_record(ip):
         items['last_param_change'] = now
         items['last_param_check'] = now
         items['last_temp_check'] = ''
+        items['ip'] = ip
         listDict.append(items)
         return True
 
@@ -486,7 +487,8 @@ def connect(ip, indbase=False):
         Returns: Device object / False
     """
     #make_dev_start = time.clock()
-    dev = Device(host=ip, user=myuser, passwd=mypwd)
+    #Device.auto_probe = 15
+    dev = Device(host=ip, user=myuser, passwd=mypwd, auto_probe=True)
     #make_dev = time.clock() - make_dev_start
     #print('Create device time: %8.3f sec.' % make_dev)
     # Try to open a connection to the device
@@ -510,39 +512,61 @@ def connect(ip, indbase=False):
         return False
     except ConnectTimeoutError as err:
         no_ping_ips.append(ip)
-        add_to_csv_sort(
-            ip + ";" + "IP reachability issues. ERROR:(" + str(err) + ");" + get_now_time() + "\n",
-            access_error_log)
-        fail_check(ip, get_now_time(), indbase)
+        err_message = ip + ";" + "Timeout error, possible IP reachability issues. ERROR:(" + str(err) + ");" + get_now_time() + "\n"
+        fail_check(ip, get_now_time(), indbase, err_message)
+        return False
+    except ProbeError as err:
+        no_ping_ips.append(ip)
+        err_message = ip + ";" + "Probe timeout, possible IP reachability issues. ERROR:(" + str(err) + ");" + get_now_time() + "\n"
+        fail_check(ip, get_now_time(), indbase, err_message)
         return False
     except ConnectError as err:
         no_connect_ips.append(ip)
-        add_to_csv_sort(
-            ip + ";" + "Unknown connection issue. DEBUG:(" + str(err) + ");" + get_now_time() + "\n",
-            access_error_log)
-        fail_check(ip, get_now_time(), indbase)
+        err_message = ip + ";" + "Unknown connection issue. DEBUG:(" + str(err) + ");" + get_now_time() + "\n"
+        fail_check(ip, get_now_time(), indbase, err_message)
         return False
     except Exception as err:
         no_connect_ips.append(ip)
-        add_to_csv_sort(
-            ip + ";" + "Undefined exception. DEBUG:(" + str(err) + ");" + get_now_time() + "\n",
-            access_error_log)
-        fail_check(ip, get_now_time(), indbase)
+        err_message = ip + ";" + "Undefined exception. DEBUG:(" + str(err) + ");" + get_now_time() + "\n"
+        fail_check(ip, get_now_time(), indbase, err_message)
         return False
     # If try arguments succeed...
     else:
         return dev
 
 # Perform database steps on failed devices
-def fail_check(ip, now, indbase):
-    if indbase:
-        myListDict = csv_to_listdict(fail_devices_log)
-        # Go through failed devices log, find a specific ip
-        for key,val in myListDict:
-            # This fails if we find the IP in this list
-            if key == 'ip' and str(val) == ip:
-                myListDict.update({'last_attempt': get_now_time()})
+def fail_check(ip, now, indbase, err_message):
+    # Number of days to keep IP after first fail attempt
+    attempt_limit = 10
+    matched = False
 
+    if indbase:
+        myListDict = csv_to_listdict(fail_devices_csv)
+        # Go through failed devices log, find a specific ip
+        for myDict['ip'] in myListDict:
+            # If we find the IP in this list
+            if myDict['ip'] == ip:
+                matched = True
+                myDict.update({'last_attempt': get_now_time()})
+                days_exp = get_now_time().days - myDict['date_added'].days
+                if days_exp > attempt_limit:
+                    myListDict.remove(myDict)
+                break
+        # If this device is not in the failed list
+        if not matched:
+            # Create new record
+            items['ip'] = ip
+            items['last_attempt'] = get_now_time()
+            items['date_added'] = get_now_time()
+            attribOrder = ['ip', 'last_attempt', 'date_added']
+            # Add record to failed csv
+            listdict_to_csv(myListDict, fail_devices_csv, attribOrder)
+        # Do this for devices in database
+        add_to_csv_sort(err_message, access_error_log)
+    # This applies to all unreachable devices, not in database already, so new devices
+    # Don't do anything, it is recorded in new_devices_log
+    else:
+        pass
 
 
 def fetch_config(ip):
@@ -552,7 +576,6 @@ def fetch_config(ip):
     dev = connect(ip)
     # Increase the default RPC timeout to accommodate install operations
     if dev:
-        dev.timeout = 300
         myconfig = dev.cli('show config | display set', warning=False)
         dev.close()
         return myconfig
@@ -563,11 +586,10 @@ def fetch_config(ip):
 def fetch_params(ip, indbase):
     # Purpose: Collect the parameters needed for the database.
     # Returns: Dictionary
-    fact_list = ['hostname', 'serialnumber', 'model', 'version']
+    #fact_list = ['hostname', 'serialnumber', 'model', 'version']
     facts = {}
     dev = connect(ip, indbase)
     if dev:
-        dev.timeout = 300
         #gather_facts_start = time.clock()
         facts['hostname'] = dev.facts['hostname']
         facts['serialnumber'] = dev.facts['serialnumber']
