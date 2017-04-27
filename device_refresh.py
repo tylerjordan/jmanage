@@ -3,7 +3,7 @@ __version__ = "0.1.1"
 __email__ = "tjordan@juniper.net"
 
 # ------------------------------------------------------------------------------------------------------------------- #
-# listDictCSV Database Attributes:
+# Database Attributes:
 # ip ................. Management IP of Device
 # hostname .......... Hostname of Device
 # version ......... Juniper Code Version (ie 13.2X51-D35.3)
@@ -23,6 +23,8 @@ __email__ = "tjordan@juniper.net"
 # New_Devices_Log.csv -- Timestamped list of devices that have been added
 # Fail_Devices_Log.csv - Timestamped list of devices that are not accessible
 #
+
+
 
 # Miscellaneous Files:
 # ------------------------------------------------------------------------------------------------------------------- #
@@ -83,6 +85,13 @@ param_change_ips = []
 config_change_ips = []
 templ_change_ips = []
 
+# Dicts
+attrib_order_list = ['hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_param_check',
+                     'last_config_check', 'last_temp_check', 'last_param_change', 'last_config_change' ]
+facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
+dates_list = [ 'last_config_check', 'last_config_change', 'last_access', 'last_param_change', 'last_param_check',
+              'last_temp_check' ]
+
 def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
     global template_file
@@ -98,6 +107,9 @@ def detect_env():
     global template_dir
     global log_dir
     global dir_path
+    global attrib_order_list
+    global facts_list
+    global dates_list
 
     dir_path = os.path.dirname(os.path.abspath(__file__))
     if platform.system().lower() == "windows":
@@ -314,15 +326,17 @@ def line_list(filepath):
         return linelist
 
 
-def check_params(ip):
+def check_params(ip, dev):
     """ Purpose: Scans the device with the IP and handles action. """
     # 0 = Unable to Check, 1 = No Changes, 2 = Changes Detected
     returncode = 1
     # Store the results of check and returncode
     results = []
+    remoteDict = {}
     # Try to collect current chassis info
-    remoteDict = fetch_params(ip, indbase=True)
-    #remoteDict = run(ip, myuser, mypwd, port)
+    for key in facts_list:
+        remoteDict[key] = dev.facts[key]
+
     # If info was collected...
     if remoteDict:
         # Get current information to compare against database info
@@ -376,45 +390,57 @@ def get_record(ip='', hostname='', sn='', code=''):
     """
     has_record = False
     #print "Getting record for ip: {0}".format(ip)
-    if ip:
-        for record in listDict:
-            if record['ip'] == ip:
-                return record
-    elif hostname:
-        for record in listDict:
-            if record['hostname'] == hostname:
-                return record
-    elif sn:
-        for record in listDict:
-            if record['serialnumber'] == sn:
-                return record
-    elif code:
-        for record in listDict:
-            if record['version'] == code:
-                return record
+    # Make sure listDict has contents
+    if listDict:
+        if ip:
+            for record in listDict:
+                if record['ip'] == ip:
+                    return record
+        elif hostname:
+            for record in listDict:
+                if record['hostname'] == hostname:
+                    return record
+        elif sn:
+            for record in listDict:
+                if record['serialnumber'] == sn:
+                    return record
+        elif code:
+            for record in listDict:
+                if record['version'] == code:
+                    return record
+        else:
+            return has_record
     else:
         return has_record
 
-def add_record(ip):
+
+def add_record(ip, dev):
     """ Purpose: Adds a record to list of dictionaries.
     """
-    items = fetch_params(ip, indbase=False)
-    #items = run(ip, myuser, mypwd, port)
-    if not items:
-        # Record an error if the items doesn't return anything
+    # Create a dict to store record values
+    mydict = {}
+    # Try to gather facts from device
+    try:
+        for key in facts_list:
+            mydict[key] = dev.facts[key]
+    except Exception as err:
+        print "Error accessing facts on device. ERROR {0}".format(err)
         return False
     else:
-        # Save config file and add attributes to
+        mydict['ip'] = ip
         now = get_now_time()
-        if save_config_file(fetch_config(ip), items):
-            items['last_config_check'] = now
-            items['last_config_change'] = now
-        items['last_access'] = now
-        items['last_param_change'] = now
-        items['last_param_check'] = now
-        items['last_temp_check'] = ''
-        items['ip'] = ip
-        listDict.append(items)
+
+        # Try to save config file, add appropriate dates to dict if save works
+        if save_config_file(fetch_config(dev), mydict):
+            mydict['last_config_check'] = now
+            mydict['last_config_change'] = now
+        # Apply dates to record dict
+        mydict['last_access'] = now
+        mydict['last_param_change'] = now
+        mydict['last_param_check'] = now
+
+        # Add entire record to database
+        listDict.append(mydict)
         return True
 
 # Return the site code by extracting from a provided hostname
@@ -456,7 +482,7 @@ def get_now_time():
         Returns: Timestamp
     """
     now = datetime.datetime.now()
-    return now.strftime("%Y-%m-%d-%H%M")
+    return now.strftime("%Y-%m-%d %H:%M")
 
 def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
@@ -486,17 +512,10 @@ def connect(ip, indbase=False):
     """ Purpose: Get current configuration from device.
         Returns: Device object / False
     """
-    #make_dev_start = time.clock()
-    #Device.auto_probe = 15
     dev = Device(host=ip, user=myuser, passwd=mypwd, auto_probe=True)
-    #make_dev = time.clock() - make_dev_start
-    #print('Create device time: %8.3f sec.' % make_dev)
     # Try to open a connection to the device
     try:
-        #open_dev_start = time.clock()
         dev.open()
-        #open_dev = time.clock() - open_dev_start
-        #print('Open device time: %8.3f sec.' % open_dev)
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
         no_netconf_ips.append(ip)
@@ -543,16 +562,20 @@ def fail_check(ip, now, indbase, err_message):
     if indbase:
         myListDict = csv_to_listdict(fail_devices_csv)
         # Go through failed devices log, find a specific ip
-        for myDict['ip'] in myListDict:
-            # If we find the IP in this list
-            if myDict['ip'] == ip:
-                matched = True
-                myDict.update({'last_attempt': get_now_time()})
-                days_exp = get_now_time().days - myDict['date_added'].days
-                if days_exp > attempt_limit:
-                    myListDict.remove(myDict)
-                break
-        # If this device is not in the failed list
+        if myListDict:
+            for myDict in myListDict:
+                # If we find the IP in this list
+                if myDict['ip'] == ip:
+                    matched = True
+                    myDict.update({'last_attempt': get_now_time()})
+                    atime = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d %H:%M")
+                    print "Time Then: {0}".format(atime)
+                    #print "Time Now: {0}\nTime Then: {1}".format(get_now_time(), myDict['date_added'])
+                    days_exp = get_now_time().days - atime.days
+                    if days_exp > attempt_limit:
+                        myListDict.remove(myDict)
+                    break
+        # If this device is not in the failed list or failed devices log doesn't exist
         if not matched:
             # Create new record
             mylist = []
@@ -573,42 +596,17 @@ def fail_check(ip, now, indbase, err_message):
         pass
 
 
-def fetch_config(ip):
+def fetch_config(dev):
     """ Purpose: Get current configuration from device.
         Returns: Text File
     """
-    dev = connect(ip)
-    # Increase the default RPC timeout to accommodate install operations
-    if dev:
+    try:
         myconfig = dev.cli('show config | display set', warning=False)
-        dev.close()
-        return myconfig
-    else:
+    except Exception as err:
+        print "Error getting configuration from device. ERROR: {0}".format(err)
         return False
-
-
-def fetch_params(ip, indbase):
-    # Purpose: Collect the parameters needed for the database.
-    # Returns: Dictionary
-    #fact_list = ['hostname', 'serialnumber', 'model', 'version']
-    facts = {}
-    dev = connect(ip, indbase)
-    if dev:
-        #gather_facts_start = time.clock()
-        facts['hostname'] = dev.facts['hostname']
-        facts['serialnumber'] = dev.facts['serialnumber']
-        facts['model'] = dev.facts['model']
-        facts['version'] = dev.facts['version']
-        #for key,val in dev.facts.items():
-        #    if key in fact_list:
-        #        facts[key] = val
-        #gather_facts = time.clock() - gather_facts_start
-        #print('Gather facts time: %8.3f sec.' % gather_facts)
-        #close_dev_start = time.clock()
-        dev.close()
-        #close_dev = time.clock() - close_dev_start
-        #print('Close device time: %8.3f sec.' % close_dev)
-    return facts
+    else:
+        return myconfig
 
 
 def information(connection, ip, software_info, hostname):
@@ -679,7 +677,7 @@ def run(ip, username, password, port):
         return output
 
 
-def config_compare(record):
+def config_compare(record, dev):
     """ Purpose: To compare two configs and get the differences, log them
         Parameters:
             record          -   Object that contains parameters of devices
@@ -692,13 +690,13 @@ def config_compare(record):
     # Check if the appropriate site directory is created. If not, then create it.
     loaded_config = load_config_file(record['ip'], newest=True)
     if not loaded_config:
-        if save_config_file(fetch_config(record['ip']), record):
+        if save_config_file(fetch_config(dev), record):
             results.append("No Existing Config, Configuration Saved\n")
         else:
             results.append("No Existing Config, Configuration Save Failed\n")
             returncode = 0
     else:
-        current_config = fetch_config(record['ip'])
+        current_config = fetch_config(dev)
         if current_config:
             # Compare configurations
             change_list = compare_configs(loaded_config, current_config)
@@ -935,15 +933,22 @@ def add_new_device(ip):
     # If a record doesn't exist, try to create one
     if not get_record(ip):
         # Try adding this device to the database
-        if add_record(ip):
-            print "\t\t* Successfully added device to database."
-            add_to_csv_sort(
-                ip + ";" + "Successfully added (" + ip + ") to database." + ";" + get_now_time(),
-                new_devices_log)
+        dev = connect(ip, False)
+        if dev:
+            if add_record(ip, dev):
+                print "\t\t* Successfully added device to database."
+                add_to_csv_sort(
+                    ip + ";" + "Successfully added (" + ip + ") to database." + ";" + get_now_time(),
+                    new_devices_log)
+            else:
+                print "\t\t* Failed adding device to database *"
+                add_to_csv_sort(
+                    ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
+                    new_devices_log)
         else:
-            print "\t\t* Failed adding device to database *"
+            print "\t\t* Failed connecting to device *"
             add_to_csv_sort(
-                ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
+                ip + ";" + "Failed connecting to (" + ip + ")." + ";" + get_now_time(),
                 new_devices_log)
     else:
         print "\t\t* Skipping device, already in database."
@@ -976,13 +981,13 @@ def template_check(record, temp_dev_log):
         templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
 # Parameter and Cconfiguration Check Function
-def param_config_check(record, conf_chg_log):
+def param_config_check(record, conf_chg_log, dev):
     # A single running log of changes
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
 
     # Functions for checking parameters and configurations
-    param_results = check_params(str(record['ip']))
-    compare_results = config_compare(record)
+    param_results = check_params(str(record['ip']), dev)
+    compare_results = config_compare(record, dev)
 
     # Param Results: 0 = Error, 1 = No Changes, 2 = Changes
     # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
@@ -1073,14 +1078,20 @@ def check_main(record):
 
     print "\n" + "-" * 80
     print subHeading(record['hostname'] + " - (" + record['ip'] + ")", 15)
-    # Try to connect to device
+    # Try to connect to device and open a connection
     record.update({'last_access': get_now_time()})
     if addl_opt == "configs" or addl_opt == "all":
         print "Running Param/Config Check..."
-        param_config_check(record, conf_chg_log)
+        dev = connect(record['ip'], True)
+        if dev:
+            param_config_check(record, conf_chg_log, dev)
+            # Close the connection to the device
+            dev.close()
+    # Try to do the template check
     if addl_opt == "template" or addl_opt == "all":
         print "Running Template Check..."
         template_check(record, temp_dev_log)
+
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
@@ -1173,12 +1184,8 @@ if __name__ == "__main__":
 
     # Save the changes of the listDict to CSV
     if listDict:
-        # Order to print the CSV in
-        attribOrder = ['hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access',
-                      'last_param_check', 'last_config_check', 'last_temp_check', 'last_param_change',
-                      'last_config_change']
         # Print the list dictionary to a CSV file
-        listdict_to_csv(listDict, listDictCSV, attribOrder)
+        listdict_to_csv(listDict, listDictCSV, attrib_order_list)
         print "\nSaved any changes. We're done!"
     else:
         print "\nNo content in database. Exiting!"
