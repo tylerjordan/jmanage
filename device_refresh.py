@@ -271,7 +271,7 @@ def save_config_file(myconfig, record):
         newfile = open(fileandpath, "w+")
     except Exception as err:
         #print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, fileandpath)
-        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), ops_error_log)
+        add_to_csv_sort(record['ip'] + ";" + str(err) + ";" + get_now_time(), ops_error_log)
         return False
     else:
         # Remove excess configurations if necessary
@@ -280,13 +280,13 @@ def save_config_file(myconfig, record):
             try:
                 os.remove(del_file)
             except Exception as err:
-                add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), ops_error_log)
+                add_to_csv_sort(record['ip'] + ";" + str(err) + ";" + get_now_time(), ops_error_log)
                 #print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
         try:
             newfile.write(myconfig)
         except Exception as err:
             #print "ERROR: Unable to write config to file: {0}".format(err)
-            add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), ops_error_log)
+            add_to_csv_sort(record['ip'] + ";" + str(err) + ";" + get_now_time(), ops_error_log)
             return False
         else:
             # Update configuration change time for record
@@ -555,16 +555,20 @@ def fail_check(ip, now, indbase, err_message):
         # If this device is not in the failed list
         if not matched:
             # Create new record
-            items['ip'] = ip
-            items['last_attempt'] = get_now_time()
-            items['date_added'] = get_now_time()
+            mylist = []
+            mydicts = {
+                'ip': ip,
+                'last_attempt': get_now_time(),
+                'date_added': get_now_time(),
+            }
+            mylist.append(mydicts)
             attribOrder = ['ip', 'last_attempt', 'date_added']
             # Add record to failed csv
-            listdict_to_csv(myListDict, fail_devices_csv, attribOrder)
+            listdict_to_csv(mylist, fail_devices_csv, attribOrder)
         # Do this for devices in database
         add_to_csv_sort(err_message, access_error_log)
     # This applies to all unreachable devices, not in database already, so new devices
-    # Don't do anything, it is recorded in new_devices_log
+    # Don't do anything, these failures are recorded in new_devices_log
     else:
         pass
 
@@ -746,7 +750,7 @@ def template_scanner(regtmpl_list, record):
         results.append("ERROR: Problems preforming template scan")
         returncode = 0
     else:
-        myrecord.update({'last_temp_check': get_now_time()})
+        record.update({'last_temp_check': get_now_time()})
         if nomatch:
             returncode = 1
     finally:
