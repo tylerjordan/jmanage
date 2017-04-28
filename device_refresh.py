@@ -21,7 +21,9 @@ __email__ = "tjordan@juniper.net"
 # Access_Error_Log.csv - Timestamped error messages returned from attempting to connect to devices
 # Ops_Error_Log.csv ---- Timestamped error messages returned from running param, config, or template funtions
 # New_Devices_Log.csv -- Timestamped list of devices that have been added
-# Fail_Devices_Log.csv - Timestamped list of devices that are not accessible
+
+# Dict Lists
+# Fail_Devices.csv ----- Timestamped list of devices that are not accessible
 #
 
 
@@ -61,6 +63,10 @@ access_error_log = ''
 ops_error_log = ''
 new_devices_log = ''
 fail_devices_csv = ''
+
+#Log Keys
+error_key_list = ['ip', 'message', 'error', 'timestamp']
+standard_key_list = ['ip', 'message', 'timestamp']
 
 # Params
 addl_opt = ''
@@ -114,7 +120,8 @@ def detect_env():
     dir_path = os.path.dirname(os.path.abspath(__file__))
     if platform.system().lower() == "windows":
         #print "Environment Windows!"
-        listDictCSV = os.path.join(dir_path, "data\\listdict.csv")
+        listDictCSV = os.path.join(dir_path, "listdict.csv")
+        fail_devices_csv = os.path.join(dir_path, "Fail_Devices.csv")
         iplist_dir = os.path.join(dir_path, "data\\iplists")
         config_dir = os.path.join(dir_path, "data\\configs")
         template_dir = os.path.join(dir_path, "data\\templates")
@@ -122,7 +129,7 @@ def detect_env():
 
     else:
         #print "Environment Linux/MAC!"
-        listDictCSV = os.path.join(dir_path, "data/listdict.csv")
+        listDictCSV = os.path.join(dir_path, "listdict.csv")
         iplist_dir = os.path.join(dir_path, "data/iplists")
         config_dir = os.path.join(dir_path, "data/configs")
         template_dir = os.path.join(dir_path, "data/templates")
@@ -134,7 +141,6 @@ def detect_env():
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
     ops_error_log = os.path.join(log_dir, "Ops_Error_Log.csv")
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
-    fail_devices_csv = os.path.join(log_dir, "Fail_Devices_Log.csv")
 
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
@@ -482,7 +488,7 @@ def get_now_time():
         Returns: Timestamp
     """
     now = datetime.datetime.now()
-    return now.strftime("%Y-%m-%d %H:%M")
+    return now.strftime("%Y-%m-%d_%H%M")
 
 def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
@@ -518,10 +524,9 @@ def connect(ip, indbase=False):
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
+        message = "Host Reachable, but NETCONF not configured."
+        add_to_csv_sort(error_key_list, [ip, message, str(err), get_now_time()], access_error_log)
         no_netconf_ips.append(ip)
-        add_to_csv_sort(
-            ip + ";" + "Host Reachable, but NETCONF not configured. ERROR:(" + str(err) + ");" + get_now_time() + "\n",
-            access_error_log)
         return False
     except ConnectAuthError as err:
         no_auth_ips.append(ip)
@@ -568,10 +573,10 @@ def fail_check(ip, now, indbase, err_message):
                 if myDict['ip'] == ip:
                     matched = True
                     myDict.update({'last_attempt': get_now_time()})
-                    past_time = datetime.datetime.strptime('2016-04-28 12:00', "%Y-%m-%d %H:%M")
+                    past_time = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d_%H%M")
                     now_time = datetime.datetime.now()
                     days_exp = (now_time - past_time).days
-
+                    print "Days: {0}".format(days_exp)
                     if days_exp > attempt_limit:
                         myListDict.remove(myDict)
                     break
@@ -936,7 +941,7 @@ def add_new_device(ip):
         dev = connect(ip, False)
         if dev:
             if add_record(ip, dev):
-                print "\t\t* Successfully added device to database."
+                print "\t\t* Successfully added device to database *"
                 add_to_csv_sort(
                     ip + ";" + "Successfully added (" + ip + ") to database." + ";" + get_now_time(),
                     new_devices_log)
@@ -951,7 +956,7 @@ def add_new_device(ip):
                 ip + ";" + "Failed connecting to (" + ip + ")." + ";" + get_now_time(),
                 new_devices_log)
     else:
-        print "\t\t* Skipping device, already in database."
+        print "\t\t* Skipping device, already in database *"
 
 
 def template_check(record, temp_dev_log):
@@ -1080,18 +1085,18 @@ def check_main(record):
     print subHeading(record['hostname'] + " - (" + record['ip'] + ")", 15)
     # Try to connect to device and open a connection
     record.update({'last_access': get_now_time()})
-    if addl_opt == "configs" or addl_opt == "all":
-        print "Running Param/Config Check..."
-        dev = connect(record['ip'], True)
-        if dev:
+    # Try to connect to the device
+    dev = connect(record['ip'], True)
+    if dev:
+        if addl_opt == "configs" or addl_opt == "all":
+            print "Running Param/Config Check..."
             param_config_check(record, conf_chg_log, dev)
             # Close the connection to the device
             dev.close()
-    # Try to do the template check
-    if addl_opt == "template" or addl_opt == "all":
-        print "Running Template Check..."
-        template_check(record, temp_dev_log)
-
+        # Try to do the template check
+        if addl_opt == "template" or addl_opt == "all":
+            print "Running Template Check..."
+            template_check(record, temp_dev_log)
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.

@@ -185,35 +185,6 @@ def chooseDevices():
 
     return ip_list
 
-
-# Converts listDict to CSV file
-def listDictCSV(myListDict, filePathName, keys):
-    addKeys = True
-    if (os.path.isfile(filePathName)):
-        addKeys = False
-    try:
-        f = open(filePathName, 'a')
-    except:
-        print "ERROR: Failure opening file in append mode.\n"
-        print("Be sure {0} isn't open in another program.".format(filePathName))
-    else:
-        if addKeys:
-            #Write all the headings in the CSV
-            for akey in keys[:-1]:							# Runs for every element, except the last
-                f.write(akey + ",")							# Writes most elements
-            f.write(keys[-1])								# Writes last element
-            f.write("\n")
-
-        for part in myListDict:
-            for bkey in keys[:-1]:
-                #print "Key: " + bkey + "  Value: " + str(part[bkey])
-                f.write(str(part[bkey]) + ",")
-            f.write(str(part[keys[-1]]))
-            f.write("\n")
-        f.close()
-        print "\nCompleted appending to CSV."
-
-
 # Convert listDict to CSV file
 def listdict_to_csv(listDict, filePathName, fieldNames):
     try:
@@ -252,7 +223,17 @@ def csv_to_dict(filePathName):
 
 
 # Apply lines to CSV, then sort it, newest entries first ** USES SEMICOLONs **
-def add_to_csv_sort(entry, csv_file):
+def add_to_csv_sort(listkey, mylist, csv_file):
+    # Assemble entry
+    entry = ''
+
+    mydict = dict(zip(listkey, mylist))
+
+    '''
+        READ IN THE EXISTING CSV FILE AS A LISTDICT, IF IT EXISTS. ADD THE NEW LOG CONTENT TO THE LIST DICT, SORT IT,
+        THEN WRITE LISTDICT TO CSV.
+    '''
+
     # Add to csv file
     print_log(entry, csv_file)
 
