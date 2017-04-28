@@ -568,10 +568,10 @@ def fail_check(ip, now, indbase, err_message):
                 if myDict['ip'] == ip:
                     matched = True
                     myDict.update({'last_attempt': get_now_time()})
-                    atime = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d %H:%M")
-                    print "Time Then: {0}".format(atime)
-                    #print "Time Now: {0}\nTime Then: {1}".format(get_now_time(), myDict['date_added'])
-                    days_exp = get_now_time().days - atime.days
+                    past_time = datetime.datetime.strptime('2016-04-28 12:00', "%Y-%m-%d %H:%M")
+                    now_time = datetime.datetime.now()
+                    days_exp = (now_time - past_time).days
+
                     if days_exp > attempt_limit:
                         myListDict.remove(myDict)
                     break
