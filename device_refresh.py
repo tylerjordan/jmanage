@@ -60,13 +60,18 @@ iplistfile = ''
 template_file = ''
 template_csv = ''
 access_error_log = ''
+access_error_list = []
 ops_error_log = ''
+ops_error_list = []
 new_devices_log = ''
+new_devices_list = []
+run_change_log = ''
+run_change_list = []
 fail_devices_csv = ''
 
 #Log Keys
-error_key_list = ['ip', 'message', 'error', 'timestamp']
-standard_key_list = ['ip', 'message', 'timestamp']
+error_key_list = ['ip', 'message', 'error', 'timestamp'] # access_error_log, ops_error_log
+standard_key_list = ['ip', 'message', 'timestamp'] # new_devices_log
 
 # Params
 addl_opt = ''
@@ -120,8 +125,6 @@ def detect_env():
     dir_path = os.path.dirname(os.path.abspath(__file__))
     if platform.system().lower() == "windows":
         #print "Environment Windows!"
-        listDictCSV = os.path.join(dir_path, "listdict.csv")
-        fail_devices_csv = os.path.join(dir_path, "Fail_Devices.csv")
         iplist_dir = os.path.join(dir_path, "data\\iplists")
         config_dir = os.path.join(dir_path, "data\\configs")
         template_dir = os.path.join(dir_path, "data\\templates")
@@ -129,18 +132,20 @@ def detect_env():
 
     else:
         #print "Environment Linux/MAC!"
-        listDictCSV = os.path.join(dir_path, "listdict.csv")
         iplist_dir = os.path.join(dir_path, "data/iplists")
         config_dir = os.path.join(dir_path, "data/configs")
         template_dir = os.path.join(dir_path, "data/templates")
         log_dir = os.path.join(dir_path, "data/logs")
 
     # Statically defined files and logs
+    listDictCSV = os.path.join(dir_path, "listdict.csv")
     template_csv = os.path.join(dir_path, template_dir, "Template_Regex.csv")
     template_file = os.path.join(dir_path, template_dir, "Template.conf")
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
     ops_error_log = os.path.join(log_dir, "Ops_Error_Log.csv")
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
+    run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
+    fail_devices_csv = os.path.join(dir_path, "Fail_Devices.csv")
 
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
@@ -289,7 +294,9 @@ def save_config_file(myconfig, record):
         newfile = open(fileandpath, "w+")
     except Exception as err:
         #print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, fileandpath)
-        add_to_csv_sort(record['ip'] + ";" + str(err) + ";" + get_now_time(), ops_error_log)
+        message = "Unable to open file: " + fileandpath + "."
+        contentList = [record['ip'], message, str(err), get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
         return False
     else:
         # Remove excess configurations if necessary
@@ -298,13 +305,17 @@ def save_config_file(myconfig, record):
             try:
                 os.remove(del_file)
             except Exception as err:
-                add_to_csv_sort(record['ip'] + ";" + str(err) + ";" + get_now_time(), ops_error_log)
+                message = "Unable to remove config file: " + del_file + "."
+                contentList = [record['ip'], message, str(err), get_now_time()]
+                ops_error_list.append(dict(zip(error_key_list, contentList)))
                 #print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
         try:
             newfile.write(myconfig)
         except Exception as err:
             #print "ERROR: Unable to write config to file: {0}".format(err)
-            add_to_csv_sort(record['ip'] + ";" + str(err) + ";" + get_now_time(), ops_error_log)
+            message = "Unable to write config to file: " + fileandpath + "."
+            contentList = [ record['ip'], message, str(err), get_now_time() ]
+            ops_error_list.append(dict(zip(error_key_list, contentList)))
             return False
         else:
             # Update configuration change time for record
@@ -504,9 +515,9 @@ def change_record(ip, value, key):
             except Exception as err:
                 # Error checking...
                 print "ERROR: Unable to update record value: {0} | Device: {1}".format(err, ip)
-                add_to_csv_sort(
-                    ip + ";" + "Error changing " + key + " to " + value + ". ERROR:(" + str(err) + ");" + get_now_time() + "\n",
-                    ops_error_log)
+                message = "Error changing " + key + " to " + value + "."
+                contentList = [ ip, message, str(err), get_now_time() ]
+                ops_error_list.append(dict(zip(error_key_list, contentList)))
                 return False
             # If the record change was successful...
             else:
@@ -525,41 +536,46 @@ def connect(ip, indbase=False):
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
         message = "Host Reachable, but NETCONF not configured."
-        add_to_csv_sort(error_key_list, [ip, message, str(err), get_now_time()], access_error_log)
+        contentList = [ ip, message, str(err), get_now_time() ]
+        access_error_list.append(dict(zip(error_key_list, contentList)))
         no_netconf_ips.append(ip)
         return False
     except ConnectAuthError as err:
+        message = "Unable to connect with credentials. User:" + myuser
+        contentList = [ ip, message, str(err), get_now_time() ]
+        access_error_list.append(dict(zip(error_key_list, contentList)))
         no_auth_ips.append(ip)
-        add_to_csv_sort(
-            ip + ";" + "Unable to connect with credentials. User:" + myuser + " ERROR:(" + str(err) + ");" + get_now_time() + "\n",
-            access_error_log)
         return False
     except ConnectTimeoutError as err:
+        message = "Timeout error, possible IP reachability issues."
+        contentList = [ ip, message, str(err), get_now_time() ]
+        fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
-        err_message = ip + ";" + "Timeout error, possible IP reachability issues. ERROR:(" + str(err) + ");" + get_now_time() + "\n"
-        fail_check(ip, get_now_time(), indbase, err_message)
         return False
     except ProbeError as err:
+        message = "Probe timeout, possible IP reachability issues."
+        contentList = [ ip, message, str(err), get_now_time() ]
+        fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
-        err_message = ip + ";" + "Probe timeout, possible IP reachability issues. ERROR:(" + str(err) + ");" + get_now_time() + "\n"
-        fail_check(ip, get_now_time(), indbase, err_message)
         return False
     except ConnectError as err:
+        message = "Unknown connection issue."
+        contentList = [ ip, message, str(err), get_now_time() ]
+        fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
-        err_message = ip + ";" + "Unknown connection issue. DEBUG:(" + str(err) + ");" + get_now_time() + "\n"
-        fail_check(ip, get_now_time(), indbase, err_message)
         return False
     except Exception as err:
+        message = "Undefined exception."
+        contentList = [ip, message, str(err), get_now_time()]
+        fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
-        err_message = ip + ";" + "Undefined exception. DEBUG:(" + str(err) + ");" + get_now_time() + "\n"
-        fail_check(ip, get_now_time(), indbase, err_message)
         return False
     # If try arguments succeed...
     else:
         return dev
 
 # Perform database steps on failed devices
-def fail_check(ip, now, indbase, err_message):
+def fail_check(ip, indbase, contentList):
     # Number of days to keep IP after first fail attempt
     attempt_limit = 10
     matched = False
@@ -594,7 +610,7 @@ def fail_check(ip, now, indbase, err_message):
             # Add record to failed csv
             listdict_to_csv(mylist, fail_devices_csv, attribOrder)
         # Do this for devices in database
-        add_to_csv_sort(err_message, access_error_log)
+        access_error_list.append(dict(zip(error_key_list, contentList)))
     # This applies to all unreachable devices, not in database already, so new devices
     # Don't do anything, these failures are recorded in new_devices_log
     else:
@@ -630,9 +646,11 @@ def information(connection, ip, software_info, hostname):
         chassis_inventory = connection.get_chassis_inventory(format='xml')
         serialnumber = chassis_inventory.xpath('//chassis-inventory/chassis/serial-number')[0].text
         return {'hostname': hostname, 'ip': ip, 'model': model, 'version': version, 'serialnumber': serialnumber}
-    except:
+    except Exception as err:
         #print '\t- ERROR: Device was reachable, the information was not found.'
-        add_to_csv_sort(ip + ";" + "Unable to gather system information" + ";" + get_now_time() + "\n", ops_error_log)
+        message = "Device was reachable, but unable to gather system information."
+        contentList = [ip, message, str(err), get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
         return False
 
 
@@ -644,7 +662,6 @@ def run(ip, username, password, port):
             password    -   The string password used to connect to the device.
     """
     try:
-        #make_conn_start = time.clock()
         connection = manager.connect(host=ip,
                                      port=port,
                                      username=username,
@@ -652,30 +669,28 @@ def run(ip, username, password, port):
                                      timeout=15,
                                      device_params={'name': 'junos'},
                                      hostkey_verify=False)
-        #make_conn = time.clock() - make_conn_start
-        #print('Make conn time: %8.3f sec.' % make_conn)
         connection.timeout = 300
     except Exception as err:
         print '\t- ERROR: Unable to connect using NCCLIENT. ERROR: {0}'.format(err)
-        add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
+        message = "Unable to connect using NCCLIENT."
+        contentList = [ip, message, str(err), get_now_time()]
+        access_error_list.append(dict(zip(error_key_list, contentList)))
         return False
     else:
-        #gather_info_start = time.clock()
         try:
             software_info = connection.get_software_information(format='xml')
         except Exception as err:
-            add_to_csv_sort(ip + ";" + str(err).strip('\b\r\n') + ";" + get_now_time() + "\n", ops_error_log)
+            message = "Unable to get software information."
+            contentList = [ip, message, str(err).strip('\b\r\n'), get_now_time()]
+            ops_error_list.append(dict(zip(error_key_list, contentList)))
             return False
         # Collect information from device
         hostname = software_info.xpath('//software-information/host-name')[0].text
         output = information(connection, ip, software_info, hostname)
-        #gather_info = time.clock() - gather_info_start
-        #print('Gather info time: %8.3f sec.' % gather_info)
+
         # Close the session
-        #close_conn_start = time.clock()
         connection.close_session()
-        #close_conn = time.clock() - close_conn_start
-        #print('Close conn time: %8.3f sec.' % close_conn)
+
         # Determine what to return
         if not output:
             return False
@@ -942,19 +957,19 @@ def add_new_device(ip):
         if dev:
             if add_record(ip, dev):
                 print "\t\t* Successfully added device to database *"
-                add_to_csv_sort(
-                    ip + ";" + "Successfully added (" + ip + ") to database." + ";" + get_now_time(),
-                    new_devices_log)
+                message = "Successfully added to database."
+                contentList = [ip, message, get_now_time()]
+                new_devices_list.append(dict(zip(standard_key_list, contentList)))
             else:
                 print "\t\t* Failed adding device to database *"
-                add_to_csv_sort(
-                    ip + ";" + "Failed adding (" + ip + ") to database." + ";" + get_now_time(),
-                    new_devices_log)
+                message = "Failed adding to database."
+                contentList = [ip, message, get_now_time()]
+                new_devices_list.append(dict(zip(standard_key_list, contentList)))
         else:
             print "\t\t* Failed connecting to device *"
-            add_to_csv_sort(
-                ip + ";" + "Failed connecting to (" + ip + ")." + ";" + get_now_time(),
-                new_devices_log)
+            message = "Failed connecting to device. Check access_error_log."
+            contentList = [ip, message, get_now_time()]
+            new_devices_list.append(dict(zip(standard_key_list, contentList)))
     else:
         print "\t\t* Skipping device, already in database *"
 
@@ -982,14 +997,13 @@ def template_check(record, temp_dev_log):
         print_log("\t* Template Matches *\n", temp_dev_log)
     else:
         print_log("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
-        add_to_csv_sort(record['ip'] + ";" + templ_results[0] + ";" + get_now_time() + "\n", ops_error_log)
+        message = "Issue in template scanner function."
+        contentList = [ip, message, templ_results[0], get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
         templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
 # Parameter and Cconfiguration Check Function
 def param_config_check(record, conf_chg_log, dev):
-    # A single running log of changes
-    run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
-
     # Functions for checking parameters and configurations
     param_results = check_params(str(record['ip']), dev)
     compare_results = config_compare(record, dev)
@@ -1005,7 +1019,8 @@ def param_config_check(record, conf_chg_log, dev):
         print_sl("User: {0}\n".format(myuser), conf_chg_log)
         print_sl("Checked: {0}\n".format(get_now_time()), conf_chg_log)
         # The "run_change_log" format is "IP,HOSTNAME,DATE"
-        add_to_csv_sort(record['ip'] + ";" + record['hostname'] + ";" + get_now_time(), run_change_log)
+        contentList = [ip, record['hostname'], get_now_time()]
+        run_change_list.append(dict(zip(standard_key_list, contentList)))
 
     # If param results detect changes
     if param_results[-1] == 2:

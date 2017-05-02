@@ -223,11 +223,7 @@ def csv_to_dict(filePathName):
 
 
 # Apply lines to CSV, then sort it, newest entries first ** USES SEMICOLONs **
-def add_to_csv_sort(listkey, mylist, csv_file):
-    # Assemble entry
-    entry = ''
-
-    mydict = dict(zip(listkey, mylist))
+def add_to_csv_sort(listkey, contentList, storageList):
 
     '''
         READ IN THE EXISTING CSV FILE AS A LISTDICT, IF IT EXISTS. ADD THE NEW LOG CONTENT TO THE LIST DICT, SORT IT,
