@@ -979,8 +979,15 @@ def add_new_devices_loop(iplistfile):
     print "Add New Devices:"
     # Loop over the list of new IPs
     for raw_ip in line_list(os.path.join(iplist_dir, iplistfile)):
-        # Attempt to add new device
-        add_new_device(raw_ip.strip())
+        myip = raw_ip.strip()
+        # Check if this ip address is a network
+        if '\\' in myip:
+            for ip in IPNetwork(myip):
+                # Attempt to add new device
+                add_new_device(ip)
+        # Otherwise, it should be a standard IP
+        else:
+            add_new_device(myip)
 
 
 # Function to add specific device
@@ -1183,7 +1190,7 @@ def main(argv):
             print 'SYNTAX: device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions>'
             print '  -c : (REQUIRED) A CSV file in the root of the jmanage folder. It contains the username or hashid and password.'
             print '  -s : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IP addresses to scan.'
-            print '  -i : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the directory.'
+            print '  -i : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the database.'
             print '  -o : (OPTIONAL) Allows various options, provide one of the following three arguments:'
             print '      - "configs"  : Performs the parameter and configuration checks.'
             print '      - "template" : Performs the template scan.'
