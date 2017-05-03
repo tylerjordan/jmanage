@@ -544,43 +544,43 @@ def connect(ip, indbase=False):
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
-        print message
         message = "Host Reachable, but NETCONF not configured."
+        print message
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_netconf_ips.append(ip)
         return False
     except ConnectAuthError as err:
-        print message
         message = "Unable to connect with credentials. User:" + myuser
+        print message
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_auth_ips.append(ip)
         return False
     except ConnectTimeoutError as err:
-        print message
         message = "Timeout error, possible IP reachability issues."
+        print message
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
         return False
     except ProbeError as err:
-        print message
         message = "Probe timeout, possible IP reachability issues."
+        print message
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
         return False
     except ConnectError as err:
-        print message
         message = "Unknown connection issue."
+        print message
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
         return False
     except Exception as err:
-        print message
         message = "Undefined exception."
+        print message
         contentList = [ip, message, str(err), get_now_time()]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
