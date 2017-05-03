@@ -727,8 +727,8 @@ def config_compare(record, dev):
                 # Try to write diffList output to a list
                 for item in change_list:
                     results.append(item)
-                    save_config_file(current_config, record['ip'])
-                if not save_config_file(current_config, record['ip']):
+                    save_config_file(current_config, record)
+                if not save_config_file(current_config, record):
                     returncode = 3
         else:
             results.append("Unable to retrieve configuration\n")
