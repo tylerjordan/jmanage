@@ -103,6 +103,7 @@ facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
 dates_list = [ 'last_config_check', 'last_config_change', 'last_access', 'last_param_change', 'last_param_check',
               'last_temp_check' ]
 
+
 def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
     global template_file
@@ -147,6 +148,7 @@ def detect_env():
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
     fail_devices_csv = os.path.join(dir_path, "Fail_Devices.csv")
 
+
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable. """
     record = get_record(ip=ip)
@@ -164,6 +166,7 @@ def load_config_file(ip, newest):
             return my_file
     else:
         print "Problem getting record information..."
+
 
 def get_old_new_file(record, newest):
     """ Purpose: Returns the oldest config file from specified IP
@@ -218,6 +221,7 @@ def get_file_number(record):
             if file.startswith(record['hostname']):
                 file_num += 1
     return file_num
+
 
 def load_config_file_list(ip, newest):
     """ Purpose: Load the selected device's configuration file into a list.
@@ -277,6 +281,7 @@ def directory_check(record):
                 return False
     return True
     '''
+
 
 def save_config_file(myconfig, record):
     """ Purpose: Creates a config file and adds text to the file.
@@ -460,6 +465,7 @@ def add_record(ip, dev):
         listDict.append(mydict)
         return True
 
+
 # Return the site code by extracting from a provided hostname
 def getSiteCode(record):
     hostname = record['hostname'].upper()
@@ -494,12 +500,14 @@ def ping(ip):
             return False
 """
 
+
 def get_now_time():
     """ Purpose: Create a correctly formatted timestamp
         Returns: Timestamp
     """
     now = datetime.datetime.now()
     return now.strftime("%Y-%m-%d_%H%M")
+
 
 def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
@@ -524,6 +532,7 @@ def change_record(ip, value, key):
                 myrecord.update({'last_param_change': get_now_time()})
                 return True
 
+
 # This function attempts to open a connection with the device. If successful, session is returned,
 def connect(ip, indbase=False):
     """ Purpose: Get current configuration from device.
@@ -539,40 +548,47 @@ def connect(ip, indbase=False):
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_netconf_ips.append(ip)
+        print message
         return False
     except ConnectAuthError as err:
         message = "Unable to connect with credentials. User:" + myuser
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_auth_ips.append(ip)
+        print message
         return False
     except ConnectTimeoutError as err:
         message = "Timeout error, possible IP reachability issues."
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
+        print message
         return False
     except ProbeError as err:
         message = "Probe timeout, possible IP reachability issues."
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
+        print message
         return False
     except ConnectError as err:
         message = "Unknown connection issue."
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
+        print message
         return False
     except Exception as err:
         message = "Undefined exception."
         contentList = [ip, message, str(err), get_now_time()]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
+        print message
         return False
     # If try arguments succeed...
     else:
         return dev
+
 
 # Perform database steps on failed devices
 def fail_check(ip, indbase, contentList):
@@ -598,6 +614,7 @@ def fail_check(ip, indbase, contentList):
                     break
         # If this device is not in the failed list or failed devices log doesn't exist
         if not matched:
+
             # Create new record
             mylist = []
             mydicts = {
@@ -736,6 +753,7 @@ def config_compare(record, dev):
     results.append(returncode)
     return results
 
+
 def template_scanner(regtmpl_list, record):
     """ Purpose: To compare a regex list against a config list
         Parameters:
@@ -775,6 +793,7 @@ def template_scanner(regtmpl_list, record):
         results.append(returncode)
         return results
 
+
 def template_regex():
     # Regexs for template comparisons
     with open(template_csv) as f:
@@ -797,6 +816,7 @@ def template_regex():
             regtmpl_list.append(tline.strip('\n\t'))
 
     return regtmpl_list
+
 
 # Print summary results to log file
 def summaryLog():
@@ -913,6 +933,7 @@ def summaryLog():
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
+
 def scan_results():
     total_devices = len(listDict)
     # Print brief results to screen
@@ -926,6 +947,7 @@ def scan_results():
     print"Total Number of Devices....{0}".format(total_devices)
     print"==============================\n"
 
+
 # Simple function for adjusting tabs
 def iptab(ip):
     if len(ip) < 14:
@@ -934,6 +956,7 @@ def iptab(ip):
         mytab = "\t"
 
     return mytab
+
 
 # Function for adding new devices to the database
 def add_new_devices_loop(iplistfile):
@@ -946,6 +969,7 @@ def add_new_devices_loop(iplistfile):
     for raw_ip in line_list(os.path.join(iplist_dir, iplistfile)):
         # Attempt to add new device
         add_new_device(raw_ip.strip())
+
 
 # Function to add specific device
 def add_new_device(ip):
@@ -1001,6 +1025,7 @@ def template_check(record, temp_dev_log):
         contentList = [ip, message, templ_results[0], get_now_time()]
         ops_error_list.append(dict(zip(error_key_list, contentList)))
         templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+
 
 # Parameter and Cconfiguration Check Function
 def param_config_check(record, conf_chg_log, dev):
@@ -1119,6 +1144,7 @@ def check_main(record):
             print "Running Template Check..."
             template_check(record, temp_dev_log)
 
+
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
         Arguments:
@@ -1163,6 +1189,7 @@ def main(argv):
     print "IP List file is: {0}".format(iplistfile)
     print "Function Choice is: {0}".format(addl_opt)
     print "Subset List File is: {0}".format(subsetlist)
+
 
 # Main execution loop
 if __name__ == "__main__":

@@ -206,8 +206,9 @@ def csv_to_listdict(filePathName):
             listDict = [{csvfile: v for csvfile, v in row.items()}
                         for row in csv.DictReader(csvfile, skipinitialspace=True)]
         return listDict
+    # Not really much of an error, but indicates that the file was not found
     except IOError as err:
-        print "Database file not found: Using empty database."
+        #print "Database file not found: Using empty database."
         return emptyList
 
     except Exception as err:
