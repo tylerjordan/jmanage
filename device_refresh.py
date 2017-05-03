@@ -544,46 +544,46 @@ def connect(ip, indbase=False):
         dev.open()
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
+        print message
         message = "Host Reachable, but NETCONF not configured."
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_netconf_ips.append(ip)
-        print message
         return False
     except ConnectAuthError as err:
+        print message
         message = "Unable to connect with credentials. User:" + myuser
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_auth_ips.append(ip)
-        print message
         return False
     except ConnectTimeoutError as err:
+        print message
         message = "Timeout error, possible IP reachability issues."
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
-        print message
         return False
     except ProbeError as err:
+        print message
         message = "Probe timeout, possible IP reachability issues."
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
-        print message
         return False
     except ConnectError as err:
+        print message
         message = "Unknown connection issue."
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
-        print message
         return False
     except Exception as err:
+        print message
         message = "Undefined exception."
         contentList = [ip, message, str(err), get_now_time()]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
-        print message
         return False
     # If try arguments succeed...
     else:
@@ -608,7 +608,7 @@ def fail_check(ip, indbase, contentList):
                     past_time = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d_%H%M")
                     now_time = datetime.datetime.now()
                     days_exp = (now_time - past_time).days
-                    print "Days: {0}".format(days_exp)
+                    print "Consecutive Failed Days: {0}".format(days_exp)
                     if days_exp > attempt_limit:
                         myListDict.remove(myDict)
                     break
