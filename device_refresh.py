@@ -362,24 +362,24 @@ def check_params(ip, dev):
             # Update database date for parameter check
             localDict.update({'last_param_check': get_now_time()})
             # Check that the existing record is up-to-date. If not, update.
-            if not localDict['hostname'] == remoteDict['hostname']:
+            if not localDict['hostname'].upper() == remoteDict['hostname'].upper():
                 results.append("Hostname changed from " + localDict['hostname'] + " to " + remoteDict['hostname'])
-                change_record(ip, remoteDict['hostname'], key='hostname')
+                change_record(ip, remoteDict['hostname'].upper(), key='hostname')
                 returncode = 2
 
-            if not localDict['serialnumber'] == remoteDict['serialnumber']:
+            if not localDict['serialnumber'].upper() == remoteDict['serialnumber'].upper():
                 results.append("S/N changed from " + localDict['serialnumber'] + " to " + remoteDict['serialnumber'])
-                change_record(ip, remoteDict['serialnumber'], key='serialnumber')
+                change_record(ip, remoteDict['serialnumber'].upper(), key='serialnumber')
                 returncode = 2
 
-            if not localDict['version'] == remoteDict['version']:
+            if not localDict['version'].upper() == remoteDict['version'].upper():
                 results.append("JunOS changed from " + localDict['version'] + " to " + remoteDict['version'])
-                change_record(ip, remoteDict['version'], key='version')
+                change_record(ip, remoteDict['version'].upper(), key='version')
                 returncode = 2
 
-            if not localDict['model'] == remoteDict['model']:
+            if not localDict['model'].upper() == remoteDict['model'].upper():
                 results.append("Model changed from " + localDict['model'] + " to " + remoteDict['model'])
-                change_record(ip, remoteDict['model'], key='model')
+                change_record(ip, remoteDict['model'].upper(), key='model')
                 returncode = 2
         else:
             returncode = 0
@@ -439,7 +439,7 @@ def add_record(ip, dev):
     # Try to gather facts from device
     try:
         for key in facts_list:
-            mydict[key] = dev.facts[key]
+            mydict[key] = dev.facts[key].upper()
     except Exception as err:
         print "Error accessing facts on device. ERROR {0}".format(err)
         return False
