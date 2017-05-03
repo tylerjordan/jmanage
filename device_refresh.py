@@ -69,7 +69,7 @@ run_change_log = ''
 run_change_list = []
 fail_devices_csv = ''
 
-#Log Keys
+# Log Keys
 error_key_list = ['ip', 'message', 'error', 'timestamp'] # access_error_log, ops_error_log
 standard_key_list = ['ip', 'message', 'timestamp'] # new_devices_log
 
@@ -96,12 +96,13 @@ param_change_ips = []
 config_change_ips = []
 templ_change_ips = []
 
-# Dicts
+# Key Lists
 attrib_order_list = ['hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_param_check',
                      'last_config_check', 'last_temp_check', 'last_param_change', 'last_config_change' ]
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
 dates_list = [ 'last_config_check', 'last_config_change', 'last_access', 'last_param_change', 'last_param_check',
               'last_temp_check' ]
+failed_list = ['ip', 'last_attempt', 'date_added']
 
 
 def detect_env():
@@ -465,6 +466,13 @@ def add_record(ip, dev):
         listDict.append(mydict)
         return True
 
+def remove_record(key, value):
+    for i in range(len(listDict)):
+        if listDict[i][key] == value:
+            print "Removing: {0}".format(listDict[i])
+            del listDict[i]
+            print "Removed!"
+            break
 
 # Return the site code by extracting from a provided hostname
 def getSiteCode(record):
@@ -611,6 +619,10 @@ def fail_check(ip, indbase, contentList):
                     print "Consecutive Failed Days: {0}".format(days_exp)
                     if days_exp > attempt_limit:
                         myListDict.remove(myDict)
+                        listdict_to_csv(myListDict, fail_devices_csv, failed_list)
+                        #print "ListDict: {0}".format(listDict)
+                        #print "MyDict: {0}".format(myDict)
+                        remove_record('ip', ip)
                     break
         # If this device is not in the failed list or failed devices log doesn't exist
         if not matched:
