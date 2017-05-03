@@ -1019,7 +1019,7 @@ def param_config_check(record, conf_chg_log, dev):
         print_sl("User: {0}\n".format(myuser), conf_chg_log)
         print_sl("Checked: {0}\n".format(get_now_time()), conf_chg_log)
         # The "run_change_log" format is "IP,HOSTNAME,DATE"
-        contentList = [ip, record['hostname'], get_now_time()]
+        contentList = [record['ip'], record['hostname'], get_now_time()]
         run_change_list.append(dict(zip(standard_key_list, contentList)))
 
     # If param results detect changes
@@ -1032,7 +1032,9 @@ def param_config_check(record, conf_chg_log, dev):
 
     # If param results are errors
     elif param_results[-1] == 0:
-        add_to_csv_sort(record['ip'] + ";" + param_results[0] + ";" + get_now_time() + "\n", ops_error_log)
+        message = "Parameters results, errors."
+        contentList = [record['ip'], message, param_results[0], get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
         param_attrib_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
     # If compare results detect differences
     if compare_results[-1] == 2:
@@ -1043,11 +1045,15 @@ def param_config_check(record, conf_chg_log, dev):
         config_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
     # If compare results are save errors
     elif compare_results[-1] == 0:
-        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", ops_error_log)
+        message = "Config compare, save errors."
+        contentList = [record['ip'], message, compare_results[0], get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
         config_save_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
     # If compare results are update errors
     elif compare_results[-1] == 3:
-        add_to_csv_sort(record['ip'] + ";" + compare_results[0] + ";" + get_now_time() + "\n", ops_error_log)
+        message = "Config compare, update errors."
+        contentList = [record['ip'], message, compare_results[0], get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
         config_update_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
 
