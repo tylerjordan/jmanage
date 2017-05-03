@@ -146,7 +146,7 @@ def detect_env():
     ops_error_log = os.path.join(log_dir, "Ops_Error_Log.csv")
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
-    fail_devices_csv = os.path.join(dir_path, "Fail_Devices.csv")
+    fail_devices_csv = os.path.join(log_dir, "Fail_Devices.csv")
 
 
 def load_config_file(ip, newest):
