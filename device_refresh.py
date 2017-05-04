@@ -39,9 +39,11 @@ import getopt
 import re
 import time
 import multiprocessing
+import pprint
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
+from netaddr import *
 from ncclient import manager  # https://github.com/ncclient/ncclient
 from ncclient.transport import errors
 from utility import *
@@ -97,12 +99,9 @@ config_change_ips = []
 templ_change_ips = []
 
 # Key Lists
-attrib_order_list = ['hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_param_check',
-                     'last_config_check', 'last_temp_check', 'last_param_change', 'last_config_change' ]
+dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
+                'last_config_change', 'last_param_check', 'last_param_change', 'last_temp_check']
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
-dates_list = [ 'last_config_check', 'last_config_change', 'last_access', 'last_param_change', 'last_param_check',
-              'last_temp_check' ]
-failed_list = ['ip', 'last_attempt', 'date_added']
 
 
 def detect_env():
@@ -120,9 +119,8 @@ def detect_env():
     global template_dir
     global log_dir
     global dir_path
-    global attrib_order_list
     global facts_list
-    global dates_list
+
 
     dir_path = os.path.dirname(os.path.abspath(__file__))
     if platform.system().lower() == "windows":
@@ -553,42 +551,42 @@ def connect(ip, indbase=False):
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
         message = "Host Reachable, but NETCONF not configured."
-        print message
+        print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_netconf_ips.append(ip)
         return False
     except ConnectAuthError as err:
         message = "Unable to connect with credentials. User:" + myuser
-        print message
+        print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_auth_ips.append(ip)
         return False
     except ConnectTimeoutError as err:
         message = "Timeout error, possible IP reachability issues."
-        print message
+        print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
         return False
     except ProbeError as err:
         message = "Probe timeout, possible IP reachability issues."
-        print message
+        print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
         return False
     except ConnectError as err:
         message = "Unknown connection issue."
-        print message
+        print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
         return False
     except Exception as err:
         message = "Undefined exception."
-        print message
+        print "\t\t" + message
         contentList = [ip, message, str(err), get_now_time()]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
@@ -619,14 +617,13 @@ def fail_check(ip, indbase, contentList):
                     print "Consecutive Failed Days: {0}".format(days_exp)
                     if days_exp > attempt_limit:
                         myListDict.remove(myDict)
-                        listdict_to_csv(myListDict, fail_devices_csv, failed_list)
+                        listdict_to_csv(myListDict, fail_devices_csv, myDelimiter=";")
                         #print "ListDict: {0}".format(listDict)
                         #print "MyDict: {0}".format(myDict)
                         remove_record('ip', ip)
                     break
         # If this device is not in the failed list or failed devices log doesn't exist
         if not matched:
-
             # Create new record
             mylist = []
             mydicts = {
@@ -637,7 +634,7 @@ def fail_check(ip, indbase, contentList):
             mylist.append(mydicts)
             attribOrder = ['ip', 'last_attempt', 'date_added']
             # Add record to failed csv
-            listdict_to_csv(mylist, fail_devices_csv, attribOrder)
+            listdict_to_csv(mylist, fail_devices_csv)
         # Do this for devices in database
         access_error_list.append(dict(zip(error_key_list, contentList)))
     # This applies to all unreachable devices, not in database already, so new devices
@@ -981,10 +978,10 @@ def add_new_devices_loop(iplistfile):
     for raw_ip in line_list(os.path.join(iplist_dir, iplistfile)):
         myip = raw_ip.strip()
         # Check if this ip address is a network
-        if '\\' in myip:
+        if '/' in myip:
             for ip in IPNetwork(myip):
                 # Attempt to add new device
-                add_new_device(ip)
+                add_new_device(str(ip))
         # Otherwise, it should be a standard IP
         else:
             add_new_device(myip)
@@ -1254,10 +1251,22 @@ if __name__ == "__main__":
     else:
         print "\n >> No Checks Selected.\n"
 
-    # Save the changes of the listDict to CSV
+    # Write sorted changes to these CSVs if there are changes
     if listDict:
-        # Print the list dictionary to a CSV file
-        listdict_to_csv(listDict, listDictCSV, attrib_order_list)
+        # Sort and save the database csv
+        csv_write_sort(listDict, listDictCSV, sort_column=0, column_names=dbase_order)
+    if access_error_list:
+        csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
+                       column_names=error_key_list, my_delimiter=";")
+    if ops_error_list:
+        csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
+                       column_names=error_key_list, my_delimiter=";")
+    if new_devices_list:
+        csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
+                       column_names=standard_key_list, my_delimiter=";")
+    if run_change_list:
+        csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
+                       column_names=standard_key_list, my_delimiter=";")
         print "\nSaved any changes. We're done!"
     else:
         print "\nNo content in database. Exiting!"

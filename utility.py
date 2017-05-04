@@ -186,15 +186,23 @@ def chooseDevices():
     return ip_list
 
 # Convert listDict to CSV file
-def listdict_to_csv(listDict, filePathName, fieldNames):
+def listdict_to_csv(listDict, csvPathName, columnNames, myDelimiter):
+    # If columnNames is empty, get the column names from the list dict
+    if not columnNames:
+        for mydict in listDict:
+            for key in mydict:
+                columnNames.append(key)
+            break
+
+    # Attempt to open the file and write entries to csv
     try:
-        with open(filePathName, 'wb') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldNames)
+        with open(csvPathName, 'wb') as csvfile:
+            writer = csv.DictWriter(csvfile, delimiter=myDelimiter, fieldnames=columnNames)
             writer.writeheader()
             writer.writerows(listDict)
         return True
     except Exception as err:
-        print "ERROR: Problem writing to file {0} : {1}".format(filePathName, err)
+        print "ERROR: Problem writing to file {0} : {1}".format(csvPathName, err)
         return False
 
 
@@ -223,25 +231,30 @@ def csv_to_dict(filePathName):
         return row
 
 
-# Apply lines to CSV, then sort it, newest entries first ** USES SEMICOLONs **
-def add_to_csv_sort(listkey, contentList, storageList):
-
+# Write new entries from list_dict to csv file, then sort the csv file
+def csv_write_sort(list_dict, csv_file, sort_column, reverse_sort=False, column_names=[], my_delimiter=","):
     '''
-        READ IN THE EXISTING CSV FILE AS A LISTDICT, IF IT EXISTS. ADD THE NEW LOG CONTENT TO THE LIST DICT, SORT IT,
-        THEN WRITE LISTDICT TO CSV.
+    :param myListDict: List - the list dictionary with the entries to add to the csv
+    :param csv_file: String - the csv file to save the new entries to
+    :param sort_column: Integer - the column number to sort by
+    :param field_names: List - use if you want the CSV columns in a specific order 
+    :param sort_order: Boolean - sets the "reverse" value for the "sorted" function. Default: "False"
+        - Sorting Dates: True = newest date to oldest date
+        - Sorting Alphas: True = Z to A (NOTE: lowercase is preferred to uppercase)
+        - Sorting Numbers: True = high to low
+    :param my_delimiter: String - contains the delimiter for csv file . Default: ","
+    :return: NONE
     '''
-
-    # Add to csv file
-    print_log(entry, csv_file)
-
-    # Check that the file exists
-    if os.path.isfile(csv_file):
+    # Write new entries to csv file
+    if listdict_to_csv(list_dict, csv_file, column_names, my_delimiter):
         # Opens the file for reading only, places pointer at beginning
         with open(csv_file, "r") as f:
-            reader = csv.reader(f, delimiter=";")
+            reader = csv.reader(f, delimiter=my_delimiter)
+            # Skip the first line
+            headers = reader.next()
             try:
                 # Attempt to sort the contents, sorting by the third column values, from newest to oldest
-                sortedlist = sorted(reader, key=operator.itemgetter(2), reverse=True)
+                sortedlist = sorted(reader, key=operator.itemgetter(sort_column), reverse=reverse_sort)
             except Exception as err:
                 print "Issue sorting file -> ERROR: {0}".format(err)
                 return False
@@ -250,7 +263,9 @@ def add_to_csv_sort(listkey, contentList, storageList):
                     # Opens the file and overwrites if it already exists
                     with open(csv_file, "w") as f:
                         # This writes the newly sorted data to the file
-                        fileWriter = csv.writer(f, delimiter=';')
+                        fileWriter = csv.writer(f, delimiter=my_delimiter)
+                        # Write the headers first
+                        fileWriter.writerow(headers)
                         for row in sortedlist:
                             fileWriter.writerow(row)
                 except Exception as err:
@@ -259,7 +274,7 @@ def add_to_csv_sort(listkey, contentList, storageList):
                 else:
                     return True
     else:
-        print "File does not exist - {0}".format(csv_file)
+        print "ERROR: Unable to perform sort.".format(csv_file)
         return False
 
 
