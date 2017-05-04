@@ -1253,20 +1253,23 @@ if __name__ == "__main__":
 
     # Write sorted changes to these CSVs if there are changes
     if listDict:
-        # Sort and save the database csv
         csv_write_sort(listDict, listDictCSV, sort_column=0, column_names=dbase_order)
+        print "Sorted main database."
     if access_error_list:
         csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
                        column_names=error_key_list, my_delimiter=";")
+        print "Sorted access error csv."
     if ops_error_list:
         csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
                        column_names=error_key_list, my_delimiter=";")
+        print "Sorted ops error csv."
     if new_devices_list:
         csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
                        column_names=standard_key_list, my_delimiter=";")
+        print "Sorted new devices csv."
     if run_change_list:
         csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
                        column_names=standard_key_list, my_delimiter=";")
-        print "\nSaved any changes. We're done!"
-    else:
-        print "\nNo content in database. Exiting!"
+        print "Sorted run change csv."
+
+    print "\nFinished with saves. We're done!"
