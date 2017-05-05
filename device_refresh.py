@@ -31,21 +31,23 @@ __email__ = "tjordan@juniper.net"
 # Miscellaneous Files:
 # ------------------------------------------------------------------------------------------------------------------- #
 
-import os
-import platform
-import subprocess
 import datetime
 import getopt
-import re
-import time
+import jxmlease
 import multiprocessing
+import os
+import platform
 import pprint
-
+import re
+import subprocess
+import time
 from jnpr.junos import *
 from jnpr.junos.exception import *
-from netaddr import *
+from lxml import etree
 from ncclient import manager  # https://github.com/ncclient/ncclient
 from ncclient.transport import errors
+from netaddr import *
+
 from utility import *
 
 # Paths
@@ -1206,16 +1208,61 @@ def main(argv):
     print "Function Choice is: {0}".format(addl_opt)
     print "Subset List File is: {0}".format(subsetlist)
 
+def xml_to_dict(ip):
+
+    dev = connect(ip)
+
+    dev.open()
+
+    rsp = dev.rpc.get_interface_information(terse=True, normalize=True)
+    #print(etree.tostring(rsp))
+    root = jxmlease.parse(etree.tostring(rsp))
+    print root
+
+    for intf in root['interface-information']['physical-interface']:
+        print intf['name']
+        if intf['name'] == 'lo0' and intf['logical-interface']:
+            if intf['logical-interface']['name'] == 'lo0.0' or intf['logical-interface']['name'] == 'lo0.119':
+                print "\tLoopback: {0}".format(intf['logical-interface']['name'])
+            else:
+                print "No useful loopback addresses!"
+        elif intf['name'] == 'vlan' or intf['name'] == 'irb':
+            if mylist in intf['logical-interface']:
+                print "\tSubintf: {0} | IP: {1} | Status: {2}".format(mylist['name'],
+                                                        mylist['address-family']['interface-address']['ifa-local'],
+                                                        mylist['oper-status'])
+        else:
+            try:
+                if intf['logical-interface']['address-family']['address-family-name'] == 'inet':
+                    print "\tPhysical: {0} IP: {1} | Status: {2}".format(intf['name'],
+                                                                         intf['logical-interface']['address-family']['interface-address']['ifa-local'],
+                                                                         intf['logical-interface']['oper-status'])
+            except:
+                #print "Non-inet interface."
+                pass
+
+    #print root['interface-information']['logical-interface']['address-family']['interface-address']['ifa-local']
+    #print root['interface-information']['logical-interface']['name']
+
+    exit()
 
 # Main execution loop
 if __name__ == "__main__":
+    # Detect if this system is Windows or Linux/MAC
     detect_env()
+    # Capture arguments
     main(sys.argv[1:])
+
+    # Assign arguments
     myfile = os.path.join(dir_path, credsCSV)
     creds = csv_to_dict(myfile)
     myuser = creds['username']
     mypwd = creds['password']
 
+    # Test Bed
+    xml_to_dict('10.106.147.11')
+
+    '''
     # Load records from existing CSV
     #print "Loading records..."
     listDict = csv_to_listdict(listDictCSV)
@@ -1273,3 +1320,4 @@ if __name__ == "__main__":
         print "Sorted run change csv."
 
     print "\nFinished with saves. We're done!"
+    '''

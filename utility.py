@@ -3,16 +3,19 @@
 # Modified: 7/26/2016
 # Purpose: Assist CBP engineers with Juniper configuration tasks
 
-import sys, re, os, csv
+import code
+import csv
+import difflib
 import fileinput
 import glob
-import code
-import difflib
 import operator
-
+import os
+import re
+import sys
 from os import listdir
 from os.path import isfile, join
 from sys import stdout
+
 
 #--------------------------------------
 # ANSWER METHODS
