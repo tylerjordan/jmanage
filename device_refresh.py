@@ -58,7 +58,8 @@ template_dir = ''
 dir_path = ''
 
 # Files
-listDictCSV = ''
+main_list_dict = ''
+intf_list_dict = ''
 credsCSV = ''
 iplistfile = ''
 template_file = ''
@@ -114,7 +115,8 @@ def detect_env():
     global ops_error_log
     global new_devices_log
     global fail_devices_csv
-    global listDictCSV
+    global main_list_dict
+    global intf_list_dict
     global credsCSV
     global iplist_dir
     global config_dir
@@ -140,7 +142,8 @@ def detect_env():
         log_dir = os.path.join(dir_path, "data/logs")
 
     # Statically defined files and logs
-    listDictCSV = os.path.join(dir_path, "listdict.csv")
+    main_list_dict = os.path.join(dir_path, "main_db.csv")
+    intf_list_dict = os.path.join(dir_path, "intf_db.csv")
     template_csv = os.path.join(dir_path, template_dir, "Template_Regex.csv")
     template_file = os.path.join(dir_path, template_dir, "Template.conf")
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
@@ -1152,6 +1155,7 @@ def check_main(record):
     # Try to connect to the device
     dev = connect(record['ip'], True)
     if dev:
+        xml_to_dict(dev)
         if addl_opt == "configs" or addl_opt == "all":
             print "Running Param/Config Check..."
             param_config_check(record, conf_chg_log, dev)
@@ -1208,43 +1212,61 @@ def main(argv):
     print "Function Choice is: {0}".format(addl_opt)
     print "Subset List File is: {0}".format(subsetlist)
 
-def xml_to_dict(ip):
 
-    dev = connect(ip)
-
-    dev.open()
-
+def xml_to_dict(dev):
+    # Get the "interface" information from the device
     rsp = dev.rpc.get_interface_information(terse=True, normalize=True)
-    #print(etree.tostring(rsp))
     root = jxmlease.parse(etree.tostring(rsp))
-    print root
 
+    # Display the raw data
+   #print root
+    # Something to encode a list of dictionaries
+    #new_root = [{k.encode("utf-8"): v.encode("utf-8") for k, v in elem.items()} for elem in root]
+    #print new_root
+
+    # Interfaces > irb, vlan, lo0, ge
+    print "IP Interfaces..."
     for intf in root['interface-information']['physical-interface']:
-        print intf['name']
+        #print intf['name']
+        '''
         if intf['name'] == 'lo0' and intf['logical-interface']:
             if intf['logical-interface']['name'] == 'lo0.0' or intf['logical-interface']['name'] == 'lo0.119':
                 print "\tLoopback: {0}".format(intf['logical-interface']['name'])
             else:
                 print "No useful loopback addresses!"
-        elif intf['name'] == 'vlan' or intf['name'] == 'irb':
-            if mylist in intf['logical-interface']:
-                print "\tSubintf: {0} | IP: {1} | Status: {2}".format(mylist['name'],
-                                                        mylist['address-family']['interface-address']['ifa-local'],
-                                                        mylist['oper-status'])
-        else:
-            try:
-                if intf['logical-interface']['address-family']['address-family-name'] == 'inet':
-                    print "\tPhysical: {0} IP: {1} | Status: {2}".format(intf['name'],
-                                                                         intf['logical-interface']['address-family']['interface-address']['ifa-local'],
-                                                                         intf['logical-interface']['oper-status'])
-            except:
-                #print "Non-inet interface."
-                pass
+        '''
+        #elif intf['name'] == 'vlan' or intf['name'] == 'irb':
 
-    #print root['interface-information']['logical-interface']['address-family']['interface-address']['ifa-local']
-    #print root['interface-information']['logical-interface']['name']
 
-    exit()
+        if 'logical-interface' in intf and re.match(r'(irb|vlan|lo0|ge-).*', intf['name']):
+            #print "Has logical interface and matches regex..."
+            if isinstance(intf['logical-interface'], dict):
+                if intf['logical-interface']['address-family']['address-family-name'] == 'inet' and 'interface-address' in intf['logical-interface']['address-family']:
+                    if isinstance(intf['logical-interface']['address-family']['interface-address'], dict):
+                        print "\tInterface: {0} IP: {1} | Status: {2}".format(intf['logical-interface']['name'],
+                                                                             intf['logical-interface']['address-family']['interface-address']['ifa-local'],
+                                                                             intf['logical-interface']['oper-status'])
+                    else:
+                        for mylist in intf['logical-interface']['address-family']['interface-address']:
+                            print "\tInterface: {0} IP: {1} | Status: {2}".format(intf['logical-interface']['name'],
+                                                                                 mylist['ifa-local'],
+                                                                                 intf['logical-interface']['oper-status'])
+            else:
+                # print "\tIs something else!"
+                for mylist in intf['logical-interface']:
+                    if mylist['address-family']['address-family-name'] == 'inet' and 'interface-address' in mylist['address-family']:
+                        if isinstance(mylist['address-family']['interface-address'], dict):
+                            print "\tInterface: {0} | IP: {1} | Status: {2}".format(mylist['name'],
+                                                                                  mylist['address-family']['interface-address']['ifa-local'],
+                                                                                  mylist['oper-status'])
+                        else:
+                            for mynewlist in mylist['address-family']['interface-address']:
+                                print "\tInterface: {0} IP: {1} | Status: {2}".format(mylist['name'],
+                                                                                      mynewlist['ifa-local'],
+                                                                                      mylist['oper-status'])
+
+
+    #exit()
 
 # Main execution loop
 if __name__ == "__main__":
@@ -1260,12 +1282,12 @@ if __name__ == "__main__":
     mypwd = creds['password']
 
     # Test Bed
-    xml_to_dict('10.106.147.11')
+    #xml_to_dict(dev=connect('10.104.76.193'))
 
-    '''
+    #'''
     # Load records from existing CSV
     #print "Loading records..."
-    listDict = csv_to_listdict(listDictCSV)
+    listDict = csv_to_listdict(main_list_dict)
 
     # Add New Device function if IPs have been supplied
     print topHeading("JMANAGE SCRIPT", 15)
@@ -1300,7 +1322,7 @@ if __name__ == "__main__":
 
     # Write sorted changes to these CSVs if there are changes
     if listDict:
-        csv_write_sort(listDict, listDictCSV, sort_column=0, column_names=dbase_order)
+        csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
         print "Sorted main database."
     if access_error_list:
         csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
@@ -1320,4 +1342,4 @@ if __name__ == "__main__":
         print "Sorted run change csv."
 
     print "\nFinished with saves. We're done!"
-    '''
+    #'''
