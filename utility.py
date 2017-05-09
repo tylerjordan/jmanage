@@ -280,6 +280,60 @@ def csv_write_sort(list_dict, csv_file, sort_column, reverse_sort=False, column_
         print "ERROR: Unable to perform sort.".format(csv_file)
         return False
 
+# Sorts a dictionary list based on sort_list order
+def list_dict_custom_sort(list_dict, sort_attrib, sort_list):
+    # Sort the dictionary list
+    primary_intf_list = []
+    secondary_intf_list = []
+
+    # print "Intf List:"
+    # print list_dict
+
+    # Loop over list to get primary interfaces
+    for item in sort_list:
+        for intf_rec in list_dict:
+            #print "Compare [{0}] to [{1}]".format(item, intf_rec[sort_attrib])
+            if intf_rec[sort_attrib] == item:
+                print "Add dict to list"
+                primary_intf_list.append(intf_rec)
+    #print "Primary List:"
+    #print primary_intf_list
+
+    # Loop over list to get remaining interfaces
+    matched = False
+    for intf_rec in list_dict:
+        for item in sort_list:
+            if intf_rec[sort_attrib] == item:
+                matched = True
+                break
+        if not matched:
+            secondary_intf_list.append(intf_rec)
+            # Rest matched term
+            matched = False
+    #print "Secondary List:"
+    #print secondary_intf_list
+
+    # Combine primary and secondary lists with primary list at the top
+    print "Before sort:"
+    print list_dict
+    primary_intf_list.extend(secondary_intf_list)
+    print "After sort:"
+    print primary_intf_list
+
+    return primary_intf_list
+
+# Accetps a masked or unmasked IP and returns the IP and mask in a list
+def get_ip_mask(masked_ip):
+
+    ip_mask_list = []
+    if "/" in masked_ip:
+        ip_mask_list = masked_ip.split("/")
+    else:
+        ip_mask_list.append(masked_ip)
+        ip_mask_list.append('32')
+
+    return ip_mask_list
+
 
 # Analyze listDict and create statistics (Upgrade)
 def tabulateUpgradeResults(listDict):
