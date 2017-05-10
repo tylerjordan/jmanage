@@ -461,8 +461,10 @@ def add_record(ip, dev):
         print "Error accessing facts on device. ERROR {0}".format(err)
         return False
     else:
-        mydict['ip'] = ip
+        #mydict['ip'] = ip
         now = get_now_time()
+    # Try to gather inet interface parameters and assign them to the record dict
+        mydict['ip'] = xml_to_dict(dev)
 
         # Try to save config file, add appropriate dates to dict if save works
         if save_config_file(fetch_config(dev), mydict):
