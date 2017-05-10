@@ -234,6 +234,18 @@ def csv_to_dict(filePathName):
         return row
 
 
+# Write database to JSON
+def write_to_json(list_dict, main_list_dict):
+    try:
+        with open(main_list_dict, 'w') as fout:
+            json.dump(list_dict, fout)
+    except Exception as err:
+        print "Problem opening or writing to JSON file - ERROR:{0}".format(err)
+        return False
+    else:
+        return True
+
+
 # Write new entries from list_dict to csv file, then sort the csv file
 def csv_write_sort(list_dict, csv_file, sort_column, reverse_sort=False, column_names=[], my_delimiter=","):
     '''
@@ -294,7 +306,7 @@ def list_dict_custom_sort(list_dict, sort_attrib, sort_list):
         for intf_rec in list_dict:
             #print "Compare [{0}] to [{1}]".format(item, intf_rec[sort_attrib])
             if intf_rec[sort_attrib] == item:
-                print "Add dict to list"
+                #print "Add dict to list"
                 primary_intf_list.append(intf_rec)
     #print "Primary List:"
     #print primary_intf_list
@@ -314,11 +326,11 @@ def list_dict_custom_sort(list_dict, sort_attrib, sort_list):
     #print secondary_intf_list
 
     # Combine primary and secondary lists with primary list at the top
-    print "Before sort:"
-    print list_dict
+    #print "Before sort:"
+    #print list_dict
     primary_intf_list.extend(secondary_intf_list)
-    print "After sort:"
-    print primary_intf_list
+    #print "After sort:"
+    #print primary_intf_list
 
     return primary_intf_list
 

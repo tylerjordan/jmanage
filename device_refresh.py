@@ -47,6 +47,8 @@ import pprint
 import re
 import subprocess
 import time
+import json
+
 from jnpr.junos import *
 from jnpr.junos.exception import *
 from lxml import etree
@@ -148,7 +150,7 @@ def detect_env():
         log_dir = os.path.join(dir_path, "data/logs")
 
     # Statically defined files and logs
-    main_list_dict = os.path.join(dir_path, "main_db.csv")
+    main_list_dict = os.path.join(dir_path, "main_db")
     intf_list_dict = os.path.join(dir_path, "intf_db.csv")
     template_csv = os.path.join(dir_path, template_dir, "Template_Regex.csv")
     template_file = os.path.join(dir_path, template_dir, "Template.conf")
@@ -1165,7 +1167,10 @@ def check_main(record):
     # Try to connect to the device
     dev = connect(record['ip'], True)
     if dev:
-        xml_to_dict(dev)
+        intf_list = xml_to_dict(dev)
+        print "IP Interfaces..."
+        for intf in intf_list:
+            print "\tInterface: {0} | IP: {1} | Mask: {2} | Status: {3}".format(intf["interface"], intf["ipaddr"], intf["ipmask"], intf["status"])
         if addl_opt == "configs" or addl_opt == "all":
             print "Running Param/Config Check..."
             param_config_check(record, conf_chg_log, dev)
@@ -1225,9 +1230,9 @@ def main(argv):
 
 def xml_to_dict(dev):
     # Physical Interface Regex
-    phys_regex = r'^irb$|^vlan$|^lo0$|^ge-\d{1,3}/\d{1,3}/\d{1,3}$'
+    phys_regex = r'^irb$|^vlan$|^lo0$|^ae\d{1,3}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}$|^me0$'
     # Logical Interface Regex
-    logi_regex = r'^irb\.\d{1,3}$|^vlan\.\d{1,3}$|^lo0\.\d{1,3}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}$'
+    logi_regex = r'^irb\.\d{1,3}$|^vlan\.\d{1,3}$|^lo0\.\d{1,3}$|^ae\d{1,3}\.\d{1,4}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}\.\d{1,4}$|^me0\.0$'
 
 
     # Get the "interface" information from the device
@@ -1235,22 +1240,23 @@ def xml_to_dict(dev):
     root = jxmlease.parse(etree.tostring(rsp))
 
     # Display the raw data
-    print root
+    #print root
     # Something to encode a list of dictionaries
     #new_root = [{k.encode("utf-8"): v.encode("utf-8") for k, v in elem.items()} for elem in root]
     #print new_root
     intf_list = []
 
     # Interfaces > irb, vlan, lo0, ge
-    print "IP Interfaces..."
+    #print "IP Interfaces..."
     for intf in root['interface-information']['physical-interface']:
+        #print intf['name']
         # Interface Dictionary
         intf_dict = {'interface': '', 'ipaddr': '', 'ipmask': '', 'status': '', 'updated': ''}
         # Check if the interface has a logical interface and matches one of the types in the regex
         if 'logical-interface' in intf and re.match(phys_regex, intf['name']):
             #print "Has logical interface and matches regex..."
             if isinstance(intf['logical-interface'], dict):
-                #print intf['name']
+                #print "Dictionary..."
                 if re.match(logi_regex, intf['logical-interface']['name']):
                     if intf['logical-interface']['address-family']['address-family-name'] == 'inet' and 'interface-address' in intf['logical-interface']['address-family']:
                         if isinstance(intf['logical-interface']['address-family']['interface-address'], dict):
@@ -1264,9 +1270,9 @@ def xml_to_dict(dev):
                             # Append dictionary to list
                             intf_list.append(intf_dict.copy())
                             # Display the interface information
-                            print "\tInterface: {0} | IP: {1} | Status: {2}".format(intf['logical-interface']['name'],
-                                                                                 intf['logical-interface']['address-family']['interface-address']['ifa-local'],
-                                                                                 intf['logical-interface']['oper-status'])
+                            #print "\tInterface: {0} | IP: {1} | Status: {2}".format(intf['logical-interface']['name'],
+                            #                                                    intf['logical-interface']['address-family']['interface-address']['ifa-local'],
+                            #                                                     intf['logical-interface']['oper-status'])
                         else:
                             for mylist in intf['logical-interface']['address-family']['interface-address']:
                                 ip_and_mask = get_ip_mask(intf['ifa-local'])
@@ -1278,17 +1284,20 @@ def xml_to_dict(dev):
                                 # Append dictionary to list
                                 intf_list.append(intf_dict.copy())
                                 # Display the interface information
-                                print "\tInterface: {0} | IP: {1} | Status: {2}".format(intf['logical-interface']['name'],
-                                                                                     mylist['ifa-local'],
-                                                                                     intf['logical-interface']['oper-status'])
+                                #print "\tInterface: {0} | IP: {1} | Status: {2}".format(intf['logical-interface']['name'],
+                                #                                                     mylist['ifa-local'],
+                                #                                                    intf['logical-interface']['oper-status'])
             else:
-                #print "Something else!"
+                #print "List..."
                 for mylist in intf['logical-interface']:
+                    #print "Num 1"
                     if re.match(logi_regex, mylist['name']):
+                        #print "Num 2"
                         if mylist['address-family']['address-family-name'] == 'inet' and 'interface-address' in mylist['address-family']:
+                            #print "Num 3"
                             if isinstance(mylist['address-family']['interface-address'], dict):
                                 ip_and_mask = get_ip_mask(mylist['address-family']['interface-address']['ifa-local'])
-                                print "IP and Mask {0}".format(mylist['address-family']['interface-address']['ifa-local'])
+                                #print "IP and Mask {0}".format(mylist['address-family']['interface-address']['ifa-local'])
                                 intf_dict['interface'] = mylist['name'].encode('utf-8')
                                 intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
                                 intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
@@ -1297,9 +1306,9 @@ def xml_to_dict(dev):
                                 # Append dictionary to list
                                 intf_list.append(intf_dict.copy())
                                 # Display the interface information
-                                print "\tInterface: {0} | IP: {1} | Status: {2}".format(mylist['name'],
-                                                                                      mylist['address-family']['interface-address']['ifa-local'],
-                                                                                      mylist['oper-status'])
+                                #print "\tInterface: {0} | IP: {1} | Status: {2}".format(mylist['name'],
+                                #                                                      mylist['address-family']['interface-address']['ifa-local'],
+                                #                                                      mylist['oper-status'])
                             else:
                                 for mynewlist in mylist['address-family']['interface-address']:
                                     ip_and_mask = get_ip_mask(mynewlist['ifa-local'])
@@ -1311,11 +1320,11 @@ def xml_to_dict(dev):
                                     # Append dictionary to list
                                     intf_list.append(intf_dict.copy())
                                     # Display the interface information
-                                    print "\tInterface: {0} | IP: {1} | Status: {2}".format(mylist['name'],
-                                                                                          mynewlist['ifa-local'],
-                                                                                          mylist['oper-status'])
+                                    #print "\tInterface: {0} | IP: {1} | Status: {2}".format(mylist['name'],
+                                    #                                                      mynewlist['ifa-local'],
+                                    #                                                      mylist['oper-status'])
     # Sort criteria
-    sort_list = ['lo0.119', 'lo0.0', 'irb.119', 'irb.0', 'vlan.119', 'vlan.0']
+    sort_list = ['me0.0', 'lo0.119', 'lo0.0', 'irb.119', 'irb.0', 'vlan.119', 'vlan.0']
 
     # Sort and provide list dictionary
     return list_dict_custom_sort(intf_list, "interface", sort_list)
@@ -1374,8 +1383,9 @@ if __name__ == "__main__":
 
     # Write sorted changes to these CSVs if there are changes
     if listDict:
-        csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
-        print "Sorted main database."
+        #csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
+        if write_to_json(listDict, main_list_dict):
+            print "Saved main database to JSON."
     if access_error_list:
         csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
                        column_names=error_key_list, my_delimiter=";")
