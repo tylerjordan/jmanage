@@ -4,10 +4,16 @@ __email__ = "tjordan@juniper.net"
 
 # ------------------------------------------------------------------------------------------------------------------- #
 # Main Database Attributes:
-# ip ................. Management IP of Device
-# hostname .......... Hostname of Device
-# version ......... Juniper Code Version (ie 13.2X51-D35.3)
-# serialnumber ...... Serial Number of Chassis
+# ip ................. Management IP Address (address to connect to device)
+# inet_intf .......... List of dictionaries containing
+#   - interface ...... Logical Interface
+#   - ipaddr ......... IP address of this interface
+#   - ipmask ......... IP mask
+#   - status ......... Operational Status
+#   - updated ........ Timestamp of last update
+# hostname ........... Hostname of Device
+# version ............ Juniper Code Version (ie 13.2X51-D35.3)
+# serialnumber ....... Serial Number of Chassis
 # model .............. Juniper Model Number (ie. EX4300-48P)
 # last_access......... Last time device was accessed by script
 # last_config_check .. Last time device config was checked by script
@@ -428,8 +434,9 @@ def get_record(ip='', hostname='', sn='', code=''):
     if listDict:
         if ip:
             for record in listDict:
-                if record['ip'] == ip:
-                    return record
+                for inet_intf in record['inet_intf']:
+                    if inet_intf['ipaddr'] == ip:
+                        return record
         elif hostname:
             for record in listDict:
                 if record['hostname'] == hostname:
@@ -447,6 +454,29 @@ def get_record(ip='', hostname='', sn='', code=''):
     else:
         return has_record
 
+# Checks to see if this IP is part of another device that is already discovered
+def check_host_sn(ip, dev):
+    # Get serial number and hostname
+    serialnumber = dev.facts['serialnumber'].upper()
+    hostname = dev.facts['hostname'].upper()
+
+    # Search over database for a match
+    for record in listDict:
+        if record['hostname'] == hostname or record['serialnumber'] == serialnumber:
+            # This IP belongs to a device that is already discovered.
+            # Get inet_intf info
+            inet_intf = get_inet_interfaces(dev)
+            # Get preferred management ip address
+            man_ip = inet_intf[0]['ipaddr']
+            # Make changes
+            if change_record(record['ip'], inet_intf, 'inet_intf') and change_record(record['ip'], man_ip, 'ip'):
+                return True
+            else:
+                return False
+
+    # No records matched
+    return False
+
 
 def add_record(ip, dev):
     """ Purpose: Adds a record to list of dictionaries.
@@ -461,10 +491,16 @@ def add_record(ip, dev):
         print "Error accessing facts on device. ERROR {0}".format(err)
         return False
     else:
-        #mydict['ip'] = ip
         now = get_now_time()
-    # Try to gather inet interface parameters and assign them to the record dict
-        mydict['ip'] = xml_to_dict(dev)
+        # Try to gather inet interface parameters and assign them to the record dict
+        try:
+            mydict['inet_intf'] = get_inet_interfaces(dev)
+        except Exception as err:
+            print "Failed to get inet interface information - ERROR: {0}".format(err)
+            print "Assigning access IP as management IP."
+            mydict['ip'] = ip
+        else:
+            mydict['ip'] = mydict['inet_intf'][0]['ipaddr']
 
         # Try to save config file, add appropriate dates to dict if save works
         if save_config_file(fetch_config(dev), mydict):
@@ -474,10 +510,6 @@ def add_record(ip, dev):
         mydict['last_access'] = now
         mydict['last_param_change'] = now
         mydict['last_param_check'] = now
-
-    #try:
-
-
 
         # Add entire record to database
         listDict.append(mydict)
@@ -538,12 +570,12 @@ def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record.
         Returns: String
     """
-    change_dict = { key: value }
     for myrecord in listDict:
         # If we've found the correct record...
         if myrecord['ip'] == ip:
             try:
                 # Trying to update the record...
+                change_dict = {key: value}
                 myrecord.update(change_dict)
             except Exception as err:
                 # Error checking...
@@ -1008,20 +1040,28 @@ def add_new_devices_loop(iplistfile):
 
 # Function to add specific device
 def add_new_device(ip):
-    print "\t-  Trying to add {0}...".format(ip)
     # Check if this IP exists in the database or if it belongs to a device already in the database
+    print "Connecting to {0}:".format(ip)
     if not get_record(ip):
         # Try adding this device to the database
         dev = connect(ip, False)
         if dev:
-            if add_record(ip, dev):
-                print "\t\t* Successfully added device to database *"
-                message = "Successfully added to database."
-                contentList = [ip, message, get_now_time()]
-                new_devices_list.append(dict(zip(standard_key_list, contentList)))
+            # Check for hostname/serial number match
+            if not check_host_sn(ip, dev):
+                print "\t-  Trying to add {0}...".format(ip)
+                if add_record(ip, dev):
+                    print "\t\t* Successfully added device to database *"
+                    message = "Successfully added to database."
+                    contentList = [ip, message, get_now_time()]
+                    new_devices_list.append(dict(zip(standard_key_list, contentList)))
+                else:
+                    print "\t\t* Failed adding device to database *"
+                    message = "Failed adding to database."
+                    contentList = [ip, message, get_now_time()]
+                    new_devices_list.append(dict(zip(standard_key_list, contentList)))
             else:
-                print "\t\t* Failed adding device to database *"
-                message = "Failed adding to database."
+                print "\t\t* Adding IP to existing device in database *"
+                message = "Adding IP to existing device in database."
                 contentList = [ip, message, get_now_time()]
                 new_devices_list.append(dict(zip(standard_key_list, contentList)))
         else:
@@ -1119,6 +1159,7 @@ def param_config_check(record, conf_chg_log, dev):
 
 # Function that checks if were using a subset or not
 def check_loop(subsetlist):
+    #print "In check_loop!!!"
     # Check if subset option is defined
     if subsetlist:
         temp_list = []
@@ -1148,6 +1189,7 @@ def check_loop(subsetlist):
 
 # Function checking devices that are in the database
 def check_main(record):
+    #print "In check_main!!!"
     # Performs the selected checks (Parameter/Config, Template, or All)
     directory_check(record)
     device_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
@@ -1169,10 +1211,9 @@ def check_main(record):
     # Try to connect to the device
     dev = connect(record['ip'], True)
     if dev:
-        intf_list = xml_to_dict(dev)
         print "IP Interfaces..."
-        for intf in intf_list:
-            print "\tInterface: {0} | IP: {1} | Mask: {2} | Status: {3}".format(intf["interface"], intf["ipaddr"], intf["ipmask"], intf["status"])
+        for intf in record['inet_intf']:
+            print "\tInterface: {0} | IP: {1} | Mask: {2} | Status: {3}".format(intf['interface'], intf['ipaddr'], intf['ipmask'], intf['status'])
         if addl_opt == "configs" or addl_opt == "all":
             print "Running Param/Config Check..."
             param_config_check(record, conf_chg_log, dev)
@@ -1230,54 +1271,45 @@ def main(argv):
     print "Subset List File is: {0}".format(subsetlist)
 
 
-def xml_to_dict(dev):
+def get_inet_interfaces(dev):
     # Physical Interface Regex
     phys_regex = r'^irb$|^vlan$|^lo0$|^ae\d{1,3}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}$|^me0$'
     # Logical Interface Regex
     logi_regex = r'^irb\.\d{1,3}$|^vlan\.\d{1,3}$|^lo0\.\d{1,3}$|^ae\d{1,3}\.\d{1,4}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}\.\d{1,4}$|^me0\.0$'
 
-
     # Get the "interface" information from the device
-    rsp = dev.rpc.get_interface_information(terse=True, normalize=True)
-    root = jxmlease.parse(etree.tostring(rsp))
+    try:
+        rsp = dev.rpc.get_interface_information(terse=True, normalize=True)
+    except Exception as err:
+        print "Error capturing informtaion - {0}.".format(err)
+        blank_list = []
+        return blank_list
+    else:
+        root = jxmlease.parse(etree.tostring(rsp))
 
-    # Display the raw data
-    #print root
-    # Something to encode a list of dictionaries
-    #new_root = [{k.encode("utf-8"): v.encode("utf-8") for k, v in elem.items()} for elem in root]
-    #print new_root
-    intf_list = []
+        # Display the raw data
+        #print root
+        # Something to encode a list of dictionaries
+        #new_root = [{k.encode("utf-8"): v.encode("utf-8") for k, v in elem.items()} for elem in root]
+        #print new_root
+        intf_list = []
 
-    # Interfaces > irb, vlan, lo0, ge
-    #print "IP Interfaces..."
-    for intf in root['interface-information']['physical-interface']:
-        #print intf['name']
-        # Interface Dictionary
-        intf_dict = {'interface': '', 'ipaddr': '', 'ipmask': '', 'status': '', 'updated': ''}
-        # Check if the interface has a logical interface and matches one of the types in the regex
-        if 'logical-interface' in intf and re.match(phys_regex, intf['name']):
-            #print "Has logical interface and matches regex..."
-            if isinstance(intf['logical-interface'], dict):
-                #print "Dictionary..."
-                if re.match(logi_regex, intf['logical-interface']['name']):
-                    if intf['logical-interface']['address-family']['address-family-name'] == 'inet' and 'interface-address' in intf['logical-interface']['address-family']:
-                        if isinstance(intf['logical-interface']['address-family']['interface-address'], dict):
-                            # Assign variables to dictionary
-                            ip_and_mask = get_ip_mask(intf['logical-interface']['address-family']['interface-address']['ifa-local'])
-                            intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
-                            intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
-                            intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
-                            intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
-                            intf_dict['updated'] = get_now_time()
-                            # Append dictionary to list
-                            intf_list.append(intf_dict.copy())
-                            # Display the interface information
-                            #print "\tInterface: {0} | IP: {1} | Status: {2}".format(intf['logical-interface']['name'],
-                            #                                                    intf['logical-interface']['address-family']['interface-address']['ifa-local'],
-                            #                                                     intf['logical-interface']['oper-status'])
-                        else:
-                            for mylist in intf['logical-interface']['address-family']['interface-address']:
-                                ip_and_mask = get_ip_mask(intf['ifa-local'])
+        # Interfaces > irb, vlan, lo0, ge
+        #print "IP Interfaces..."
+        for intf in root['interface-information']['physical-interface']:
+            #print intf['name']
+            # Interface Dictionary
+            intf_dict = {'interface': '', 'ipaddr': '', 'ipmask': '', 'status': '', 'updated': ''}
+            # Check if the interface has a logical interface and matches one of the types in the regex
+            if 'logical-interface' in intf and re.match(phys_regex, intf['name']):
+                #print "Has logical interface and matches regex..."
+                if isinstance(intf['logical-interface'], dict):
+                    #print "Dictionary..."
+                    if re.match(logi_regex, intf['logical-interface']['name']):
+                        if intf['logical-interface']['address-family']['address-family-name'] == 'inet' and 'interface-address' in intf['logical-interface']['address-family']:
+                            if isinstance(intf['logical-interface']['address-family']['interface-address'], dict):
+                                # Assign variables to dictionary
+                                ip_and_mask = get_ip_mask(intf['logical-interface']['address-family']['interface-address']['ifa-local'])
                                 intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
                                 intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
                                 intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
@@ -1287,49 +1319,63 @@ def xml_to_dict(dev):
                                 intf_list.append(intf_dict.copy())
                                 # Display the interface information
                                 #print "\tInterface: {0} | IP: {1} | Status: {2}".format(intf['logical-interface']['name'],
-                                #                                                     mylist['ifa-local'],
-                                #                                                    intf['logical-interface']['oper-status'])
-            else:
-                #print "List..."
-                for mylist in intf['logical-interface']:
-                    #print "Num 1"
-                    if re.match(logi_regex, mylist['name']):
-                        #print "Num 2"
-                        if mylist['address-family']['address-family-name'] == 'inet' and 'interface-address' in mylist['address-family']:
-                            #print "Num 3"
-                            if isinstance(mylist['address-family']['interface-address'], dict):
-                                ip_and_mask = get_ip_mask(mylist['address-family']['interface-address']['ifa-local'])
-                                #print "IP and Mask {0}".format(mylist['address-family']['interface-address']['ifa-local'])
-                                intf_dict['interface'] = mylist['name'].encode('utf-8')
-                                intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
-                                intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
-                                intf_dict['status'] =  mylist['oper-status'].encode('utf-8')
-                                intf_dict['updated'] = get_now_time()
-                                # Append dictionary to list
-                                intf_list.append(intf_dict.copy())
-                                # Display the interface information
-                                #print "\tInterface: {0} | IP: {1} | Status: {2}".format(mylist['name'],
-                                #                                                      mylist['address-family']['interface-address']['ifa-local'],
-                                #                                                      mylist['oper-status'])
+                                #                                                    intf['logical-interface']['address-family']['interface-address']['ifa-local'],
+                                #                                                     intf['logical-interface']['oper-status'])
                             else:
-                                for mynewlist in mylist['address-family']['interface-address']:
-                                    ip_and_mask = get_ip_mask(mynewlist['ifa-local'])
+                                for mylist in intf['logical-interface']['address-family']['interface-address']:
+                                    ip_and_mask = get_ip_mask(intf['ifa-local'])
+                                    intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
+                                    intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
+                                    intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
+                                    intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
+                                    intf_dict['updated'] = get_now_time()
+                                    # Append dictionary to list
+                                    intf_list.append(intf_dict.copy())
+                                    # Display the interface information
+                                    #print "\tInterface: {0} | IP: {1} | Status: {2}".format(intf['logical-interface']['name'],
+                                    #                                                     mylist['ifa-local'],
+                                    #                                                    intf['logical-interface']['oper-status'])
+                else:
+                    #print "List..."
+                    for mylist in intf['logical-interface']:
+                        #print "Num 1"
+                        if re.match(logi_regex, mylist['name']):
+                            #print "Num 2"
+                            if mylist['address-family']['address-family-name'] == 'inet' and 'interface-address' in mylist['address-family']:
+                                #print "Num 3"
+                                if isinstance(mylist['address-family']['interface-address'], dict):
+                                    ip_and_mask = get_ip_mask(mylist['address-family']['interface-address']['ifa-local'])
+                                    #print "IP and Mask {0}".format(mylist['address-family']['interface-address']['ifa-local'])
                                     intf_dict['interface'] = mylist['name'].encode('utf-8')
                                     intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
                                     intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
-                                    intf_dict['status'] = mylist['oper-status'].encode('utf-8')
+                                    intf_dict['status'] =  mylist['oper-status'].encode('utf-8')
                                     intf_dict['updated'] = get_now_time()
                                     # Append dictionary to list
                                     intf_list.append(intf_dict.copy())
                                     # Display the interface information
                                     #print "\tInterface: {0} | IP: {1} | Status: {2}".format(mylist['name'],
-                                    #                                                      mynewlist['ifa-local'],
+                                    #                                                      mylist['address-family']['interface-address']['ifa-local'],
                                     #                                                      mylist['oper-status'])
-    # Sort criteria
-    sort_list = ['me0.0', 'lo0.119', 'lo0.0', 'irb.119', 'irb.0', 'vlan.119', 'vlan.0']
+                                else:
+                                    for mynewlist in mylist['address-family']['interface-address']:
+                                        ip_and_mask = get_ip_mask(mynewlist['ifa-local'])
+                                        intf_dict['interface'] = mylist['name'].encode('utf-8')
+                                        intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
+                                        intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
+                                        intf_dict['status'] = mylist['oper-status'].encode('utf-8')
+                                        intf_dict['updated'] = get_now_time()
+                                        # Append dictionary to list
+                                        intf_list.append(intf_dict.copy())
+                                        # Display the interface information
+                                        #print "\tInterface: {0} | IP: {1} | Status: {2}".format(mylist['name'],
+                                        #                                                      mynewlist['ifa-local'],
+                                        #                                                      mylist['oper-status'])
+        # Sort criteria
+        sort_list = ['me0.0', 'lo0.119', 'lo0.0', 'irb.119', 'irb.0', 'vlan.119', 'vlan.0']
 
-    # Sort and provide list dictionary
-    return list_dict_custom_sort(intf_list, "interface", sort_list)
+        # Sort and provide list dictionary
+        return list_dict_custom_sort(intf_list, "interface", sort_list)
 
 # Main execution loop
 if __name__ == "__main__":
@@ -1350,7 +1396,9 @@ if __name__ == "__main__":
     #'''
     # Load records from existing CSV
     #print "Loading records..."
-    listDict = csv_to_listdict(main_list_dict)
+    listDict = json_to_listdict(main_list_dict)
+    print "LIST DICT:"
+    print(json.dumps(listDict, indent=2))
 
     # Add New Device function if IPs have been supplied
     print topHeading("JMANAGE SCRIPT", 15)

@@ -12,6 +12,8 @@ import operator
 import os
 import re
 import sys
+import json
+
 from os import listdir
 from os.path import isfile, join
 from sys import stdout
@@ -240,10 +242,20 @@ def write_to_json(list_dict, main_list_dict):
         with open(main_list_dict, 'w') as fout:
             json.dump(list_dict, fout)
     except Exception as err:
-        print "Problem opening or writing to JSON file - ERROR:{0}".format(err)
+        print "Problem opening or writing to JSON file from database -> ERROR: {0}".format(err)
         return False
     else:
         return True
+
+def json_to_listdict(json_file):
+    try:
+        with open(json_file) as fin:
+            list_data = json.load(fin)
+    except Exception as err:
+        print "Problem opening or reading from JSON to database -> ERROR: {0}".format(err)
+        return False
+    else:
+        return list_data
 
 
 # Write new entries from list_dict to csv file, then sort the csv file
