@@ -1397,8 +1397,8 @@ if __name__ == "__main__":
     # Load records from existing CSV
     #print "Loading records..."
     listDict = json_to_listdict(main_list_dict)
-    print "LIST DICT:"
-    print(json.dumps(listDict, indent=2))
+    #print "LIST DICT:"
+    #print(json.dumps(listDict, indent=2))
 
     # Add New Device function if IPs have been supplied
     print topHeading("JMANAGE SCRIPT", 15)
