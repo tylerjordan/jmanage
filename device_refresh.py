@@ -385,16 +385,33 @@ def check_params(ip, dev):
             # Update database date for parameter check
             localDict.update({'last_param_check': get_now_time()})
             # Check that the existing record is up-to-date. If not, update.
+            print "\t- Check parameters:"
+
+            for item in facts_list:
+                stdout.write("\t\t- Check " + item + "...")
+                if not localDict[item].upper() == remoteDict[item].upper():
+                    results.append(item.upper() + " changed from " + localDict[item] + " to " + remoteDict[item])
+                    change_record(ip, remoteDict[item].upper(), key=item)
+                    returncode = 2
+                    print "Changed!"
+                else:
+                    print "Unchanged"
+            '''
             if not localDict['hostname'].upper() == remoteDict['hostname'].upper():
                 results.append("Hostname changed from " + localDict['hostname'] + " to " + remoteDict['hostname'])
                 change_record(ip, remoteDict['hostname'].upper(), key='hostname')
                 returncode = 2
-
+                print "Changed!"
+            else:
+                print "Unchanged"
+            stdout.write("\t\t- Check serial-number...")
             if not localDict['serialnumber'].upper() == remoteDict['serialnumber'].upper():
                 results.append("S/N changed from " + localDict['serialnumber'] + " to " + remoteDict['serialnumber'])
                 change_record(ip, remoteDict['serialnumber'].upper(), key='serialnumber')
                 returncode = 2
-
+                print "Changed!"
+            else:
+                print "Unchanged"
             if not localDict['version'].upper() == remoteDict['version'].upper():
                 results.append("JunOS changed from " + localDict['version'] + " to " + remoteDict['version'])
                 change_record(ip, remoteDict['version'].upper(), key='version')
@@ -404,6 +421,9 @@ def check_params(ip, dev):
                 results.append("Model changed from " + localDict['model'] + " to " + remoteDict['model'])
                 change_record(ip, remoteDict['model'].upper(), key='model')
                 returncode = 2
+            '''
+            # Automatically update interfaces
+            change_record(ip, get_inet_interfaces(dev), key='inet_intf')
         else:
             returncode = 0
             results.append("ERROR: Unable to collect params from database.")
@@ -1211,9 +1231,9 @@ def check_main(record):
     # Try to connect to the device
     dev = connect(record['ip'], True)
     if dev:
-        print "IP Interfaces..."
-        for intf in record['inet_intf']:
-            print "\tInterface: {0} | IP: {1} | Mask: {2} | Status: {3}".format(intf['interface'], intf['ipaddr'], intf['ipmask'], intf['status'])
+        #print "IP Interfaces..."
+        #for intf in record['inet_intf']:
+        #    print "\tInterface: {0} | IP: {1} | Mask: {2} | Status: {3}".format(intf['interface'], intf['ipaddr'], intf['ipmask'], intf['status'])
         if addl_opt == "configs" or addl_opt == "all":
             print "Running Param/Config Check..."
             param_config_check(record, conf_chg_log, dev)
