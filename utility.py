@@ -81,6 +81,21 @@ def getYNAnswer(question):
             answer = ""
     return answer
 
+def createLogFile(path_and_file, columns, delimiter=","):
+    try:
+        with open(path_and_file, 'w+') as fh:
+            # Loops over all column headers in list, except for the last one
+            for column in columns[:-1]:
+                header_line += column + delimiter
+            # Add the last header without a delimiter
+            header_line += columns[-1]
+            # Write header to file
+            fh.write(header_line)
+    except Exception as err:
+        print "Error opening/writing to file -> ERROR: {0}".format(err)
+        return False
+    else:
+        return True
 
 # Return list of files from a directory
 def getFileList(mypath):
@@ -191,10 +206,10 @@ def chooseDevices():
     return ip_list
 
 # Convert listDict to CSV file
-def listdict_to_csv(listDict, csvPathName, columnNames, myDelimiter):
+def listdict_to_csv(aListDict, csvPathName, columnNames, myDelimiter):
     # If columnNames is empty, get the column names from the list dict
     if not columnNames:
-        for mydict in listDict:
+        for mydict in aListDict:
             for key in mydict:
                 columnNames.append(key)
             break
@@ -204,7 +219,7 @@ def listdict_to_csv(listDict, csvPathName, columnNames, myDelimiter):
         with open(csvPathName, 'wb') as csvfile:
             writer = csv.DictWriter(csvfile, delimiter=myDelimiter, fieldnames=columnNames)
             writer.writeheader()
-            writer.writerows(listDict)
+            writer.writerows(aListDict)
         return True
     except Exception as err:
         print "ERROR: Problem writing to file {0} : {1}".format(csvPathName, err)
