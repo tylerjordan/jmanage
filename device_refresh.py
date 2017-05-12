@@ -598,10 +598,12 @@ def change_record(ip, value, key):
                 myrecord.update({'last_param_change': get_now_time()})
                 return True
 
-# This function attempts to open a connection with the device. If successful, session is returned,
 def connect(ip, indbase=False):
-    """ Purpose: Get current configuration from device.
-        Returns: Device object / False
+    """ Purpose: Attempt to connect to the device
+
+    :param ip:          -   IP of the device
+    :param indbase:     -   Boolean if this device is in the database or not, defaults to False
+    :return dev:        -   Returns the device handle if its successfully opened.
     """
     dev = Device(host=ip, user=myuser, passwd=mypwd, auto_probe=True)
     # Try to open a connection to the device
@@ -654,8 +656,14 @@ def connect(ip, indbase=False):
     else:
         return dev
 
-# Perform database steps on failed devices
 def fail_check(ip, indbase, contentList):
+    """ Purpose: Performs operations on devices if they are not accessible.
+
+    :param ip:          -   The IP address of the device in question
+    :param indbase:     -   Boolean on if the device is in the database or not.
+    :param contentList: -   Content for the log entry.
+    :return:            -   None
+    """
     # Number of days to keep IP after first fail attempt
     attempt_limit = 10
     matched = False
@@ -701,8 +709,10 @@ def fail_check(ip, indbase, contentList):
         pass
 
 def fetch_config(dev):
-    """ Purpose: Get current configuration from device.
-        Returns: Text File
+    """ Purpose: Creates the log entries and output for the results summary.
+
+    :param dev:         -   The device handle for gather info from device
+    :return:            -   Returns a ASCII set version of the configuration
     """
     try:
         myconfig = dev.cli('show config | display set', warning=False)
@@ -713,14 +723,14 @@ def fetch_config(dev):
         return myconfig
 
 def information(connection, ip, software_info, hostname):
-    """ Purpose: This is the function called when using -info.
-                 It is grabs the model, running version, and serial number of the device.
+    """ Purpose: This is the function called when using -info. It is grabs the model, running version, 
+    and serial number of the device.
 
-    :param: connection:    This is the ncclient manager connection to the remote device.
-            ip:            String containing the IP of the remote device, used for logging purposes.
-            software_info: A "show version" aka "get-software-information".
-            hostname:     The device host-name for output purposes.
-    :return: text of requested output
+    :param connection:      -   This is the ncclient manager connection to the remote device.
+    :param ip:              -   String containing the IP of the remote device, used for logging purposes.
+    :param software_info:   -   A "show version" aka "get-software-information".
+    :param hostname:        -   The device host-name for output purposes.
+    :return:                -   Dictionary of requested output
     """
     try:
         model = software_info.xpath('//software-information/product-model')[0].text
@@ -737,10 +747,12 @@ def information(connection, ip, software_info, hostname):
 
 def run(ip, username, password, port):
     """ Purpose: To open an NCClient manager session to the device, and run the appropriate function against the device.
-        Parameters:
-            ip          -   String of the IP of the device, to open the connection, and for logging purposes.
-            username    -   The string username used to connect to the device.
-            password    -   The string password used to connect to the device.
+    
+    :param ip:          -   String of the IP of the device, to open the connection, and for logging purposes.
+    :param username:    -   String username used to connect to the device.
+    :param password:    -   String password used to connect to the device.
+    :param port:        -   Integer port number of SSH (830)
+    :return output:     -   Returns device parameters
     """
     try:
         connection = manager.connect(host=ip,
@@ -779,9 +791,10 @@ def run(ip, username, password, port):
 
 def config_compare(record, dev):
     """ Purpose: To compare two configs and get the differences, log them
-        Parameters:
-            record          -   Object that contains parameters of devices
-            logfile         -   Reference to log object, for displaying and logging output
+    
+    :param record:          -   A dictionary that contains device attributes
+    :param dev:             -   Connection handle to device.
+    :return:                -   A results list of changes
     """
     results = []
     # 0 = Save Failed, 1 = No Changes, 2 = Changes Detected, 3 = Update Failed
@@ -817,11 +830,11 @@ def config_compare(record, dev):
     return results
 
 def template_scanner(regtmpl_list, record):
-    """ Purpose: To compare a regex list against a config list
-        Parameters:
-            regtmpl_list    -   List of template set commands with regex
-            config_list     -   List of set commands from chassis
-            logfile         -   Reference to log object, for displaying and logging output
+    """ Purpose: Compares a regex list against a config list.
+ 
+    :param regtmpl_list:    -   List of template set commands with regex
+    :param record:          -   A dictionary containing device attributes
+    :return results:        -   A list containing results of scan.
     """
     # Template Results: 0 = Error, 1 = No Changes, 2 = Changes
     results = []
@@ -856,6 +869,11 @@ def template_scanner(regtmpl_list, record):
         return results
 
 def template_regex():
+    """ Purpose: Creates the template regex using the template file and regex mapping document.
+
+    :param: None
+    :return regtmpl_list: A list containing regexs for template scanner. 
+    """
     # Regexs for template comparisons
     with open(template_csv) as f:
         d = dict(filter(None, csv.reader(f, delimiter=";")))
@@ -878,8 +896,12 @@ def template_regex():
 
     return regtmpl_list
 
-# Print summary results to log file
 def summaryLog():
+    """ Purpose: Creates the log entries and output for the results summary.
+
+    :param: None
+    :return: None
+    """
     # Get total devices
     total_devices = len(listDict)
 
@@ -994,8 +1016,7 @@ def summaryLog():
     print_log("=" * 50 + "\n", summary_log)
 
 def scan_results():
-    """
-        Purpose: Prints a short summary of the check results to the screen.
+    """ Purpose: Prints a short summary of the check results to the screen.
 
     :param: None
     :return: None
@@ -1010,8 +1031,7 @@ def scan_results():
     print"=============================="
 
 def add_new_devices_loop(iplistfile):
-    """
-        Purpose: Loop for adding devices and extracts IPs from network as needed.
+    """ Purpose: Loop for adding devices and extracts IPs from network as needed.
 
     :param ipListFile: The file containing a list of IPs provided using the "-i" parameter.
     :return: None
@@ -1040,8 +1060,7 @@ def add_new_devices_loop(iplistfile):
                 add_new_device(myip, total_num, curr_num)
 
 def add_new_device(ip, total_num, curr_num):
-    """
-        Purpose: Checks device initial status
+    """ Purpose: Checks device initial status
 
     :param ip: IP address of a device to check.
     :param total_num: Total number of devices in the current loop.
@@ -1081,8 +1100,7 @@ def add_new_device(ip, total_num, curr_num):
         print "\t\t* Skipping device, already in database *"
 
 def template_check(record, temp_dev_log):
-    """
-        Purpose: Runs the template function and creates log entries.
+    """ Purpose: Runs the template function and creates log entries.
 
     :param record: A dictionary containing the device information from main_db
     :param temp_dev_log: Filename/path for the template log.
@@ -1116,8 +1134,7 @@ def template_check(record, temp_dev_log):
         templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
 def param_config_check(record, conf_chg_log, dev):
-    """
-        Purpose: Runs functions for checking parameters and configurations. Creates log entries.
+    """ Purpose: Runs functions for checking parameters and configurations. Creates log entries.
 
     :param record: A dictionary containing the device information from main_db
     :param conf_chg_log: Filename/path for the config change log.
@@ -1176,9 +1193,8 @@ def param_config_check(record, conf_chg_log, dev):
         config_update_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
 def check_loop(subsetlist):
-    """
-        Purpose: Checks if the subset parameter was set and decide what to execute. Adds device if it is not in the 
-        database. Executes a standard check of the entire database if subset is not defined.
+    """ Purpose: Checks if the subset parameter was set and decide what to execute. Adds device if it is not in the 
+    database. Executes a standard check of the entire database if subset is not defined.
 
     :param record: A list containing IP addresses to query.
     :return: None
@@ -1213,8 +1229,7 @@ def check_loop(subsetlist):
     print "Device Processsing Ended: {0}\n\n".format(get_now_time())
 
 def check_main(record, total_num, curr_num):
-    """
-        Purpose: Performs the selected checks (Parameter/Config, Template, or All)
+    """ Purpose: Performs the selected checks (Parameter/Config, Template, or All)
         
     :param record: A dictionary containing the device information from main_db.
     :param total_num: Total number of devices in the current loop.
