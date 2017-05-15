@@ -169,7 +169,12 @@ def detect_env():
     fail_devices_csv = os.path.join(log_dir, "Fail_Devices.csv")
 
 def load_config_file(ip, newest):
-    """ Purpose: Load the selected device's configuration file into a variable. """
+    """ Purpose: Load the selected device's configuration file into a variable.
+    
+        :param ip           -   Management IP address of the device
+        :param newest:      -   True/False (True means newest, false means oldest file)
+        :return:            -   A string containing the configuration   
+    """
     record = get_record(ip=ip)
     if record:
         my_file = get_old_new_file(record, newest)
@@ -181,14 +186,15 @@ def load_config_file(ip, newest):
                 return False
             else:
                 return file_string
-        else:
-            return my_file
     else:
         print "Problem getting record information..."
 
 def get_old_new_file(record, newest):
-    """ Purpose: Returns the oldest config file from specified IP
-        Parameters:     newest - Is either T or F, True means get the newest file, False, means get the oldest.
+    """ Purpose: Returns the oldest or newest config file from specified IP
+
+        :param record:      -   The dictionary information of the device.
+        :param newest:      -   True/False (True means newest, false means oldest file)
+        :return:            -   A string containing the file with complete path. False   
     """
     filtered_list = []
     if record:
@@ -215,6 +221,11 @@ def get_old_new_file(record, newest):
             return filtered_list
 
 def remove_template_file(record):
+    """ Purpose: Remove the template of the corresponding device.
+
+        :param record:      -   The dictionary information of the device.
+        :return:            -   True/False
+    """
     file_start = "Template_Deviation_"
     device_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
     if os.path.exists(device_dir):
@@ -230,6 +241,11 @@ def remove_template_file(record):
         return False
 
 def get_file_number(record):
+    """ Purpose: Returns the number of configuration files for the defined device.
+
+        :param record:      -   Parameter for the "get_old_new_file" function
+        :return:            -   List containing file contents
+    """
     file_num = 0
     if record:
         my_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
@@ -240,6 +256,10 @@ def get_file_number(record):
 
 def load_config_file_list(ip, newest):
     """ Purpose: Load the selected device's configuration file into a list.
+    
+        :param ip:          -   Dictionary record of the device.
+        :param newest:      -   Parameter for the "get_old_new_file" function
+        :return:            -   List containing file contents
     """
     record = get_record(ip=ip)
     linelist = []
@@ -257,7 +277,9 @@ def load_config_file_list(ip, newest):
 
 def directory_check(record):
     """ Purpose: Check if the site/device dirs exists. Creates it if it does not.
-        Returns: True or False
+
+        :param record:      -   Dictionary record of the device.
+        :return:            -   True/False
     """
     # Check for site specific directory
     if not os.path.isdir(os.path.join(config_dir, getSiteCode(record))):
@@ -279,26 +301,12 @@ def directory_check(record):
         else:
             return True
 
-    '''
-    try:
-        site_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
-    except Exception as err:
-        print "Failed Creating Site Path -> ERROR: {0}".format(err)
-        return False
-    else:
-        # Check if the appropriate site directory is created. If not, then create it.
-        if not os.path.isdir(site_dir):
-            try:
-                os.mkdir(site_dir)
-            except Exception as err:
-                print "Failed Creating Directory -> ERROR: {0}".format(err)
-                return False
-    return True
-    '''
-
 def save_config_file(myconfig, record):
     """ Purpose: Creates a config file and adds text to the file.
-        Returns: True or False
+ 
+        :param myconfig:    -   Text version of the current configuration. ("set" style)
+        :param record:      -   Dictionary record of the device.
+        :return:            -   True/False
     """
     # Check if the appropriate site directory is created. If not, then create it.
     directory_check(record)
@@ -328,6 +336,7 @@ def save_config_file(myconfig, record):
                 ops_error_list.append(dict(zip(error_key_list, contentList)))
                 #print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
         try:
+            # Write the new configuration to the new file
             newfile.write(myconfig)
         except Exception as err:
             #print "ERROR: Unable to write config to file: {0}".format(err)
@@ -342,7 +351,12 @@ def save_config_file(myconfig, record):
             return True
 
 def line_list(filepath):
-    """ Purpose: Create a list of lines from the file defined. """
+    """ Purpose: Create a list of lines from the file defined.
+ 
+        :param filepath:    -   String of the IP of the device
+        :param dev:         -   The PyEZ SSH netconf connection to the device.
+        :return linelist:   -   A list of Strings from the file.
+    """
     linelist = []
     try:
         f = open(filepath, 'r')
@@ -360,8 +374,14 @@ def line_list(filepath):
         return linelist
 
 def check_params(ip, dev):
-    """ Purpose: Scans the device with the IP and handles action. """
-    # 0 = Unable to Check, 1 = No Changes, 2 = Changes Detected
+    """ Purpose: Chacks the parameters to see if they have changed. If param is changed, it is updated and logged, if 
+    not, the "last_param" timestamp is only updated.
+    
+        :param ip:          -   String of the IP of the device
+        :param dev:         -   The PyEZ SSH netconf connection to the device.
+        :return results:    -   A list that contains the results of the check, including the following parameter.
+                            (0 = Unable to Check, 1 = No Changes, 2 = Changes Detected)
+    """
     returncode = 1
     # Store the results of check and returncode
     results = []
@@ -389,32 +409,6 @@ def check_params(ip, dev):
                     print "Changed!"
                 else:
                     print "Unchanged"
-            '''
-            if not localDict['hostname'].upper() == remoteDict['hostname'].upper():
-                results.append("Hostname changed from " + localDict['hostname'] + " to " + remoteDict['hostname'])
-                change_record(ip, remoteDict['hostname'].upper(), key='hostname')
-                returncode = 2
-                print "Changed!"
-            else:
-                print "Unchanged"
-            stdout.write("\t\t- Check serial-number...")
-            if not localDict['serialnumber'].upper() == remoteDict['serialnumber'].upper():
-                results.append("S/N changed from " + localDict['serialnumber'] + " to " + remoteDict['serialnumber'])
-                change_record(ip, remoteDict['serialnumber'].upper(), key='serialnumber')
-                returncode = 2
-                print "Changed!"
-            else:
-                print "Unchanged"
-            if not localDict['version'].upper() == remoteDict['version'].upper():
-                results.append("JunOS changed from " + localDict['version'] + " to " + remoteDict['version'])
-                change_record(ip, remoteDict['version'].upper(), key='version')
-                returncode = 2
-
-            if not localDict['model'].upper() == remoteDict['model'].upper():
-                results.append("Model changed from " + localDict['model'] + " to " + remoteDict['model'])
-                change_record(ip, remoteDict['model'].upper(), key='model')
-                returncode = 2
-            '''
             # Automatically update interfaces
             change_record(ip, get_inet_interfaces(dev), key='inet_intf')
         else:
@@ -432,16 +426,14 @@ def check_params(ip, dev):
 def get_record(ip='', hostname='', sn='', code=''):
     """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
                 three different methods to return the data.
-        Parameters:
-            ip          -   String of the IP of the device
-            hostname    -   String of the device hostname
-            sn          -   String of the device chassis serial number
-            code        -   String of the JunOS code version
-        Returns:
-            A dictionary containing the device data or 'False' if no record is found
+                
+        :param ip:          -   String of the IP of the device
+        :param hostname:    -   String of the device hostname
+        :parma sn:          -   String of the device chassis serial number
+        :param code:        -   String of the JunOS code version
+        :return:            -   True/False
     """
     has_record = False
-    #print "Getting record for ip: {0}".format(ip)
     # Make sure listDict has contents
     if listDict:
         if ip:
@@ -466,9 +458,14 @@ def get_record(ip='', hostname='', sn='', code=''):
     else:
         return has_record
 
-# Checks to see if this IP is part of another device that is already discovered
 def check_host_sn(ip, dev):
-    # Get serial number and hostname
+    """ Purpose: Checks to see if this IP is part of another device that is already discovered. If it is, we capture all
+    inet interfaces and get the preferred management IP.
+    
+    :param ip:          -   The IP of the device
+    :param dev:         -   The PyEZ connection object (SSH Netconf)
+    :return:            -   True/False
+    """
     serialnumber = dev.facts['serialnumber'].upper()
     hostname = dev.facts['hostname'].upper()
 
@@ -491,8 +488,11 @@ def check_host_sn(ip, dev):
 
 def add_record(ip, dev):
     """ Purpose: Adds a record to list of dictionaries.
+
+    :param ip:          -   The IP of the device
+    :param dev:         -   The PyEZ connection object (SSH Netconf)
+    :return:            -   Returns True/False
     """
-    # Create a dict to store record values
     mydict = {}
     # Try to gather facts from device
     try:
@@ -527,15 +527,26 @@ def add_record(ip, dev):
         return True
 
 def remove_record(key, value):
+    """ Purpose: Remove a record from the main database. Removes only the first record found with the value.
+
+    :param key:         -   The key to search for
+    :param value:       -   The value to search for
+    :return:            -   Returns True/False
+    """
     for i in range(len(listDict)):
         if listDict[i][key] == value:
             print "Removing: {0}".format(listDict[i])
             del listDict[i]
             print "Removed!"
-            break
+            return True
+    return False
 
-# Return the site code by extracting from a provided hostname
 def getSiteCode(record):
+    """ Purpose: Get the site code from the Hostname. Use "MISC" if it doesn't match the two regular expressions.
+
+    :param record:      -   Dictionary of the parameters of the device in question
+    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
+    """
     hostname = record['hostname'].upper()
     if re.match(r'SW[A-Z]{3}', hostname):
         siteObj = re.match(r'SW[A-Z]{3}', hostname)
@@ -547,37 +558,21 @@ def getSiteCode(record):
 
     return siteObj.group()[-3:]
 
-"""
-def ping(ip):
-    # Purpose: Determine if an IP is pingable
-    #:param ip: IP address of host to ping
-    #:return: True if ping successful
-    
-    with open(os.devnull, 'w') as DEVNULL:
-        try:
-            # Check for Windows or Linux/MAC
-            ping_param = "-n" if platform.system().lower() == "windows" else "-c"
-            subprocess.check_call(
-                ['ping', ping_param, '3', ip],
-                stdout=DEVNULL,
-                stderr=DEVNULL
-            )
-            return True
-        except subprocess.CalledProcessError as err:
-            add_to_csv_sort(ip + ";" + str(err) + ";" + get_now_time(), access_error_log)
-            return False
-"""
-
 def get_now_time():
-    """ Purpose: Create a correctly formatted timestamp
-        Returns: Timestamp
+    """ Purpose: Create a formatted timestamp
+
+    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
     """
     now = datetime.datetime.now()
     return now.strftime("%Y-%m-%d_%H%M")
 
 def change_record(ip, value, key):
-    """ Purpose: Change an attribute of an existing record.
-        Returns: String
+    """ Purpose: Change an attribute of an existing record. Record is a dictionary.
+
+    :param ip:          -   IP of the device
+    :param value:       -   Value of attribute
+    :param key:         -   Key of the attribute
+    :return:            -   True/False
     """
     for myrecord in listDict:
         # If we've found the correct record...
@@ -602,7 +597,7 @@ def connect(ip, indbase=False):
     """ Purpose: Attempt to connect to the device
 
     :param ip:          -   IP of the device
-    :param indbase:     -   Boolean if this device is in the database or not, defaults to False
+    :param indbase:     -   Boolean if this device is in the database or not, defaults to False if not specified
     :return dev:        -   Returns the device handle if its successfully opened.
     """
     dev = Device(host=ip, user=myuser, passwd=mypwd, auto_probe=True)
