@@ -1,5 +1,5 @@
-__copyright__ = "Copyright 2016 Tyler Jordan"
-__version__ = "0.1.1"
+__copyright__ = "Copyright 2017 Tyler Jordan"
+__version__ = "0.2.0"
 __email__ = "tjordan@juniper.net"
 
 # ------------------------------------------------------------------------------------------------------------------- #
@@ -168,6 +168,17 @@ def detect_env():
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
     fail_devices_csv = os.path.join(log_dir, "Fail_Devices.csv")
 
+
+def get_now_time():
+    """ Purpose: Create a formatted timestamp
+
+    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
+    """
+    now = datetime.datetime.now()
+    return now.strftime("%Y-%m-%d_%H%M")
+# -----------------------------------------------------------------
+# FILE OPERATIONS
+# -----------------------------------------------------------------
 def load_config_file(ip, newest):
     """ Purpose: Load the selected device's configuration file into a variable.
     
@@ -373,174 +384,6 @@ def line_list(filepath):
         f.close()
         return linelist
 
-def check_params(ip, dev):
-    """ Purpose: Chacks the parameters to see if they have changed. If param is changed, it is updated and logged, if 
-    not, the "last_param" timestamp is only updated.
-    
-        :param ip:          -   String of the IP of the device
-        :param dev:         -   The PyEZ SSH netconf connection to the device.
-        :return results:    -   A list that contains the results of the check, including the following parameter.
-                            (0 = Unable to Check, 1 = No Changes, 2 = Changes Detected)
-    """
-    returncode = 1
-    # Store the results of check and returncode
-    results = []
-    remoteDict = {}
-    # Try to collect current chassis info
-    for key in facts_list:
-        remoteDict[key] = dev.facts[key]
-
-    # If info was collected...
-    if remoteDict:
-        # Get current information to compare against database info
-        localDict = get_record(ip)
-        if localDict:
-            # Update database date for parameter check
-            localDict.update({'last_param_check': get_now_time()})
-            # Check that the existing record is up-to-date. If not, update.
-            print "\t- Check parameters:"
-
-            for item in facts_list:
-                stdout.write("\t\t- Check " + item + "...")
-                if not localDict[item].upper() == remoteDict[item].upper():
-                    results.append(item.upper() + " changed from " + localDict[item] + " to " + remoteDict[item])
-                    change_record(ip, remoteDict[item].upper(), key=item)
-                    returncode = 2
-                    print "Changed!"
-                else:
-                    print "Unchanged"
-            # Automatically update interfaces
-            change_record(ip, get_inet_interfaces(dev), key='inet_intf')
-        else:
-            returncode = 0
-            results.append("ERROR: Unable to collect params from database.")
-    # If we are unable to collect info from this device
-    else:
-        returncode = 0
-        results.append("ERROR: Unable to collect current params from device")
-
-    # Return the info to caller
-    results.append(returncode)
-    return results
-
-def get_record(ip='', hostname='', sn='', code=''):
-    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
-                three different methods to return the data.
-                
-        :param ip:          -   String of the IP of the device
-        :param hostname:    -   String of the device hostname
-        :parma sn:          -   String of the device chassis serial number
-        :param code:        -   String of the JunOS code version
-        :return:            -   True/False
-    """
-    has_record = False
-    # Make sure listDict has contents
-    if listDict:
-        if ip:
-            for record in listDict:
-                for inet_intf in record['inet_intf']:
-                    if inet_intf['ipaddr'] == ip:
-                        return record
-        elif hostname:
-            for record in listDict:
-                if record['hostname'] == hostname:
-                    return record
-        elif sn:
-            for record in listDict:
-                if record['serialnumber'] == sn:
-                    return record
-        elif code:
-            for record in listDict:
-                if record['version'] == code:
-                    return record
-        else:
-            return has_record
-    else:
-        return has_record
-
-def check_host_sn(ip, dev):
-    """ Purpose: Checks to see if this IP is part of another device that is already discovered. If it is, we capture all
-    inet interfaces and get the preferred management IP.
-    
-    :param ip:          -   The IP of the device
-    :param dev:         -   The PyEZ connection object (SSH Netconf)
-    :return:            -   True/False
-    """
-    serialnumber = dev.facts['serialnumber'].upper()
-    hostname = dev.facts['hostname'].upper()
-
-    # Search over database for a match
-    for record in listDict:
-        if record['hostname'] == hostname or record['serialnumber'] == serialnumber:
-            # This IP belongs to a device that is already discovered.
-            # Get inet_intf info
-            inet_intf = get_inet_interfaces(dev)
-            # Get preferred management ip address
-            man_ip = inet_intf[0]['ipaddr']
-            # Make changes
-            if change_record(record['ip'], inet_intf, 'inet_intf') and change_record(record['ip'], man_ip, 'ip'):
-                return True
-            else:
-                return False
-
-    # No records matched
-    return False
-
-def add_record(ip, dev):
-    """ Purpose: Adds a record to list of dictionaries.
-
-    :param ip:          -   The IP of the device
-    :param dev:         -   The PyEZ connection object (SSH Netconf)
-    :return:            -   Returns True/False
-    """
-    mydict = {}
-    # Try to gather facts from device
-    try:
-        for key in facts_list:
-            mydict[key] = dev.facts[key].upper()
-    except Exception as err:
-        print "Error accessing facts on device. ERROR {0}".format(err)
-        return False
-    else:
-        now = get_now_time()
-        # Try to gather inet interface parameters and assign them to the record dict
-        try:
-            mydict['inet_intf'] = get_inet_interfaces(dev)
-        except Exception as err:
-            print "Failed to get inet interface information - ERROR: {0}".format(err)
-            print "Assigning access IP as management IP."
-            mydict['ip'] = ip
-        else:
-            mydict['ip'] = mydict['inet_intf'][0]['ipaddr']
-
-        # Try to save config file, add appropriate dates to dict if save works
-        if save_config_file(fetch_config(dev), mydict):
-            mydict['last_config_check'] = now
-            mydict['last_config_change'] = now
-        # Apply dates to record dict
-        mydict['last_access'] = now
-        mydict['last_param_change'] = now
-        mydict['last_param_check'] = now
-
-        # Add entire record to database
-        listDict.append(mydict)
-        return True
-
-def remove_record(key, value):
-    """ Purpose: Remove a record from the main database. Removes only the first record found with the value.
-
-    :param key:         -   The key to search for
-    :param value:       -   The value to search for
-    :return:            -   Returns True/False
-    """
-    for i in range(len(listDict)):
-        if listDict[i][key] == value:
-            print "Removing: {0}".format(listDict[i])
-            del listDict[i]
-            print "Removed!"
-            return True
-    return False
-
 def getSiteCode(record):
     """ Purpose: Get the site code from the Hostname. Use "MISC" if it doesn't match the two regular expressions.
 
@@ -558,165 +401,9 @@ def getSiteCode(record):
 
     return siteObj.group()[-3:]
 
-def get_now_time():
-    """ Purpose: Create a formatted timestamp
-
-    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
-    """
-    now = datetime.datetime.now()
-    return now.strftime("%Y-%m-%d_%H%M")
-
-def change_record(ip, value, key):
-    """ Purpose: Change an attribute of an existing record. Record is a dictionary.
-
-    :param ip:          -   IP of the device
-    :param value:       -   Value of attribute
-    :param key:         -   Key of the attribute
-    :return:            -   True/False
-    """
-    for myrecord in listDict:
-        # If we've found the correct record...
-        if myrecord['ip'] == ip:
-            try:
-                # Trying to update the record...
-                change_dict = {key: value}
-                myrecord.update(change_dict)
-            except Exception as err:
-                # Error checking...
-                print "ERROR: Unable to update record value: {0} | Device: {1}".format(err, ip)
-                message = "Error changing " + key + " to " + value + "."
-                contentList = [ ip, message, str(err), get_now_time() ]
-                ops_error_list.append(dict(zip(error_key_list, contentList)))
-                return False
-            # If the record change was successful...
-            else:
-                myrecord.update({'last_param_change': get_now_time()})
-                return True
-
-def connect(ip, indbase=False):
-    """ Purpose: Attempt to connect to the device
-
-    :param ip:          -   IP of the device
-    :param indbase:     -   Boolean if this device is in the database or not, defaults to False if not specified
-    :return dev:        -   Returns the device handle if its successfully opened.
-    """
-    dev = Device(host=ip, user=myuser, passwd=mypwd, auto_probe=True)
-    # Try to open a connection to the device
-    try:
-        dev.open()
-    # If there is an error when opening the connection, display error and exit upgrade process
-    except ConnectRefusedError as err:
-        message = "Host Reachable, but NETCONF not configured."
-        print "\t\t" + message
-        contentList = [ ip, message, str(err), get_now_time() ]
-        access_error_list.append(dict(zip(error_key_list, contentList)))
-        no_netconf_ips.append(ip)
-        return False
-    except ConnectAuthError as err:
-        message = "Unable to connect with credentials. User:" + myuser
-        print "\t\t" + message
-        contentList = [ ip, message, str(err), get_now_time() ]
-        access_error_list.append(dict(zip(error_key_list, contentList)))
-        no_auth_ips.append(ip)
-        return False
-    except ConnectTimeoutError as err:
-        message = "Timeout error, possible IP reachability issues."
-        print "\t\t" + message
-        contentList = [ ip, message, str(err), get_now_time() ]
-        fail_check(ip, indbase, contentList)
-        no_ping_ips.append(ip)
-        return False
-    except ProbeError as err:
-        message = "Probe timeout, possible IP reachability issues."
-        print "\t\t" + message
-        contentList = [ ip, message, str(err), get_now_time() ]
-        fail_check(ip, indbase, contentList)
-        no_ping_ips.append(ip)
-        return False
-    except ConnectError as err:
-        message = "Unknown connection issue."
-        print "\t\t" + message
-        contentList = [ ip, message, str(err), get_now_time() ]
-        fail_check(ip, indbase, contentList)
-        no_connect_ips.append(ip)
-        return False
-    except Exception as err:
-        message = "Undefined exception."
-        print "\t\t" + message
-        contentList = [ip, message, str(err), get_now_time()]
-        fail_check(ip, indbase, contentList)
-        no_connect_ips.append(ip)
-        return False
-    # If try arguments succeed...
-    else:
-        return dev
-
-def fail_check(ip, indbase, contentList):
-    """ Purpose: Performs operations on devices if they are not accessible.
-
-    :param ip:          -   The IP address of the device in question
-    :param indbase:     -   Boolean on if the device is in the database or not.
-    :param contentList: -   Content for the log entry.
-    :return:            -   None
-    """
-    # Number of days to keep IP after first fail attempt
-    attempt_limit = 10
-    matched = False
-
-    if indbase:
-        myListDict = csv_to_listdict(fail_devices_csv)
-        # Go through failed devices log, find a specific ip
-        if myListDict:
-            for myDict in myListDict:
-                # If we find the IP in this list
-                if myDict['ip'] == ip:
-                    matched = True
-                    myDict.update({'last_attempt': get_now_time()})
-                    past_time = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d_%H%M")
-                    now_time = datetime.datetime.now()
-                    days_exp = (now_time - past_time).days
-                    print "Consecutive Failed Days: {0}".format(days_exp)
-                    if days_exp > attempt_limit:
-                        myListDict.remove(myDict)
-                        listdict_to_csv(myListDict, fail_devices_csv, myDelimiter=",")
-                        #print "ListDict: {0}".format(listDict)
-                        #print "MyDict: {0}".format(myDict)
-                        remove_record('ip', ip)
-                    break
-        # If this device is not in the failed list or failed devices log doesn't exist
-        if not matched:
-            # Create new record
-            mylist = []
-            mydicts = {
-                'ip': ip,
-                'last_attempt': get_now_time(),
-                'date_added': get_now_time(),
-            }
-            mylist.append(mydicts)
-            attribOrder = ['ip', 'last_attempt', 'date_added']
-            # Add record to failed csv
-            listdict_to_csv(mylist, fail_devices_csv, myDelimiter=",")
-        # Do this for devices in database
-        access_error_list.append(dict(zip(error_key_list, contentList)))
-    # This applies to all unreachable devices, not in database already, so new devices
-    # Don't do anything, these failures are recorded in new_devices_log
-    else:
-        pass
-
-def fetch_config(dev):
-    """ Purpose: Creates the log entries and output for the results summary.
-
-    :param dev:         -   The device handle for gather info from device
-    :return:            -   Returns a ASCII set version of the configuration
-    """
-    try:
-        myconfig = dev.cli('show config | display set', warning=False)
-    except Exception as err:
-        print "Error getting configuration from device. ERROR: {0}".format(err)
-        return False
-    else:
-        return myconfig
-
+# -----------------------------------------------------------------
+# CONNECTIONS
+# -----------------------------------------------------------------
 def information(connection, ip, software_info, hostname):
     """ Purpose: This is the function called when using -info. It is grabs the model, running version, 
     and serial number of the device.
@@ -784,112 +471,118 @@ def run(ip, username, password, port):
             return False
         return output
 
-def config_compare(record, dev):
-    """ Purpose: To compare two configs and get the differences, log them
-    
-    :param record:          -   A dictionary that contains device attributes
-    :param dev:             -   Connection handle to device.
-    :return:                -   A results list of changes
+def connect(ip, indbase=False):
+    """ Purpose: Attempt to connect to the device
+
+    :param ip:          -   IP of the device
+    :param indbase:     -   Boolean if this device is in the database or not, defaults to False if not specified
+    :return dev:        -   Returns the device handle if its successfully opened.
     """
-    results = []
-    # 0 = Save Failed, 1 = No Changes, 2 = Changes Detected, 3 = Update Failed
-    returncode = 1
-
-    # Check if the appropriate site directory is created. If not, then create it.
-    loaded_config = load_config_file(record['ip'], newest=True)
-    if not loaded_config:
-        if save_config_file(fetch_config(dev), record):
-            results.append("No Existing Config, Configuration Saved\n")
-        else:
-            results.append("No Existing Config, Configuration Save Failed\n")
-            returncode = 0
-    else:
-        current_config = fetch_config(dev)
-        if current_config:
-            # Compare configurations
-            change_list = compare_configs(loaded_config, current_config)
-            # Update config check date in record
-            record.update({'last_config_check': get_now_time()})
-            if change_list:
-                returncode = 2
-                # Try to write diffList output to a list
-                for item in change_list:
-                    results.append(item)
-                    save_config_file(current_config, record)
-                if not save_config_file(current_config, record):
-                    returncode = 3
-        else:
-            results.append("Unable to retrieve configuration\n")
-            returncode = 0
-    results.append(returncode)
-    return results
-
-def template_scanner(regtmpl_list, record):
-    """ Purpose: Compares a regex list against a config list.
- 
-    :param regtmpl_list:    -   List of template set commands with regex
-    :param record:          -   A dictionary containing device attributes
-    :return results:        -   A list containing results of scan.
-    """
-    # Template Results: 0 = Error, 1 = No Changes, 2 = Changes
-    results = []
-    returncode = 1
-    config_list = load_config_file_list(record['ip'], newest=True)
-
-    nomatch = True
+    dev = Device(host=ip, user=myuser, passwd=mypwd, auto_probe=True)
+    # Try to open a connection to the device
     try:
-        firstpass = True
-        for regline in regtmpl_list:
-            matched = False
-            if regline != "":
-                for compline in config_list:
-                    compline = re.sub(r"\\n", r"", compline)
-                    if re.search(regline, compline):
-                        matched = True
-                if not matched:
-                    if firstpass:
-                        firstpass = False
-                    nomatch = False
-                    results.append(regline)
-                    returncode = 2
+        dev.open()
+    # If there is an error when opening the connection, display error and exit upgrade process
+    except ConnectRefusedError as err:
+        message = "Host Reachable, but NETCONF not configured."
+        print "\t\t" + message
+        contentList = [ ip, message, str(err), get_now_time() ]
+        access_error_list.append(dict(zip(error_key_list, contentList)))
+        no_netconf_ips.append(ip)
+        return False
+    except ConnectAuthError as err:
+        message = "Unable to connect with credentials. User:" + myuser
+        print "\t\t" + message
+        contentList = [ ip, message, str(err), get_now_time() ]
+        access_error_list.append(dict(zip(error_key_list, contentList)))
+        no_auth_ips.append(ip)
+        return False
+    except ConnectTimeoutError as err:
+        message = "Timeout error, possible IP reachability issues."
+        print "\t\t" + message
+        contentList = [ ip, message, str(err), get_now_time() ]
+        fail_check(ip, indbase, contentList)
+        no_ping_ips.append(ip)
+        return False
+    except ProbeError as err:
+        message = "Probe timeout, possible IP reachability issues."
+        print "\t\t" + message
+        contentList = [ ip, message, str(err), get_now_time() ]
+        fail_check(ip, indbase, contentList)
+        no_ping_ips.append(ip)
+        return False
+    except ConnectError as err:
+        message = "Unknown connection issue."
+        print "\t\t" + message
+        contentList = [ ip, message, str(err), get_now_time() ]
+        fail_check(ip, indbase, contentList)
+        no_connect_ips.append(ip)
+        return False
     except Exception as err:
-        results.append("ERROR: Problems preforming template scan")
-        returncode = 0
+        message = "Undefined exception."
+        print "\t\t" + message
+        contentList = [ip, message, str(err), get_now_time()]
+        fail_check(ip, indbase, contentList)
+        no_connect_ips.append(ip)
+        return False
+    # If try arguments succeed...
     else:
-        record.update({'last_temp_check': get_now_time()})
-        if nomatch:
-            returncode = 1
-    finally:
-        results.append(returncode)
-        return results
+        return dev
 
-def template_regex():
-    """ Purpose: Creates the template regex using the template file and regex mapping document.
+# -----------------------------------------------------------------
+# LOGGING | SHOWS
+# -----------------------------------------------------------------
+def fail_check(ip, indbase, contentList):
+    """ Purpose: Performs operations on devices if they are not accessible.
 
-    :param: None
-    :return regtmpl_list: A list containing regexs for template scanner. 
+    :param ip:          -   The IP address of the device in question
+    :param indbase:     -   Boolean on if the device is in the database or not.
+    :param contentList: -   Content for the log entry.
+    :return:            -   None
     """
-    # Regexs for template comparisons
-    with open(template_csv) as f:
-        d = dict(filter(None, csv.reader(f, delimiter=";")))
+    # Number of days to keep IP after first fail attempt
+    attempt_limit = 10
+    matched = False
 
-    # Process for replacing placeholders with regexs
-    varindc = "{{"
-    templ_list = line_list(template_file)
-    regtmpl_list = []
-    for tline in templ_list:
-        tline = re.sub(r"\*", r"\*", tline)
-        if varindc in tline:
-            str_out = ''
-            for key in d:
-                str_out = re.subn(key, d[key], tline)
-                if str_out[1] > 0:
-                    tline = str_out[0]
-            regtmpl_list.append(tline.strip('\n\t'))
-        elif tline != '':
-            regtmpl_list.append(tline.strip('\n\t'))
-
-    return regtmpl_list
+    if indbase:
+        myListDict = csv_to_listdict(fail_devices_csv)
+        # Go through failed devices log, find a specific ip
+        if myListDict:
+            for myDict in myListDict:
+                # If we find the IP in this list
+                if myDict['ip'] == ip:
+                    matched = True
+                    myDict.update({'last_attempt': get_now_time()})
+                    past_time = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d_%H%M")
+                    now_time = datetime.datetime.now()
+                    days_exp = (now_time - past_time).days
+                    print "Consecutive Failed Days: {0}".format(days_exp)
+                    if days_exp > attempt_limit:
+                        myListDict.remove(myDict)
+                        listdict_to_csv(myListDict, fail_devices_csv, myDelimiter=",")
+                        #print "ListDict: {0}".format(listDict)
+                        #print "MyDict: {0}".format(myDict)
+                        remove_record('ip', ip)
+                    break
+        # If this device is not in the failed list or failed devices log doesn't exist
+        if not matched:
+            # Create new record
+            mylist = []
+            mydicts = {
+                'ip': ip,
+                'last_attempt': get_now_time(),
+                'date_added': get_now_time(),
+            }
+            mylist.append(mydicts)
+            attribOrder = ['ip', 'last_attempt', 'date_added']
+            # Add record to failed csv
+            listdict_to_csv(mylist, fail_devices_csv, myDelimiter=",")
+        # Do this for devices in database
+        access_error_list.append(dict(zip(error_key_list, contentList)))
+    # This applies to all unreachable devices, not in database already, so new devices
+    # Don't do anything, these failures are recorded in new_devices_log
+    else:
+        pass
 
 def summaryLog():
     """ Purpose: Creates the log entries and output for the results summary.
@@ -1025,6 +718,313 @@ def scan_results():
         print"Template Mismatches........{0}".format(len(templ_change_ips))
     print"=============================="
 
+# -----------------------------------------------------------------
+# PARAMETER STUFF
+# -----------------------------------------------------------------
+def check_params(ip, dev):
+    """ Purpose: Chacks the parameters to see if they have changed. If param is changed, it is updated and logged, if 
+    not, the "last_param" timestamp is only updated.
+
+        :param ip:          -   String of the IP of the device
+        :param dev:         -   The PyEZ SSH netconf connection to the device.
+        :return results:    -   A list that contains the results of the check, including the following parameter.
+                            (0 = Unable to Check, 1 = No Changes, 2 = Changes Detected)
+    """
+    returncode = 1
+    # Store the results of check and returncode
+    results = []
+    remoteDict = {}
+    # Try to collect current chassis info
+    for key in facts_list:
+        remoteDict[key] = dev.facts[key]
+
+    # If info was collected...
+    if remoteDict:
+        # Get current information to compare against database info
+        localDict = get_record(ip)
+        if localDict:
+            # Update database date for parameter check
+            localDict.update({'last_param_check': get_now_time()})
+            # Check that the existing record is up-to-date. If not, update.
+            print "\t- Check parameters:"
+
+            for item in facts_list:
+                stdout.write("\t\t- Check " + item + "...")
+                if not localDict[item].upper() == remoteDict[item].upper():
+                    results.append(item.upper() + " changed from " + localDict[item] + " to " + remoteDict[item])
+                    change_record(ip, remoteDict[item].upper(), key=item)
+                    returncode = 2
+                    print "Changed!"
+                else:
+                    print "Unchanged"
+            # Automatically update interfaces
+            change_record(ip, get_inet_interfaces(dev), key='inet_intf')
+        else:
+            returncode = 0
+            results.append("ERROR: Unable to collect params from database.")
+    # If we are unable to collect info from this device
+    else:
+        returncode = 0
+        results.append("ERROR: Unable to collect current params from device")
+
+    # Return the info to caller
+    results.append(returncode)
+    return results
+
+def get_inet_interfaces(dev):
+    """
+        Purpose: Collect a list dictionary of inet interfaces containing IPv4 addresses (irb,vlan,lo0,ae,ge,me0)
+    :param dev: Reference for the connection to a device.
+    :return: List Dictionary 
+    """
+    # Physical Interface Regex
+    phys_regex = r'^irb$|^vlan$|^lo0$|^ae\d{1,3}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}$|^me0$'
+    # Logical Interface Regex
+    logi_regex = r'^irb\.\d{1,3}$|^vlan\.\d{1,3}$|^lo0\.\d{1,3}$|^ae\d{1,3}\.\d{1,4}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}\.\d{1,4}$|^me0\.0$'
+
+    # Get the "interface" information from the device
+    try:
+        rsp = dev.rpc.get_interface_information(terse=True, normalize=True)
+    except Exception as err:
+        print "Error capturing informtaion - {0}.".format(err)
+        blank_list = []
+        return blank_list
+    else:
+        root = jxmlease.parse(etree.tostring(rsp))
+
+        # Display the raw data
+        #print root
+        intf_list = []
+
+        #print "IP Interfaces..."
+        for intf in root['interface-information']['physical-interface']:
+            #print intf['name']
+            # Interface Dictionary
+            intf_dict = {'interface': '', 'ipaddr': '', 'ipmask': '', 'status': '', 'updated': ''}
+            # Check if the interface has a logical interface and matches one of the types in the regex
+            if 'logical-interface' in intf and re.match(phys_regex, intf['name']):
+                #print "Has logical interface and matches regex..."
+                if isinstance(intf['logical-interface'], dict):
+                    if re.match(logi_regex, intf['logical-interface']['name']):
+                        if intf['logical-interface']['address-family']['address-family-name'] == 'inet' and 'interface-address' in intf['logical-interface']['address-family']:
+                            if isinstance(intf['logical-interface']['address-family']['interface-address'], dict):
+                                # Assign variables to dictionary
+                                ip_and_mask = get_ip_mask(intf['logical-interface']['address-family']['interface-address']['ifa-local'])
+                                intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
+                                intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
+                                intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
+                                intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
+                                intf_dict['updated'] = get_now_time()
+                                # Append dictionary to list
+                                intf_list.append(intf_dict.copy())
+
+                            else:
+                                for mylist in intf['logical-interface']['address-family']['interface-address']:
+                                    ip_and_mask = get_ip_mask(intf['ifa-local'])
+                                    intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
+                                    intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
+                                    intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
+                                    intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
+                                    intf_dict['updated'] = get_now_time()
+                                    # Append dictionary to list
+                                    intf_list.append(intf_dict.copy())
+
+                else:
+                    for mylist in intf['logical-interface']:
+                        if re.match(logi_regex, mylist['name']):
+                            if mylist['address-family']['address-family-name'] == 'inet' and 'interface-address' in mylist['address-family']:
+                                if isinstance(mylist['address-family']['interface-address'], dict):
+                                    ip_and_mask = get_ip_mask(mylist['address-family']['interface-address']['ifa-local'])
+                                    #print "IP and Mask {0}".format(mylist['address-family']['interface-address']['ifa-local'])
+                                    intf_dict['interface'] = mylist['name'].encode('utf-8')
+                                    intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
+                                    intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
+                                    intf_dict['status'] =  mylist['oper-status'].encode('utf-8')
+                                    intf_dict['updated'] = get_now_time()
+                                    # Append dictionary to list
+                                    intf_list.append(intf_dict.copy())
+
+                                else:
+                                    for mynewlist in mylist['address-family']['interface-address']:
+                                        ip_and_mask = get_ip_mask(mynewlist['ifa-local'])
+                                        intf_dict['interface'] = mylist['name'].encode('utf-8')
+                                        intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
+                                        intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
+                                        intf_dict['status'] = mylist['oper-status'].encode('utf-8')
+                                        intf_dict['updated'] = get_now_time()
+                                        # Append dictionary to list
+                                        intf_list.append(intf_dict.copy())
+
+        # Sort criteria
+        sort_list = ['me0.0', 'lo0.119', 'lo0.0', 'irb.119', 'irb.0', 'vlan.119', 'vlan.0']
+
+        # Sort and provide list dictionary
+        return list_dict_custom_sort(intf_list, "interface", sort_list)
+
+#-----------------------------------------------------------------
+# CONFIG STUFF
+#-----------------------------------------------------------------
+def config_compare(record, dev):
+    """ Purpose: To compare two configs and get the differences, log them
+
+    :param record:          -   A dictionary that contains device attributes
+    :param dev:             -   Connection handle to device.
+    :return:                -   A results list of changes
+    """
+    results = []
+    # 0 = Save Failed, 1 = No Changes, 2 = Changes Detected, 3 = Update Failed
+    returncode = 1
+
+    # Check if the appropriate site directory is created. If not, then create it.
+    loaded_config = load_config_file(record['ip'], newest=True)
+    if not loaded_config:
+        if save_config_file(fetch_config(dev), record):
+            results.append("No Existing Config, Configuration Saved\n")
+        else:
+            results.append("No Existing Config, Configuration Save Failed\n")
+            returncode = 0
+    else:
+        current_config = fetch_config(dev)
+        if current_config:
+            # Compare configurations
+            change_list = compare_configs(loaded_config, current_config)
+            # Update config check date in record
+            record.update({'last_config_check': get_now_time()})
+            if change_list:
+                returncode = 2
+                # Try to write diffList output to a list
+                for item in change_list:
+                    results.append(item)
+                    save_config_file(current_config, record)
+                if not save_config_file(current_config, record):
+                    returncode = 3
+        else:
+            results.append("Unable to retrieve configuration\n")
+            returncode = 0
+    results.append(returncode)
+    return results
+
+def fetch_config(dev):
+    """ Purpose: Creates the log entries and output for the results summary.
+
+    :param dev:         -   The device handle for gather info from device
+    :return:            -   Returns a ASCII set version of the configuration
+    """
+    try:
+        myconfig = dev.cli('show config | display set', warning=False)
+    except Exception as err:
+        print "Error getting configuration from device. ERROR: {0}".format(err)
+        return False
+    else:
+        return myconfig
+
+#-----------------------------------------------------------------
+# TEMPLATE STUFF
+#-----------------------------------------------------------------
+def template_check(record, temp_dev_log):
+    """ Purpose: Runs the template function and creates log entries.
+
+    :param record: A dictionary containing the device information from main_db
+    :param temp_dev_log: Filename/path for the template log.
+    :return: None
+    """
+    # Check if template option was specified
+    # Template Results: 0 = Error, 1 = No Deviations, 2 = Deviations
+    # Delete existing template file(s)
+    remove_template_file(record)
+
+    # Run template check
+    templ_results = template_scanner(template_regex(), record)
+
+    print_log("Report: Template Deviation Check\n", temp_dev_log)
+    print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), temp_dev_log)
+    print_log("User: {0}\n".format(myuser), temp_dev_log)
+    print_log("Checked: {0}\n".format(get_now_time()), temp_dev_log)
+
+    print_log("\nMissing Configuration:", temp_dev_log)
+    if templ_results[-1] == 2:
+        for result in templ_results[:-1]:
+            print_log("\t> {0}\n".format(result), temp_dev_log)
+        templ_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+    elif templ_results[-1] == 1:
+        print_log("\t* Template Matches *\n", temp_dev_log)
+    else:
+        print_log("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
+        message = "Issue in template scanner function."
+        contentList = [ip, message, templ_results[0], get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
+        templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+
+def template_scanner(regtmpl_list, record):
+    """ Purpose: Compares a regex list against a config list.
+
+    :param regtmpl_list:    -   List of template set commands with regex
+    :param record:          -   A dictionary containing device attributes
+    :return results:        -   A list containing results of scan.
+    """
+    # Template Results: 0 = Error, 1 = No Changes, 2 = Changes
+    results = []
+    returncode = 1
+    config_list = load_config_file_list(record['ip'], newest=True)
+
+    nomatch = True
+    try:
+        firstpass = True
+        for regline in regtmpl_list:
+            matched = False
+            if regline != "":
+                for compline in config_list:
+                    compline = re.sub(r"\\n", r"", compline)
+                    if re.search(regline, compline):
+                        matched = True
+                if not matched:
+                    if firstpass:
+                        firstpass = False
+                    nomatch = False
+                    results.append(regline)
+                    returncode = 2
+    except Exception as err:
+        results.append("ERROR: Problems preforming template scan")
+        returncode = 0
+    else:
+        record.update({'last_temp_check': get_now_time()})
+        if nomatch:
+            returncode = 1
+    finally:
+        results.append(returncode)
+        return results
+
+def template_regex():
+    """ Purpose: Creates the template regex using the template file and regex mapping document.
+
+    :param: None
+    :return regtmpl_list: A list containing regexs for template scanner. 
+    """
+    # Regexs for template comparisons
+    with open(template_csv) as f:
+        d = dict(filter(None, csv.reader(f, delimiter=";")))
+
+    # Process for replacing placeholders with regexs
+    varindc = "{{"
+    templ_list = line_list(template_file)
+    regtmpl_list = []
+    for tline in templ_list:
+        tline = re.sub(r"\*", r"\*", tline)
+        if varindc in tline:
+            str_out = ''
+            for key in d:
+                str_out = re.subn(key, d[key], tline)
+                if str_out[1] > 0:
+                    tline = str_out[0]
+            regtmpl_list.append(tline.strip('\n\t'))
+        elif tline != '':
+            regtmpl_list.append(tline.strip('\n\t'))
+
+    return regtmpl_list
+
+#-----------------------------------------------------------------
+# ADD/CHANGE/REMOVE DEVICES AND RECORDS
+#-----------------------------------------------------------------
 def add_new_devices_loop(iplistfile):
     """ Purpose: Loop for adding devices and extracts IPs from network as needed.
 
@@ -1094,40 +1094,154 @@ def add_new_device(ip, total_num, curr_num):
     else:
         print "\t\t* Skipping device, already in database *"
 
-def template_check(record, temp_dev_log):
-    """ Purpose: Runs the template function and creates log entries.
+def add_record(ip, dev):
+    """ Purpose: Adds a record to list of dictionaries.
 
-    :param record: A dictionary containing the device information from main_db
-    :param temp_dev_log: Filename/path for the template log.
-    :return: None
+    :param ip:          -   The IP of the device
+    :param dev:         -   The PyEZ connection object (SSH Netconf)
+    :return:            -   Returns True/False
     """
-    # Check if template option was specified
-    # Template Results: 0 = Error, 1 = No Deviations, 2 = Deviations
-    # Delete existing template file(s)
-    remove_template_file(record)
-
-    # Run template check
-    templ_results = template_scanner(template_regex(), record)
-
-    print_log("Report: Template Deviation Check\n", temp_dev_log)
-    print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), temp_dev_log)
-    print_log("User: {0}\n".format(myuser), temp_dev_log)
-    print_log("Checked: {0}\n".format(get_now_time()), temp_dev_log)
-
-    print_log("\nMissing Configuration:", temp_dev_log)
-    if templ_results[-1] == 2:
-        for result in templ_results[:-1]:
-            print_log("\t> {0}\n".format(result), temp_dev_log)
-        templ_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-    elif templ_results[-1] == 1:
-        print_log("\t* Template Matches *\n", temp_dev_log)
+    mydict = {}
+    # Try to gather facts from device
+    try:
+        for key in facts_list:
+            mydict[key] = dev.facts[key].upper()
+    except Exception as err:
+        print "Error accessing facts on device. ERROR {0}".format(err)
+        return False
     else:
-        print_log("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
-        message = "Issue in template scanner function."
-        contentList = [ip, message, templ_results[0], get_now_time()]
-        ops_error_list.append(dict(zip(error_key_list, contentList)))
-        templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+        now = get_now_time()
+        # Try to gather inet interface parameters and assign them to the record dict
+        try:
+            mydict['inet_intf'] = get_inet_interfaces(dev)
+        except Exception as err:
+            print "Failed to get inet interface information - ERROR: {0}".format(err)
+            print "Assigning access IP as management IP."
+            mydict['ip'] = ip
+        else:
+            mydict['ip'] = mydict['inet_intf'][0]['ipaddr']
 
+        # Try to save config file, add appropriate dates to dict if save works
+        if save_config_file(fetch_config(dev), mydict):
+            mydict['last_config_check'] = now
+            mydict['last_config_change'] = now
+        # Apply dates to record dict
+        mydict['last_access'] = now
+        mydict['last_param_change'] = now
+        mydict['last_param_check'] = now
+
+        # Add entire record to database
+        listDict.append(mydict)
+        return True
+
+def remove_record(key, value):
+    """ Purpose: Remove a record from the main database. Removes only the first record found with the value.
+
+    :param key:         -   The key to search for
+    :param value:       -   The value to search for
+    :return:            -   Returns True/False
+    """
+    for i in range(len(listDict)):
+        if listDict[i][key] == value:
+            print "Removing: {0}".format(listDict[i])
+            del listDict[i]
+            print "Removed!"
+            return True
+    return False
+
+def change_record(ip, value, key):
+    """ Purpose: Change an attribute of an existing record. Record is a dictionary.
+
+    :param ip:          -   IP of the device
+    :param value:       -   Value of attribute
+    :param key:         -   Key of the attribute
+    :return:            -   True/False
+    """
+    for myrecord in listDict:
+        # If we've found the correct record...
+        if myrecord['ip'] == ip:
+            try:
+                # Trying to update the record...
+                change_dict = {key: value}
+                myrecord.update(change_dict)
+            except Exception as err:
+                # Error checking...
+                print "ERROR: Unable to update record value: {0} | Device: {1}".format(err, ip)
+                message = "Error changing " + key + " to " + value + "."
+                contentList = [ ip, message, str(err), get_now_time() ]
+                ops_error_list.append(dict(zip(error_key_list, contentList)))
+                return False
+            # If the record change was successful...
+            else:
+                myrecord.update({'last_param_change': get_now_time()})
+                return True
+
+def get_record(ip='', hostname='', sn='', code=''):
+    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
+                three different methods to return the data.
+
+        :param ip:          -   String of the IP of the device
+        :param hostname:    -   String of the device hostname
+        :parma sn:          -   String of the device chassis serial number
+        :param code:        -   String of the JunOS code version
+        :return:            -   True/False
+    """
+    has_record = False
+    # Make sure listDict has contents
+    if listDict:
+        if ip:
+            for record in listDict:
+                for inet_intf in record['inet_intf']:
+                    if inet_intf['ipaddr'] == ip:
+                        return record
+        elif hostname:
+            for record in listDict:
+                if record['hostname'] == hostname:
+                    return record
+        elif sn:
+            for record in listDict:
+                if record['serialnumber'] == sn:
+                    return record
+        elif code:
+            for record in listDict:
+                if record['version'] == code:
+                    return record
+        else:
+            return has_record
+    else:
+        return has_record
+
+def check_host_sn(ip, dev):
+    """ Purpose: Checks to see if this IP is part of another device that is already discovered. If it is, we capture all
+    inet interfaces and get the preferred management IP.
+
+    :param ip:          -   The IP of the device
+    :param dev:         -   The PyEZ connection object (SSH Netconf)
+    :return:            -   True/False
+    """
+    serialnumber = dev.facts['serialnumber'].upper()
+    hostname = dev.facts['hostname'].upper()
+
+    # Search over database for a match
+    for record in listDict:
+        if record['hostname'] == hostname or record['serialnumber'] == serialnumber:
+            # This IP belongs to a device that is already discovered.
+            # Get inet_intf info
+            inet_intf = get_inet_interfaces(dev)
+            # Get preferred management ip address
+            man_ip = inet_intf[0]['ipaddr']
+            # Make changes
+            if change_record(record['ip'], inet_intf, 'inet_intf') and change_record(record['ip'], man_ip, 'ip'):
+                return True
+            else:
+                return False
+
+    # No records matched
+    return False
+
+#-----------------------------------------------------------------
+# MAIN LOOPS
+#-----------------------------------------------------------------
 def param_config_check(record, conf_chg_log, dev):
     """ Purpose: Runs functions for checking parameters and configurations. Creates log entries.
 
@@ -1309,95 +1423,6 @@ def main(argv):
     print "Function Choice is: {0}".format(addl_opt)
     print "Subset List File is: {0}".format(subsetlist)
 
-def get_inet_interfaces(dev):
-    """
-        Purpose: Collect a list dictionary of inet interfaces containing IPv4 addresses (irb,vlan,lo0,ae,ge,me0)
-    :param dev: Reference for the connection to a device.
-    :return: List Dictionary 
-    """
-    # Physical Interface Regex
-    phys_regex = r'^irb$|^vlan$|^lo0$|^ae\d{1,3}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}$|^me0$'
-    # Logical Interface Regex
-    logi_regex = r'^irb\.\d{1,3}$|^vlan\.\d{1,3}$|^lo0\.\d{1,3}$|^ae\d{1,3}\.\d{1,4}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}\.\d{1,4}$|^me0\.0$'
-
-    # Get the "interface" information from the device
-    try:
-        rsp = dev.rpc.get_interface_information(terse=True, normalize=True)
-    except Exception as err:
-        print "Error capturing informtaion - {0}.".format(err)
-        blank_list = []
-        return blank_list
-    else:
-        root = jxmlease.parse(etree.tostring(rsp))
-
-        # Display the raw data
-        #print root
-        intf_list = []
-
-        #print "IP Interfaces..."
-        for intf in root['interface-information']['physical-interface']:
-            #print intf['name']
-            # Interface Dictionary
-            intf_dict = {'interface': '', 'ipaddr': '', 'ipmask': '', 'status': '', 'updated': ''}
-            # Check if the interface has a logical interface and matches one of the types in the regex
-            if 'logical-interface' in intf and re.match(phys_regex, intf['name']):
-                #print "Has logical interface and matches regex..."
-                if isinstance(intf['logical-interface'], dict):
-                    if re.match(logi_regex, intf['logical-interface']['name']):
-                        if intf['logical-interface']['address-family']['address-family-name'] == 'inet' and 'interface-address' in intf['logical-interface']['address-family']:
-                            if isinstance(intf['logical-interface']['address-family']['interface-address'], dict):
-                                # Assign variables to dictionary
-                                ip_and_mask = get_ip_mask(intf['logical-interface']['address-family']['interface-address']['ifa-local'])
-                                intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
-                                intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
-                                intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
-                                intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
-                                intf_dict['updated'] = get_now_time()
-                                # Append dictionary to list
-                                intf_list.append(intf_dict.copy())
-
-                            else:
-                                for mylist in intf['logical-interface']['address-family']['interface-address']:
-                                    ip_and_mask = get_ip_mask(intf['ifa-local'])
-                                    intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
-                                    intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
-                                    intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
-                                    intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
-                                    intf_dict['updated'] = get_now_time()
-                                    # Append dictionary to list
-                                    intf_list.append(intf_dict.copy())
-
-                else:
-                    for mylist in intf['logical-interface']:
-                        if re.match(logi_regex, mylist['name']):
-                            if mylist['address-family']['address-family-name'] == 'inet' and 'interface-address' in mylist['address-family']:
-                                if isinstance(mylist['address-family']['interface-address'], dict):
-                                    ip_and_mask = get_ip_mask(mylist['address-family']['interface-address']['ifa-local'])
-                                    #print "IP and Mask {0}".format(mylist['address-family']['interface-address']['ifa-local'])
-                                    intf_dict['interface'] = mylist['name'].encode('utf-8')
-                                    intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
-                                    intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
-                                    intf_dict['status'] =  mylist['oper-status'].encode('utf-8')
-                                    intf_dict['updated'] = get_now_time()
-                                    # Append dictionary to list
-                                    intf_list.append(intf_dict.copy())
-
-                                else:
-                                    for mynewlist in mylist['address-family']['interface-address']:
-                                        ip_and_mask = get_ip_mask(mynewlist['ifa-local'])
-                                        intf_dict['interface'] = mylist['name'].encode('utf-8')
-                                        intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
-                                        intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
-                                        intf_dict['status'] = mylist['oper-status'].encode('utf-8')
-                                        intf_dict['updated'] = get_now_time()
-                                        # Append dictionary to list
-                                        intf_list.append(intf_dict.copy())
-
-        # Sort criteria
-        sort_list = ['me0.0', 'lo0.119', 'lo0.0', 'irb.119', 'irb.0', 'vlan.119', 'vlan.0']
-
-        # Sort and provide list dictionary
-        return list_dict_custom_sort(intf_list, "interface", sort_list)
 
 # Main execution loop
 if __name__ == "__main__":
