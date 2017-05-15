@@ -84,6 +84,7 @@ def getYNAnswer(question):
 def createLogFile(path_and_file, columns, delimiter=","):
     try:
         with open(path_and_file, 'w+') as fh:
+            header_line = ''
             # Loops over all column headers in list, except for the last one
             for column in columns[:-1]:
                 header_line += column + delimiter
@@ -263,14 +264,18 @@ def write_to_json(list_dict, main_list_dict):
         return True
 
 def json_to_listdict(json_file):
-    try:
-        with open(json_file) as fin:
-            list_data = json.load(fin)
-    except Exception as err:
-        print "Problem opening or reading from JSON to database -> ERROR: {0}".format(err)
-        return False
-    else:
+    list_data = []
+    if not os.path.exists(json_file):
         return list_data
+    else:
+        try:
+            with open(json_file) as fin:
+                list_data = json.load(fin)
+        except Exception as err:
+            print "Problem opening or reading from JSON to database -> ERROR: {0}".format(err)
+            return False
+        else:
+            return list_data
 
 
 # Write new entries from list_dict to csv file, then sort the csv file

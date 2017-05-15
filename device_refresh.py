@@ -1495,7 +1495,7 @@ if __name__ == "__main__":
             print "Failed!"
     if access_error_list:
         if not isfile(access_error_log):
-            createLogFile(access_error_log, error_key_list, my_delimiter)
+            createLogFile(access_error_log, error_key_list, delimiter)
         stdout.write("Save -> Access Error Log (" + access_error_log + "): ")
         if csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
                    column_names=error_key_list, my_delimiter=delimiter):
@@ -1507,7 +1507,7 @@ if __name__ == "__main__":
     # Ops sort and save
     if ops_error_list:
         if not isfile(ops_error_log):
-            createLogFile(ops_error_log, error_key_list, my_delimiter)
+            createLogFile(ops_error_log, error_key_list, delimiter)
         stdout.write("Save -> Ops Error Log (" + ops_error_log + "): ")
         if csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
                        column_names=error_key_list, my_delimiter=delimiter):
@@ -1518,7 +1518,7 @@ if __name__ == "__main__":
         print "No changes to Ops Error Log"
     if new_devices_list:
         if not isfile(new_devices_log):
-            createLogFile(new_devices_log, standard_key_list, my_delimiter)
+            createLogFile(new_devices_log, standard_key_list, delimiter)
         stdout.write("Save -> New Devices Log (" + new_devices_log + "): ")
         if csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
                        column_names=standard_key_list, my_delimiter=delimiter):
@@ -1529,7 +1529,7 @@ if __name__ == "__main__":
         print "No changes to New Devices Log"
     if run_change_list:
         if not isfile(run_change_log):
-            createLogFile(run_change_log, standard_key_list, my_delimiter)
+            createLogFile(run_change_log, standard_key_list, delimiter)
         stdout.write("Save -> Run Change Log (" + run_change_log + "): ")
         if csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
                        column_names=standard_key_list, my_delimiter=delimiter):
