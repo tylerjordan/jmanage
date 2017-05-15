@@ -1220,25 +1220,30 @@ def check_host_sn(ip, dev):
     :param dev:         -   The PyEZ connection object (SSH Netconf)
     :return:            -   True/False
     """
-    serialnumber = dev.facts['serialnumber'].upper()
-    hostname = dev.facts['hostname'].upper()
-
-    # Search over database for a match
-    for record in listDict:
-        if record['hostname'] == hostname or record['serialnumber'] == serialnumber:
-            # This IP belongs to a device that is already discovered.
-            # Get inet_intf info
-            inet_intf = get_inet_interfaces(dev)
-            # Get preferred management ip address
-            man_ip = inet_intf[0]['ipaddr']
-            # Make changes
-            if change_record(record['ip'], inet_intf, 'inet_intf') and change_record(record['ip'], man_ip, 'ip'):
-                return True
-            else:
-                return False
-
-    # No records matched
-    return False
+    try:
+        serialnumber = dev.facts['serialnumber']
+        hostname = dev.facts['hostname']
+        print "Serial Number: {0}".format(serialnumber)
+        print "Hostname: {0}".format(hostname)
+    except Exception as err:
+        print "Problem collecting facts from device. ERROR: {0}".format(err)
+        return False
+    else:
+        # Search over database for a match
+        for record in listDict:
+            if record['hostname'] == hostname.upper() or record['serialnumber'] == serialnumber.upper():
+                # This IP belongs to a device that is already discovered.
+                # Get inet_intf info
+                inet_intf = get_inet_interfaces(dev)
+                # Get preferred management ip address
+                man_ip = inet_intf[0]['ipaddr']
+                # Make changes
+                if change_record(record['ip'], inet_intf, 'inet_intf') and change_record(record['ip'], man_ip, 'ip'):
+                    return True
+                else:
+                    return False
+        # No records matched
+        return False
 
 #-----------------------------------------------------------------
 # MAIN LOOPS
