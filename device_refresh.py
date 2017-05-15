@@ -485,42 +485,42 @@ def connect(ip, indbase=False):
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
         message = "Host Reachable, but NETCONF not configured."
-        print "\t\t" + message
+        #print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_netconf_ips.append(ip)
         return False
     except ConnectAuthError as err:
         message = "Unable to connect with credentials. User:" + myuser
-        print "\t\t" + message
+        #print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         access_error_list.append(dict(zip(error_key_list, contentList)))
         no_auth_ips.append(ip)
         return False
     except ConnectTimeoutError as err:
         message = "Timeout error, possible IP reachability issues."
-        print "\t\t" + message
+        #print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
         return False
     except ProbeError as err:
         message = "Probe timeout, possible IP reachability issues."
-        print "\t\t" + message
+        #print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
         return False
     except ConnectError as err:
         message = "Unknown connection issue."
-        print "\t\t" + message
+        #print "\t\t" + message
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
         return False
     except Exception as err:
         message = "Undefined exception."
-        print "\t\t" + message
+        #print "\t\t" + message
         contentList = [ip, message, str(err), get_now_time()]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
@@ -546,6 +546,7 @@ def fail_check(ip, indbase, contentList):
 
     if indbase:
         myListDict = csv_to_listdict(fail_devices_csv)
+        myDelimiter = ","
         # Go through failed devices log, find a specific ip
         if myListDict:
             for myDict in myListDict:
@@ -559,7 +560,7 @@ def fail_check(ip, indbase, contentList):
                     print "Consecutive Failed Days: {0}".format(days_exp)
                     if days_exp > attempt_limit:
                         myListDict.remove(myDict)
-                        listdict_to_csv(myListDict, fail_devices_csv, myDelimiter=",")
+                        listdict_to_csv(myListDict, fail_devices_csv, myDelimiter)
                         #print "ListDict: {0}".format(listDict)
                         #print "MyDict: {0}".format(myDict)
                         remove_record('ip', ip)
@@ -576,7 +577,7 @@ def fail_check(ip, indbase, contentList):
             mylist.append(mydicts)
             attribOrder = ['ip', 'last_attempt', 'date_added']
             # Add record to failed csv
-            listdict_to_csv(mylist, fail_devices_csv, myDelimiter=",")
+            listdict_to_csv(mylist, fail_devices_csv, myDelimiter, attribOrder)
         # Do this for devices in database
         access_error_list.append(dict(zip(error_key_list, contentList)))
     # This applies to all unreachable devices, not in database already, so new devices
@@ -1047,11 +1048,11 @@ def add_new_devices_loop(iplistfile):
             if '/' in myip:
                 for ip in IPNetwork(myip):
                     # Attempt to add new device
-                    curr += 1
+                    curr_num += 1
                     add_new_device(str(ip), total_num, curr_num)
             # Otherwise, it should be a standard IP
             else:
-                curr += 1
+                curr_num += 1
                 add_new_device(myip, total_num, curr_num)
 
 def add_new_device(ip, total_num, curr_num):
@@ -1477,15 +1478,17 @@ if __name__ == "__main__":
         print " >> Completed summary_log"
     else:
         print "\n >> No Checks Selected.\n"
+    print "=" * 80
 
     # Write sorted changes to these CSVs if there are changes
-    print topHeading("SORT AND SAVE LOGS", 15)
-    print "\n" + "-" * 80
+    print ""
+    print topHeading("SORT AND SAVE DATABASE & LOGS", 15)
+    print "-" * 80
 
     delimiter = ";"
     if listDict:
         #csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
-        stdout.write("Save Main Database to JSON: ")
+        stdout.write("Save -> Main Database (" + main_list_dict + "): ")
         if write_to_json(listDict, main_list_dict):
             print "Successful!"
         else:
@@ -1493,40 +1496,49 @@ if __name__ == "__main__":
     if access_error_list:
         if not isfile(access_error_log):
             createLogFile(access_error_log, error_key_list, my_delimiter)
-        stdout.write("Access Error - Save and Sort (" + access_error_log + "): ")
+        stdout.write("Save -> Access Error Log (" + access_error_log + "): ")
         if csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
                    column_names=error_key_list, my_delimiter=delimiter):
             print "Successful!"
         else:
             print "Failed!"
+    else:
+        print "No changes to Access Error Log"
     # Ops sort and save
     if ops_error_list:
         if not isfile(ops_error_log):
             createLogFile(ops_error_log, error_key_list, my_delimiter)
-        stdout.write("Ops Error - Save and Sort (" + ops_error_log + "): ")
+        stdout.write("Save -> Ops Error Log (" + ops_error_log + "): ")
         if csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
                        column_names=error_key_list, my_delimiter=delimiter):
             print "Successful!"
         else:
             print "Failed!"
+    else:
+        print "No changes to Ops Error Log"
     if new_devices_list:
         if not isfile(new_devices_log):
             createLogFile(new_devices_log, standard_key_list, my_delimiter)
-        stdout.write("New Devices - Save and Sort (" + new_devices_log + "): ")
+        stdout.write("Save -> New Devices Log (" + new_devices_log + "): ")
         if csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
                        column_names=standard_key_list, my_delimiter=delimiter):
             print "Successful!"
         else:
             print "Failed!"
+    else:
+        print "No changes to New Devices Log"
     if run_change_list:
         if not isfile(run_change_log):
             createLogFile(run_change_log, standard_key_list, my_delimiter)
-        stdout.write("Run Change - Save and Sort (" + run_change_log + "): ")
+        stdout.write("Save -> Run Change Log (" + run_change_log + "): ")
         if csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
                        column_names=standard_key_list, my_delimiter=delimiter):
             print "Successful!"
         else:
             print "Failed!"
+    else:
+        print "No changes to Run Change Log"
+
     # Close this section
     print "\n" + "-" * 80
     print "\nFinished with saves. We're done!"

@@ -206,7 +206,7 @@ def chooseDevices():
     return ip_list
 
 # Convert listDict to CSV file
-def listdict_to_csv(aListDict, csvPathName, columnNames, myDelimiter):
+def listdict_to_csv(aListDict, csvPathName, myDelimiter, columnNames=[]):
     # If columnNames is empty, get the column names from the list dict
     if not columnNames:
         for mydict in aListDict:
@@ -288,7 +288,7 @@ def csv_write_sort(list_dict, csv_file, sort_column, reverse_sort=False, column_
     :return: NONE
     '''
     # Write new entries to csv file
-    if listdict_to_csv(list_dict, csv_file, column_names, my_delimiter):
+    if listdict_to_csv(list_dict, csv_file, my_delimiter, column_names):
         # Opens the file for reading only, places pointer at beginning
         with open(csv_file, "r") as f:
             reader = csv.reader(f, delimiter=my_delimiter)
