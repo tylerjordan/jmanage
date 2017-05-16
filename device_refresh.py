@@ -772,7 +772,7 @@ def check_params(ip, dev):
     results.append(returncode)
     return results
 
-def get_inet_interfaces(dev):
+def get_inet_interfaces(ip, dev):
     """
         Purpose: Collect a list dictionary of inet interfaces containing IPv4 addresses (irb,vlan,lo0,ae,ge,me0)
     :param dev: Reference for the connection to a device.
@@ -787,7 +787,10 @@ def get_inet_interfaces(dev):
     try:
         rsp = dev.rpc.get_interface_information(terse=True, normalize=True)
     except Exception as err:
-        print "Error capturing informtaion - {0}.".format(err)
+        message = "Error collecting interface information via RPC. "
+        #print message + "ERROR: {0}".format(err)
+        contentList = [ip, message, str(err), get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
         blank_list = []
         return blank_list
     else:
@@ -1106,20 +1109,22 @@ def add_record(ip, dev):
     # Try to gather facts from device
     try:
         for key in facts_list:
-            mydict[key] = dev.facts[key].upper()
+            temp = dev.facts[key]
+            if temp is None:
+                mydict[key] = 'BLANK'
+            else:
+                mydict[key] = temp.upper()
     except Exception as err:
         print "Error accessing facts on device. ERROR {0}".format(err)
         return False
     else:
         now = get_now_time()
         # Try to gather inet interface parameters and assign them to the record dict
-        try:
-            mydict['inet_intf'] = get_inet_interfaces(dev)
-        except Exception as err:
-            print "Failed to get inet interface information - ERROR: {0}".format(err)
-            print "Assigning access IP as management IP."
-            mydict['ip'] = ip
+        inet_info = get_inet_interfaces(ip, dev)
+        if not inet_info:
+            return False
         else:
+            mydict['inet_intf'] = inet_info
             mydict['ip'] = mydict['inet_intf'][0]['ipaddr']
 
         # Try to save config file, add appropriate dates to dict if save works
@@ -1223,18 +1228,24 @@ def check_host_sn(ip, dev):
     try:
         serialnumber = dev.facts['serialnumber']
         hostname = dev.facts['hostname']
-        print "Serial Number: {0}".format(serialnumber)
-        print "Hostname: {0}".format(hostname)
     except Exception as err:
         print "Problem collecting facts from device. ERROR: {0}".format(err)
         return False
     else:
+        # Make sure the types are valid
+        if serialnumber is None or hostname is None:
+            if serialnumber is None:
+                serialnumber = 'BLANK'
+            if hostname is None:
+                hostname = 'BLANK'
+            #print "Serial Number: {0}".format(serialnumber)
+            #print "Hostname: {0}".format(hostname)
         # Search over database for a match
         for record in listDict:
             if record['hostname'] == hostname.upper() or record['serialnumber'] == serialnumber.upper():
                 # This IP belongs to a device that is already discovered.
                 # Get inet_intf info
-                inet_intf = get_inet_interfaces(dev)
+                inet_intf = get_inet_interfaces(ip, dev)
                 # Get preferred management ip address
                 man_ip = inet_intf[0]['ipaddr']
                 # Make changes
