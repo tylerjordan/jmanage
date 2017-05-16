@@ -759,7 +759,7 @@ def check_params(ip, dev):
                 else:
                     print "Unchanged"
             # Automatically update interfaces
-            change_record(ip, get_inet_interfaces(dev), key='inet_intf')
+            change_record(ip, get_inet_interfaces(ip, dev), key='inet_intf')
         else:
             returncode = 0
             results.append("ERROR: Unable to collect params from database.")
