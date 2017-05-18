@@ -1046,35 +1046,6 @@ def template_regex():
 #-----------------------------------------------------------------
 # ADD/CHANGE/REMOVE DEVICES AND RECORDS
 #-----------------------------------------------------------------
-def add_new_devices_loop(iplistfile):
-    """ Purpose: Loop for adding devices and extracts IPs from network as needed.
-
-    :param ipListFile: The file containing a list of IPs provided using the "-i" parameter.
-    :return: None
-    """
-    print "Report: Add New Devices"
-    print "User: {0}".format(myuser)
-    print "Captured: {0}\n".format(get_now_time())
-
-    print "Add New Devices:"
-    # Loop over the list of new IPs
-    ip_list = line_list(os.path.join(iplist_dir, iplistfile))
-    if ip_list:
-        total_num = len(ip_list)
-        curr_num = 0
-        for raw_ip in ip_list:
-            myip = raw_ip.strip()
-            # Check if this ip address is a network
-            if '/' in myip:
-                for ip in IPNetwork(myip):
-                    # Attempt to add new device
-                    curr_num += 1
-                    add_new_device(str(ip), total_num, curr_num)
-            # Otherwise, it should be a standard IP
-            else:
-                curr_num += 1
-                add_new_device(myip, total_num, curr_num)
-
 def add_new_device(ip, total_num, curr_num):
     """ Purpose: Checks device initial status
 
@@ -1287,6 +1258,35 @@ def check_host_sn(ip, dev):
 #-----------------------------------------------------------------
 # MAIN LOOPS
 #-----------------------------------------------------------------
+def add_new_devices_loop(iplistfile):
+    """ Purpose: Loop for adding devices and extracts IPs from network as needed.
+
+    :param ipListFile: The file containing a list of IPs provided using the "-i" parameter.
+    :return: None
+    """
+    print "Report: Add New Devices"
+    print "User: {0}".format(myuser)
+    print "Captured: {0}\n".format(get_now_time())
+
+    print "Add New Devices:"
+    # Loop over the list of new IPs
+    ip_list = line_list(os.path.join(iplist_dir, iplistfile))
+    if ip_list:
+        total_num = len(ip_list)
+        curr_num = 0
+        for raw_ip in ip_list:
+            myip = raw_ip.strip()
+            # Check if this ip address is a network
+            if '/' in myip:
+                for ip in IPNetwork(myip):
+                    # Attempt to add new device
+                    curr_num += 1
+                    add_new_device(str(ip), total_num, curr_num)
+            # Otherwise, it should be a standard IP
+            else:
+                curr_num += 1
+                add_new_device(myip, total_num, curr_num)
+
 def param_config_check(record, conf_chg_log, dev):
     """ Purpose: Runs functions for checking parameters and configurations. Creates log entries.
 
