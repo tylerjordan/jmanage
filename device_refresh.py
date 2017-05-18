@@ -485,42 +485,50 @@ def connect(ip, indbase=False):
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
         message = "Host Reachable, but NETCONF not configured."
-        #print "\t\t" + message
-        contentList = [ ip, message, str(err), get_now_time() ]
-        access_error_list.append(dict(zip(error_key_list, contentList)))
+        stdout.write("-> " + message + " | ")
+        if indbase:
+            contentList = [ip, message, str(err), get_now_time()]
+            access_error_list.append(dict(zip(error_key_list, contentList)))
+        else:
+            contentList = [ip, message, get_now_time()]
+            new_devices_list.append(dict(zip(standard_key_list, contentList)))
         no_netconf_ips.append(ip)
         return False
     except ConnectAuthError as err:
         message = "Unable to connect with credentials. User:" + myuser
-        #print "\t\t" + message
-        contentList = [ ip, message, str(err), get_now_time() ]
-        access_error_list.append(dict(zip(error_key_list, contentList)))
+        stdout.write("-> " + message + " | ")
+        if indbase:
+            contentList = [ip, message, str(err), get_now_time()]
+            access_error_list.append(dict(zip(error_key_list, contentList)))
+        else:
+            contentList = [ip, message, get_now_time()]
+            new_devices_list.append(dict(zip(standard_key_list, contentList)))
         no_auth_ips.append(ip)
         return False
     except ConnectTimeoutError as err:
         message = "Timeout error, possible IP reachability issues."
-        #print "\t\t" + message
+        stdout.write("-> " + message + " | ")
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
         return False
     except ProbeError as err:
         message = "Probe timeout, possible IP reachability issues."
-        #print "\t\t" + message
+        stdout.write("-> " + message + " | ")
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_ping_ips.append(ip)
         return False
     except ConnectError as err:
         message = "Unknown connection issue."
-        #print "\t\t" + message
+        stdout.write("-> " + message + " | ")
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
         return False
     except Exception as err:
         message = "Undefined exception."
-        #print "\t\t" + message
+        stdout.write("-> " + message + " | ")
         contentList = [ip, message, str(err), get_now_time()]
         fail_check(ip, indbase, contentList)
         no_connect_ips.append(ip)
@@ -533,7 +541,7 @@ def connect(ip, indbase=False):
 # LOGGING | SHOWS
 # -----------------------------------------------------------------
 def fail_check(ip, indbase, contentList):
-    """ Purpose: Performs operations on devices if they are not accessible.
+    """ Purpose: Performs additional operations and logging on devices if they are not accessible.
 
     :param ip:          -   The IP address of the device in question
     :param indbase:     -   Boolean on if the device is in the database or not.
@@ -578,12 +586,13 @@ def fail_check(ip, indbase, contentList):
             attribOrder = ['ip', 'last_attempt', 'date_added']
             # Add record to failed csv
             listdict_to_csv(mylist, fail_devices_csv, myDelimiter, attribOrder)
-        # Do this for devices in database
+        # This applies to devices that are in the database already. Add to access error log.
         access_error_list.append(dict(zip(error_key_list, contentList)))
-    # This applies to all unreachable devices, not in database already, so new devices
-    # Don't do anything, these failures are recorded in new_devices_log
     else:
-        pass
+        # This applies to new devices that had a connection issue. Add to new devices log.
+        del contentList[2]
+        new_devices_list.append(dict(zip(standard_key_list, contentList)))
+
 
 def summaryLog():
     """ Purpose: Creates the log entries and output for the results summary.
@@ -860,7 +869,7 @@ def get_inet_interfaces(ip, dev):
                                             # Append dictionary to list
                                             intf_list.append(intf_dict.copy())
         else:
-            message = "Error collecting interface information. "
+            message = "Error collecting interface information."
             err = "KeyError: run show interfaces on device."
             contentList = [ip, message, err, get_now_time()]
             ops_error_list.append(dict(zip(error_key_list, contentList)))
@@ -1077,32 +1086,30 @@ def add_new_device(ip, total_num, curr_num):
     # Check if this IP exists in the database or if it belongs to a device already in the database
     stdout.write("Connecting to {0} ({1} of {2}): ".format(ip, curr_num, total_num))
     if not get_record(ip):
-        # Try adding this device to the database
+        # Try connecting to this device
         dev = connect(ip, False)
+        # If we can connect...
         if dev:
             # Check for hostname/serial number match
             if not check_host_sn(ip, dev):
                 #print "\t-  Trying to add {0}...".format(ip)
                 if add_record(ip, dev):
-                    print "\t- Add Successful -"
+                    print "-> Added Successfully!"
                     message = "Successfully added to database."
                     contentList = [ip, message, get_now_time()]
                     new_devices_list.append(dict(zip(standard_key_list, contentList)))
+                # If "add" fails
                 else:
-                    print "\t- Add Failed -"
-                    message = "Failed adding to database."
-                    contentList = [ip, message, get_now_time()]
-                    new_devices_list.append(dict(zip(standard_key_list, contentList)))
+                    print "-> Add Failed!"
+            # Check matches an existing hostname or S/N...
             else:
-                print "\t- Add to an existing device -"
+                print "-> Added to an existing device!"
                 message = "Adding IP to existing device in database."
                 contentList = [ip, message, get_now_time()]
                 new_devices_list.append(dict(zip(standard_key_list, contentList)))
+        # If we can't connect...
         else:
-            print "\t- Failed Connecting -"
-            message = "Failed connecting to device. Check access_error_log."
-            contentList = [ip, message, get_now_time()]
-            new_devices_list.append(dict(zip(standard_key_list, contentList)))
+            print "-> Failed Connecting!"
     else:
         print "\t\t* Skipping device, already in database *"
 
@@ -1119,21 +1126,28 @@ def add_record(ip, dev):
         for key in facts_list:
             temp = dev.facts[key]
             if temp is None:
-                mydict[key] = 'BLANK'
+                message = "Add Failed - Unable to get critical parameter [" + key + "]"
+                contentList = [ip, message, get_now_time()]
+                new_devices_list.append(dict(zip(standard_key_list, contentList)))
+                return False
+                #mydict[key]
             else:
                 mydict[key] = temp.upper()
     except Exception as err:
-        print "Error accessing facts on device. ERROR {0}".format(err)
+        message = "Add Failed - Error accessing facts on device. ERROR:{0}".format(err)
+        contentList = [ip, message, get_now_time()]
+        new_devices_list.append(dict(zip(standard_key_list, contentList)))
         return False
     else:
         now = get_now_time()
-        # Try to gather inet interface parameters and assign them to the record dict
+        # Try to gather inet interface parameters
         inet_info = get_inet_interfaces(ip, dev)
-        if not inet_info:
-            return False
-        else:
+        # If we were able to collect the information, add to data structure
+        if inet_info:
             mydict['inet_intf'] = inet_info
             mydict['ip'] = mydict['inet_intf'][0]['ipaddr']
+        else:
+            mydict['ip'] = ip
 
         # Try to save config file, add appropriate dates to dict if save works
         if save_config_file(fetch_config(dev), mydict):
@@ -1205,8 +1219,14 @@ def get_record(ip='', hostname='', sn='', code=''):
     if listDict:
         if ip:
             for record in listDict:
-                for inet_intf in record['inet_intf']:
-                    if inet_intf['ipaddr'] == ip:
+                # Make sure this info exists, it may have failed
+                if 'inet_intf' in record:
+                    for inet_intf in record['inet_intf']:
+                        if inet_intf['ipaddr'] == ip:
+                            return record
+                # If it did, just search the 'ip" attribute
+                else:
+                    if record['ip'] == ip:
                         return record
         elif hostname:
             for record in listDict:
