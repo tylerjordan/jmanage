@@ -22,8 +22,6 @@ from sys import stdout
 #--------------------------------------
 # ANSWER METHODS
 #--------------------------------------
-
-
 # Method for asking a question that has a single answer, returns answer
 def getOptionAnswer(question, options):
     answer = ""
@@ -41,7 +39,6 @@ def getOptionAnswer(question, options):
             print "Bad Selection"
             loop = 0
 
-
 # Method for asking a question that has a single answer, returns answer index
 def getOptionAnswerIndex(question, options):
     answer = ""
@@ -58,14 +55,12 @@ def getOptionAnswerIndex(question, options):
             print "Bad Selection"
             loop = 0
 
-
 # Method for asking a user input question
 def getInputAnswer(question):
     answer = ""
     while not answer:
         answer = raw_input(question + '?: ')
     return answer
-
 
 # Method for asking a Y/N question
 def getYNAnswer(question):
@@ -109,7 +104,6 @@ def getFileList(mypath):
         print "Error accessing directory: " + mypath
 
     return fileList
-
 
 # Method for requesting IP address target
 def getTarget():
@@ -206,7 +200,7 @@ def chooseDevices():
 
     return ip_list
 
-# Convert listDict to CSV file
+# Appends listDict to existing CSV file or creates a new one if it doesn't exist.
 def listdict_to_csv(aListDict, csvPathName, myDelimiter, columnNames=[]):
     # If columnNames is empty, get the column names from the list dict
     if not columnNames:
@@ -216,16 +210,19 @@ def listdict_to_csv(aListDict, csvPathName, myDelimiter, columnNames=[]):
             break
 
     # Attempt to open the file and write entries to csv
+    need_headers = False
+    if not isfile(csvPathName):
+        need_headers = True
     try:
-        with open(csvPathName, 'wb') as csvfile:
+        with open(csvPathName, 'a') as csvfile:
             writer = csv.DictWriter(csvfile, delimiter=myDelimiter, fieldnames=columnNames)
-            writer.writeheader()
+            if need_headers:
+                writer.writeheader()
             writer.writerows(aListDict)
         return True
     except Exception as err:
         print "ERROR: Problem writing to file {0} : {1}".format(csvPathName, err)
         return False
-
 
 # Converts CSV file to listDict
 def csv_to_listdict(filePathName):
@@ -244,13 +241,11 @@ def csv_to_listdict(filePathName):
         print "Non-IOError problem with: {0} ERROR: {1}".format(filePathName, err)
         return emptyList
 
-
 # Converts CSV file to Dictionary
 def csv_to_dict(filePathName):
     input_file = csv.DictReader(open(filePathName))
     for row in input_file:
         return row
-
 
 # Write database to JSON
 def write_to_json(list_dict, main_list_dict):
@@ -276,7 +271,6 @@ def json_to_listdict(json_file):
             return False
         else:
             return list_data
-
 
 # Write new entries from list_dict to csv file, then sort the csv file
 def csv_write_sort(list_dict, csv_file, sort_column, reverse_sort=False, column_names=[], my_delimiter=","):
@@ -378,7 +372,6 @@ def get_ip_mask(masked_ip):
 
     return ip_mask_list
 
-
 # Analyze listDict and create statistics (Upgrade)
 def tabulateUpgradeResults(listDict):
     statusDict = {'success_rebooted': [],'success_not_rebooted': [], 'connect_fails': [], 'software_install_fails': [], 'total_devices': 0}
@@ -399,7 +392,6 @@ def tabulateUpgradeResults(listDict):
         statusDict['total_devices'] += 1
 
     return statusDict
-
 
 # Analyze listDict and create statistics (Reboot)
 def tabulateRebootResults(listDict):

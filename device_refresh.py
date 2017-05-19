@@ -95,6 +95,7 @@ standard_key_list = ['ip', 'message', 'timestamp'] # new_devices_log
 
 # Params
 addl_opt = ''
+detail_ip = ''
 subsetlist = ''
 listDict = []
 mypwd = ''
@@ -167,7 +168,6 @@ def detect_env():
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
     fail_devices_csv = os.path.join(log_dir, "Fail_Devices.csv")
-
 
 def get_now_time():
     """ Purpose: Create a formatted timestamp
@@ -592,7 +592,6 @@ def fail_check(ip, indbase, contentList):
         # This applies to new devices that had a connection issue. Add to new devices log.
         del contentList[2]
         new_devices_list.append(dict(zip(standard_key_list, contentList)))
-
 
 def summaryLog():
     """ Purpose: Creates the log entries and output for the results summary.
@@ -1113,6 +1112,9 @@ def add_record(ip, dev):
         now = get_now_time()
         # Try to gather inet interface parameters
         inet_info = get_inet_interfaces(ip, dev)
+        #print "------------ INET INFO ---------------"
+        #pp = pprint.PrettyPrinter(indent=4)
+        #pp.pprint(inet_info)
         # If we were able to collect the information, add to data structure
         if inet_info:
             mydict['inet_intf'] = inet_info
@@ -1255,6 +1257,24 @@ def check_host_sn(ip, dev):
         # No records matched
         return False
 
+def display_device_info(ip):
+    """ Purpose: Display a devices info to the screen
+
+    :param ip:          -   The IP of the device
+    :param dev:         -   The PyEZ connection object (SSH Netconf)
+    :return:            -   True/False
+    """
+    print "Getting record for IP:{0}".format(detail_ip)
+    myrecord = get_record(ip=detail_ip)
+    if myrecord:
+        print subHeading(detail_ip, 15)
+        pp = pprint.PrettyPrinter(indent=4)
+        pp.pprint(myrecord)
+        return True
+    else:
+        print "No record found for IP:{0}".format(detail_ip)
+        return False
+
 #-----------------------------------------------------------------
 # MAIN LOOPS
 #-----------------------------------------------------------------
@@ -1355,23 +1375,26 @@ def check_loop(subsetlist):
     """
     curr_num = 0
     if subsetlist:
-        temp_list = []
-        for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
-            temp_list.append(ip_addr.strip())
-
-        # Total number of devices in this loop
-        total_num = len(temp_list)
-        # Loop through IPs in the provided list
-        for ip in temp_list:
-            curr_num += 1
-            # Checks if the specified IP is NOT defined in the list of dictionaries.
-            if not any(ipaddr.get('ip', None) == ip for ipaddr in listDict):
-                #print "\n" + "-" * 80
-                #print subHeading(ip, 15)
-                add_new_device(ip, total_num, curr_num)
-            # If the IP IS present, execute this...
-            else:
-                check_main(get_record(ip), total_num, curr_num)
+        ipv4_regex = r'^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])$'
+        if re.match(ipv4_regex, subsetlist):
+            check_main(get_record(subsetlist))
+        else:
+            temp_list = []
+            for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
+                temp_list.append(ip_addr.strip())
+            # Total number of devices in this loop
+            total_num = len(temp_list)
+            # Loop through IPs in the provided list
+            for ip in temp_list:
+                curr_num += 1
+                # Checks if the specified IP is NOT defined in the list of dictionaries.
+                if not any(ipaddr.get('ip', None) == ip for ipaddr in listDict):
+                    #print "\n" + "-" * 80
+                    #print subHeading(ip, 15)
+                    add_new_device(ip, total_num, curr_num)
+                # If the IP IS present, execute this...
+                else:
+                    check_main(get_record(ip), total_num, curr_num)
     # Check the entire database
     else:
         total_num = len(listDict)
@@ -1382,7 +1405,7 @@ def check_loop(subsetlist):
     print "\n" + "=" * 80
     print "Device Processsing Ended: {0}\n\n".format(get_now_time())
 
-def check_main(record, total_num, curr_num):
+def check_main(record, total_num=1, curr_num=1):
     """ Purpose: Performs the selected checks (Parameter/Config, Template, or All)
         
     :param record: A dictionary containing the device information from main_db.
@@ -1439,10 +1462,11 @@ def main(argv):
     global iplistfile
     global addl_opt
     global subsetlist
+    global detail_ip
     try:
-        opts, args = getopt.getopt(argv, "hc:i:o:s:",["creds=","iplist=","funct=","subset="])
+        opts, args = getopt.getopt(argv, "hc:i:o:s:d:",["creds=","iplist=","funct=","subset=","detail="])
     except getopt.GetoptError:
-        print "device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions>"
+        print "device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions> -d <ip>"
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
@@ -1451,6 +1475,7 @@ def main(argv):
             print '  -s : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IP addresses to scan.'
             print '  -i : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the database.'
             print '  -o : (OPTIONAL) Allows various options, provide one of the following three arguments:'
+            print '  -d : (OPTIONAL) Displays current database information for the IP.'
             print '      - "configs"  : Performs the parameter and configuration checks.'
             print '      - "template" : Performs the template scan.'
             print '      - "all"      : Performs all the above checks.'
@@ -1463,10 +1488,13 @@ def main(argv):
             iplistfile = arg
         elif opt in ("-o", "--funct"):
             addl_opt = arg
+        elif opt in ("-d", "--detail"):
+            detail_ip = arg
     print "Credentials file is: {0}".format(credsCSV)
     print "IP List file is: {0}".format(iplistfile)
     print "Function Choice is: {0}".format(addl_opt)
     print "Subset List File is: {0}".format(subsetlist)
+    print "Detail IP is {0}".format(detail_ip)
 
 
 # Main execution loop
@@ -1494,96 +1522,104 @@ if __name__ == "__main__":
 
     # Add New Device function if IPs have been supplied
     print topHeading("JMANAGE SCRIPT", 15)
-    print subHeading("ADD DEVICES FUNCTION", 15)
-    if iplistfile:
-        print " >> Running add_new_devices..."
-        add_new_devices_loop(iplistfile)
-        print " >> Completed add_new_devices"
-    else:
-        print "\n >> No devices to add.\n"
 
-    # Check Params/Config/Template Function if records exist
-    if addl_opt:
-        print " >> Running check_main..."
-        print subHeading("CHECK FUNCTIONS", 15)
-        # Run the check main process
-        check_loop(subsetlist)
-        print " >> Completed check_main"
-
-        # Print the scan results (troubleshooting)
-        print " >> Running scan_results..."
-        print subHeading("SCAN RESULTS", 5)
-        scan_results()
-        print " >> Completed scan_results"
-
-        # Create the summary log
-        print " >> Running summary_log..."
-        summaryLog()
-        print " >> Completed summary_log"
-    else:
-        print "\n >> No Checks Selected.\n"
-    print "=" * 80
-
-    # Write sorted changes to these CSVs if there are changes
-    print ""
-    print topHeading("SORT AND SAVE DATABASE & LOGS", 15)
-    print "-" * 80
-
-    delimiter = ";"
-    if listDict:
-        #csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
-        stdout.write("Save -> Main Database (" + main_list_dict + "): ")
-        if write_to_json(listDict, main_list_dict):
-            print "Successful!"
+    # If included in arguments, shows details of IP specified
+    if detail_ip:
+        print subHeading("IP DETAIL FUNCTION", 15)
+        if listDict:
+            if display_device_info(detail_ip):
+                answer = getYNAnswer("Refresh Record")
+                check_loop(detail_ip)
+                display_device_info(detail_ip)
         else:
-            print "Failed!"
-    if access_error_list:
-        if not isfile(access_error_log):
-            createLogFile(access_error_log, error_key_list, delimiter)
-        stdout.write("Save -> Access Error Log (" + access_error_log + "): ")
-        if csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
-                   column_names=error_key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
+            print "No Records in Database!"
+    # The rest of the options, functions
     else:
-        print "No changes to Access Error Log"
-    # Ops sort and save
-    if ops_error_list:
-        if not isfile(ops_error_log):
-            createLogFile(ops_error_log, error_key_list, delimiter)
-        stdout.write("Save -> Ops Error Log (" + ops_error_log + "): ")
-        if csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
+        print subHeading("ADD DEVICES FUNCTION", 15)
+        if iplistfile:
+            print " >> Running add_new_devices..."
+            add_new_devices_loop(iplistfile)
+            print " >> Completed add_new_devices"
+        else:
+            print "\n >> No devices to add.\n"
+
+        # Check Params/Config/Template Function if records exist
+        if addl_opt:
+            print " >> Running check_main..."
+            print subHeading("CHECK FUNCTIONS", 15)
+            # Run the check main process
+            check_loop(subsetlist)
+            print " >> Completed check_main"
+
+            # Print the scan results (troubleshooting)
+            print " >> Running scan_results..."
+            print subHeading("SCAN RESULTS", 5)
+            scan_results()
+            print " >> Completed scan_results"
+
+            # Create the summary log
+            print " >> Running summary_log..."
+            summaryLog()
+            print " >> Completed summary_log"
+        else:
+            print "\n >> No Checks Selected.\n"
+        print "=" * 80
+
+        # Write sorted changes to these CSVs if there are changes
+        print ""
+        print topHeading("SORT AND SAVE DATABASE & LOGS", 15)
+        print "-" * 80
+
+        delimiter = ";"
+        # Main Database
+        if listDict:
+            #csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
+            stdout.write("Save -> Main Database (" + main_list_dict + "): ")
+            if write_to_json(listDict, main_list_dict):
+                print "Successful!"
+            else:
+                print "Failed!"
+        # Access Error Log
+        if access_error_list:
+            stdout.write("Save -> Access Error Log (" + access_error_log + "): ")
+            if csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
                        column_names=error_key_list, my_delimiter=delimiter):
-            print "Successful!"
+                print "Successful!"
+            else:
+                print "Failed!"
         else:
-            print "Failed!"
-    else:
-        print "No changes to Ops Error Log"
-    if new_devices_list:
-        if not isfile(new_devices_log):
-            createLogFile(new_devices_log, standard_key_list, delimiter)
-        stdout.write("Save -> New Devices Log (" + new_devices_log + "): ")
-        if csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
-                       column_names=standard_key_list, my_delimiter=delimiter):
-            print "Successful!"
+            print "No changes to Access Error Log"
+        # Operations Error Log
+        if ops_error_list:
+            stdout.write("Save -> Ops Error Log (" + ops_error_log + "): ")
+            if csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
+                           column_names=error_key_list, my_delimiter=delimiter):
+                print "Successful!"
+            else:
+                print "Failed!"
         else:
-            print "Failed!"
-    else:
-        print "No changes to New Devices Log"
-    if run_change_list:
-        if not isfile(run_change_log):
-            createLogFile(run_change_log, standard_key_list, delimiter)
-        stdout.write("Save -> Run Change Log (" + run_change_log + "): ")
-        if csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
-                       column_names=standard_key_list, my_delimiter=delimiter):
-            print "Successful!"
+            print "No changes to Ops Error Log"
+        # New Devices Log
+        if new_devices_list:
+            stdout.write("Save -> New Devices Log (" + new_devices_log + "): ")
+            if csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
+                           column_names=standard_key_list, my_delimiter=delimiter):
+                print "Successful!"
+            else:
+                print "Failed!"
         else:
-            print "Failed!"
-    else:
-        print "No changes to Run Change Log"
+            print "No changes to New Devices Log"
+        # Running Changes Log
+        if run_change_list:
+            stdout.write("Save -> Run Change Log (" + run_change_log + "): ")
+            if csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
+                           column_names=standard_key_list, my_delimiter=delimiter):
+                print "Successful!"
+            else:
+                print "Failed!"
+        else:
+            print "No changes to Run Change Log"
 
-    # Close this section
-    print "\n" + "-" * 80
-    print "\nFinished with saves. We're done!"
-    #'''
+        # Close this section
+        print "\n" + "-" * 80
+        print "\nFinished with saves. We're done!"
