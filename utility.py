@@ -8,12 +8,11 @@ import csv
 import difflib
 import fileinput
 import glob
+import json
 import operator
 import os
 import re
 import sys
-import json
-
 from os import listdir
 from os.path import isfile, join
 from sys import stdout

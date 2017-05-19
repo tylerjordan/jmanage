@@ -62,7 +62,7 @@ from ncclient import manager  # https://github.com/ncclient/ncclient
 from ncclient.transport import errors
 from netaddr import *
 from os import path
-
+from prettytable import PrettyTable
 from utility import *
 
 # Paths
@@ -727,6 +727,62 @@ def scan_results():
         print"Template Mismatches........{0}".format(len(templ_change_ips))
     print"=============================="
 
+def sort_and_save():
+    """ Purpose: Saves main database and sorts and saves the logs.
+
+    :param: None
+    :return: None
+    """
+    delimiter = ";"
+    # Main Database
+    if listDict:
+        # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
+        stdout.write("Save -> Main Database (" + main_list_dict + "): ")
+        if write_to_json(listDict, main_list_dict):
+            print "Successful!"
+        else:
+            print "Failed!"
+    # Access Error Log
+    if access_error_list:
+        stdout.write("Save -> Access Error Log (" + access_error_log + "): ")
+        if csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
+                          column_names=error_key_list, my_delimiter=delimiter):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "No changes to Access Error Log"
+    # Operations Error Log
+    if ops_error_list:
+        stdout.write("Save -> Ops Error Log (" + ops_error_log + "): ")
+        if csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
+                          column_names=error_key_list, my_delimiter=delimiter):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "No changes to Ops Error Log"
+    # New Devices Log
+    if new_devices_list:
+        stdout.write("Save -> New Devices Log (" + new_devices_log + "): ")
+        if csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
+                          column_names=standard_key_list, my_delimiter=delimiter):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "No changes to New Devices Log"
+    # Running Changes Log
+    if run_change_list:
+        stdout.write("Save -> Run Change Log (" + run_change_log + "): ")
+        if csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
+                          column_names=standard_key_list, my_delimiter=delimiter):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "No changes to Run Change Log"
+
 # -----------------------------------------------------------------
 # PARAMETER STUFF
 # -----------------------------------------------------------------
@@ -1264,12 +1320,29 @@ def display_device_info(ip):
     :param dev:         -   The PyEZ connection object (SSH Netconf)
     :return:            -   True/False
     """
-    print "Getting record for IP:{0}".format(detail_ip)
     myrecord = get_record(ip=detail_ip)
     if myrecord:
-        print subHeading(detail_ip, 15)
-        pp = pprint.PrettyPrinter(indent=4)
-        pp.pprint(myrecord)
+        print subHeading(myrecord['hostname'] + " - (" + detail_ip + ")", 15)
+        print "Hostname.........{0}".format(myrecord['hostname'])
+        print "Management IP....{0}".format(myrecord['ip'])
+        print "Model............{0}".format(myrecord['model'])
+        print "Version..........{0}".format(myrecord['version'])
+        print "S/N..............{0}".format(myrecord['serialnumber'])
+
+        t = PrettyTable(['Interface', 'IP', 'Mask', 'Status', 'Last Updated'])
+        for my_intf in myrecord['inet_intf']:
+            t.add_row([my_intf['interface'], my_intf['ipaddr'], my_intf['ipmask'], my_intf['status'], my_intf['updated']])
+        print t
+        '''
+        for my_intf in myrecord['inet_intf']:
+            stdout.write("Interface: " + my_intf['interface'])
+            stdout.write(" | IP: " + my_intf['ipaddr'])
+            stdout.write("/" + my_intf['ipmask'])
+            stdout.write(" | Status: " + my_intf['status'])
+            print " | Updated: {0}".format(my_intf['updated'])
+        '''
+        #pp = pprint.PrettyPrinter(indent=4)
+        #pp.pprint(myrecord)
         return True
     else:
         print "No record found for IP:{0}".format(detail_ip)
@@ -1527,10 +1600,15 @@ if __name__ == "__main__":
     if detail_ip:
         print subHeading("IP DETAIL FUNCTION", 15)
         if listDict:
-            if display_device_info(detail_ip):
-                answer = getYNAnswer("Refresh Record")
-                check_loop(detail_ip)
-                display_device_info(detail_ip)
+            loop = True
+            while (loop):
+                if not display_device_info(detail_ip):
+                    print "Unable to find or display IP information"
+                answer = getInputAnswer("Another IP ('Q' to quit)")
+                if answer == 'q' or answer == 'Q':
+                    loop = False
+                else:
+                    detail_ip = answer
         else:
             print "No Records in Database!"
     # The rest of the options, functions
@@ -1569,56 +1647,8 @@ if __name__ == "__main__":
         print ""
         print topHeading("SORT AND SAVE DATABASE & LOGS", 15)
         print "-" * 80
-
-        delimiter = ";"
-        # Main Database
-        if listDict:
-            #csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
-            stdout.write("Save -> Main Database (" + main_list_dict + "): ")
-            if write_to_json(listDict, main_list_dict):
-                print "Successful!"
-            else:
-                print "Failed!"
-        # Access Error Log
-        if access_error_list:
-            stdout.write("Save -> Access Error Log (" + access_error_log + "): ")
-            if csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
-                       column_names=error_key_list, my_delimiter=delimiter):
-                print "Successful!"
-            else:
-                print "Failed!"
-        else:
-            print "No changes to Access Error Log"
-        # Operations Error Log
-        if ops_error_list:
-            stdout.write("Save -> Ops Error Log (" + ops_error_log + "): ")
-            if csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
-                           column_names=error_key_list, my_delimiter=delimiter):
-                print "Successful!"
-            else:
-                print "Failed!"
-        else:
-            print "No changes to Ops Error Log"
-        # New Devices Log
-        if new_devices_list:
-            stdout.write("Save -> New Devices Log (" + new_devices_log + "): ")
-            if csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
-                           column_names=standard_key_list, my_delimiter=delimiter):
-                print "Successful!"
-            else:
-                print "Failed!"
-        else:
-            print "No changes to New Devices Log"
-        # Running Changes Log
-        if run_change_list:
-            stdout.write("Save -> Run Change Log (" + run_change_log + "): ")
-            if csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
-                           column_names=standard_key_list, my_delimiter=delimiter):
-                print "Successful!"
-            else:
-                print "Failed!"
-        else:
-            print "No changes to Run Change Log"
+        # Run sort and save function. Will only save database or logs that are changed.
+        sort_and_save()
 
         # Close this section
         print "\n" + "-" * 80
