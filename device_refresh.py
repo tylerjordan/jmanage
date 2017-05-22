@@ -37,32 +37,19 @@ __email__ = "tjordan@juniper.net"
 # Dict Lists
 # Fail_Devices.csv ----- Timestamped list of devices that are not accessible
 #
-
-
-
-# Miscellaneous Files:
 # ------------------------------------------------------------------------------------------------------------------- #
-
-import datetime
+# Imports:
 import getopt
-import jxmlease
-import multiprocessing
-import os
 import platform
-import pprint
 import re
-import subprocess
-import time
-import json
+import jxmlease
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
 from lxml import etree
-from ncclient import manager  # https://github.com/ncclient/ncclient
-from ncclient.transport import errors
 from netaddr import *
-from os import path
 from prettytable import PrettyTable
+
 from utility import *
 
 # Paths
@@ -76,9 +63,9 @@ dir_path = ''
 main_list_dict = ''
 intf_list_dict = ''
 credsCSV = ''
-iplistfile = ''
 template_file = ''
 template_csv = ''
+iplistfile = ''
 access_error_log = ''
 access_error_list = []
 ops_error_log = ''
@@ -94,14 +81,14 @@ error_key_list = ['ip', 'message', 'error', 'timestamp'] # access_error_log, ops
 standard_key_list = ['ip', 'message', 'timestamp'] # new_devices_log
 
 # Params
-addl_opt = ''
-detail_ip = ''
-subsetlist = ''
 listDict = []
 mypwd = ''
 myuser = ''
 port = 22
 num_of_configs = 5
+addl_opt = ''
+detail_ip = ''
+subsetlist = ''
 
 # Check Lists
 no_changes_ips = []
@@ -125,6 +112,12 @@ facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
 
 def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
+    global credsCSV
+    global iplist_dir
+    global config_dir
+    global template_dir
+    global log_dir
+    global dir_path
     global template_file
     global template_csv
     global access_error_log
@@ -132,14 +125,9 @@ def detect_env():
     global new_devices_log
     global run_change_log
     global fail_devices_csv
+
     global main_list_dict
     global intf_list_dict
-    global credsCSV
-    global iplist_dir
-    global config_dir
-    global template_dir
-    global log_dir
-    global dir_path
     global facts_list
 
 
@@ -169,13 +157,6 @@ def detect_env():
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
     fail_devices_csv = os.path.join(log_dir, "Fail_Devices.csv")
 
-def get_now_time():
-    """ Purpose: Create a formatted timestamp
-
-    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
-    """
-    now = datetime.datetime.now()
-    return now.strftime("%Y-%m-%d_%H%M")
 # -----------------------------------------------------------------
 # FILE OPERATIONS
 # -----------------------------------------------------------------
@@ -186,7 +167,7 @@ def load_config_file(ip, newest):
         :param newest:      -   True/False (True means newest, false means oldest file)
         :return:            -   A string containing the configuration   
     """
-    record = get_record(ip=ip)
+    record = get_record(listDict, ip=ip)
     if record:
         my_file = get_old_new_file(record, newest)
         if my_file:
@@ -272,7 +253,7 @@ def load_config_file_list(ip, newest):
         :param newest:      -   Parameter for the "get_old_new_file" function
         :return:            -   List containing file contents
     """
-    record = get_record(ip=ip)
+    record = get_record(listDict, ip=ip)
     linelist = []
     if record:
         my_file = get_old_new_file(record, newest)
@@ -404,73 +385,6 @@ def getSiteCode(record):
 # -----------------------------------------------------------------
 # CONNECTIONS
 # -----------------------------------------------------------------
-def information(connection, ip, software_info, hostname):
-    """ Purpose: This is the function called when using -info. It is grabs the model, running version, 
-    and serial number of the device.
-
-    :param connection:      -   This is the ncclient manager connection to the remote device.
-    :param ip:              -   String containing the IP of the remote device, used for logging purposes.
-    :param software_info:   -   A "show version" aka "get-software-information".
-    :param hostname:        -   The device host-name for output purposes.
-    :return:                -   Dictionary of requested output
-    """
-    try:
-        model = software_info.xpath('//software-information/product-model')[0].text
-        version = (software_info.xpath('//software-information/package-information/comment')[0].text.split('[')[1].split(']')[0])
-        chassis_inventory = connection.get_chassis_inventory(format='xml')
-        serialnumber = chassis_inventory.xpath('//chassis-inventory/chassis/serial-number')[0].text
-        return {'hostname': hostname, 'ip': ip, 'model': model, 'version': version, 'serialnumber': serialnumber}
-    except Exception as err:
-        #print '\t- ERROR: Device was reachable, the information was not found.'
-        message = "Device was reachable, but unable to gather system information."
-        contentList = [ip, message, str(err), get_now_time()]
-        ops_error_list.append(dict(zip(error_key_list, contentList)))
-        return False
-
-def run(ip, username, password, port):
-    """ Purpose: To open an NCClient manager session to the device, and run the appropriate function against the device.
-    
-    :param ip:          -   String of the IP of the device, to open the connection, and for logging purposes.
-    :param username:    -   String username used to connect to the device.
-    :param password:    -   String password used to connect to the device.
-    :param port:        -   Integer port number of SSH (830)
-    :return output:     -   Returns device parameters
-    """
-    try:
-        connection = manager.connect(host=ip,
-                                     port=port,
-                                     username=username,
-                                     password=password,
-                                     timeout=15,
-                                     device_params={'name': 'junos'},
-                                     hostkey_verify=False)
-        connection.timeout = 300
-    except Exception as err:
-        print '\t- ERROR: Unable to connect using NCCLIENT. ERROR: {0}'.format(err)
-        message = "Unable to connect using NCCLIENT."
-        contentList = [ip, message, str(err), get_now_time()]
-        access_error_list.append(dict(zip(error_key_list, contentList)))
-        return False
-    else:
-        try:
-            software_info = connection.get_software_information(format='xml')
-        except Exception as err:
-            message = "Unable to get software information."
-            contentList = [ip, message, str(err).strip('\b\r\n'), get_now_time()]
-            ops_error_list.append(dict(zip(error_key_list, contentList)))
-            return False
-        # Collect information from device
-        hostname = software_info.xpath('//software-information/host-name')[0].text
-        output = information(connection, ip, software_info, hostname)
-
-        # Close the session
-        connection.close_session()
-
-        # Determine what to return
-        if not output:
-            return False
-        return output
-
 def connect(ip, indbase=False):
     """ Purpose: Attempt to connect to the device
 
@@ -806,7 +720,7 @@ def check_params(ip, dev):
     # If info was collected...
     if remoteDict:
         # Get current information to compare against database info
-        localDict = get_record(ip)
+        localDict = get_record(listDict, ip)
         if localDict:
             # Update database date for parameter check
             localDict.update({'last_param_check': get_now_time()})
@@ -1111,7 +1025,7 @@ def add_new_device(ip, total_num, curr_num):
     """
     # Check if this IP exists in the database or if it belongs to a device already in the database
     stdout.write("Connecting to {0} ({1} of {2}): ".format(ip, curr_num, total_num))
-    if not get_record(ip):
+    if not get_record(listDict, ip):
         # Try connecting to this device
         dev = connect(ip, False)
         # If we can connect...
@@ -1233,47 +1147,6 @@ def change_record(ip, value, key):
                 myrecord.update({'last_param_change': get_now_time()})
                 return True
 
-def get_record(ip='', hostname='', sn='', code=''):
-    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
-                three different methods to return the data.
-
-        :param ip:          -   String of the IP of the device
-        :param hostname:    -   String of the device hostname
-        :parma sn:          -   String of the device chassis serial number
-        :param code:        -   String of the JunOS code version
-        :return:            -   True/False
-    """
-    has_record = False
-    # Make sure listDict has contents
-    if listDict:
-        if ip:
-            for record in listDict:
-                # Make sure this info exists, it may have failed
-                if 'inet_intf' in record:
-                    for inet_intf in record['inet_intf']:
-                        if inet_intf['ipaddr'] == ip:
-                            return record
-                # If it did, just search the 'ip" attribute
-                else:
-                    if record['ip'] == ip:
-                        return record
-        elif hostname:
-            for record in listDict:
-                if record['hostname'] == hostname:
-                    return record
-        elif sn:
-            for record in listDict:
-                if record['serialnumber'] == sn:
-                    return record
-        elif code:
-            for record in listDict:
-                if record['version'] == code:
-                    return record
-        else:
-            return has_record
-    else:
-        return has_record
-
 def check_host_sn(ip, dev):
     """ Purpose: Checks to see if this IP is part of another device that is already discovered. If it is, we capture all
     inet interfaces and get the preferred management IP.
@@ -1311,41 +1184,6 @@ def check_host_sn(ip, dev):
                 else:
                     return False
         # No records matched
-        return False
-
-def display_device_info(ip):
-    """ Purpose: Display a devices info to the screen
-
-    :param ip:          -   The IP of the device
-    :param dev:         -   The PyEZ connection object (SSH Netconf)
-    :return:            -   True/False
-    """
-    myrecord = get_record(ip=detail_ip)
-    if myrecord:
-        print subHeading(myrecord['hostname'] + " - (" + detail_ip + ")", 15)
-        print "Hostname.........{0}".format(myrecord['hostname'])
-        print "Management IP....{0}".format(myrecord['ip'])
-        print "Model............{0}".format(myrecord['model'])
-        print "Version..........{0}".format(myrecord['version'])
-        print "S/N..............{0}".format(myrecord['serialnumber'])
-
-        t = PrettyTable(['Interface', 'IP', 'Mask', 'Status', 'Last Updated'])
-        for my_intf in myrecord['inet_intf']:
-            t.add_row([my_intf['interface'], my_intf['ipaddr'], my_intf['ipmask'], my_intf['status'], my_intf['updated']])
-        print t
-        '''
-        for my_intf in myrecord['inet_intf']:
-            stdout.write("Interface: " + my_intf['interface'])
-            stdout.write(" | IP: " + my_intf['ipaddr'])
-            stdout.write("/" + my_intf['ipmask'])
-            stdout.write(" | Status: " + my_intf['status'])
-            print " | Updated: {0}".format(my_intf['updated'])
-        '''
-        #pp = pprint.PrettyPrinter(indent=4)
-        #pp.pprint(myrecord)
-        return True
-    else:
-        print "No record found for IP:{0}".format(detail_ip)
         return False
 
 #-----------------------------------------------------------------
@@ -1450,7 +1288,7 @@ def check_loop(subsetlist):
     if subsetlist:
         ipv4_regex = r'^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])$'
         if re.match(ipv4_regex, subsetlist):
-            check_main(get_record(subsetlist))
+            check_main(get_record(listDict, subsetlist))
         else:
             temp_list = []
             for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
@@ -1467,7 +1305,7 @@ def check_loop(subsetlist):
                     add_new_device(ip, total_num, curr_num)
                 # If the IP IS present, execute this...
                 else:
-                    check_main(get_record(ip), total_num, curr_num)
+                    check_main(get_record(listDict, ip), total_num, curr_num)
     # Check the entire database
     else:
         total_num = len(listDict)
@@ -1537,9 +1375,9 @@ def main(argv):
     global subsetlist
     global detail_ip
     try:
-        opts, args = getopt.getopt(argv, "hc:i:o:s:d:",["creds=","iplist=","funct=","subset=","detail="])
+        opts, args = getopt.getopt(argv, "hc:i:o:s:",["creds=","iplist=","funct=","subset="])
     except getopt.GetoptError:
-        print "device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions> -d <ip>"
+        print "device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions>"
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
@@ -1548,7 +1386,6 @@ def main(argv):
             print '  -s : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IP addresses to scan.'
             print '  -i : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the database.'
             print '  -o : (OPTIONAL) Allows various options, provide one of the following three arguments:'
-            print '  -d : (OPTIONAL) Displays current database information for the IP.'
             print '      - "configs"  : Performs the parameter and configuration checks.'
             print '      - "template" : Performs the template scan.'
             print '      - "all"      : Performs all the above checks.'
@@ -1561,14 +1398,10 @@ def main(argv):
             iplistfile = arg
         elif opt in ("-o", "--funct"):
             addl_opt = arg
-        elif opt in ("-d", "--detail"):
-            detail_ip = arg
     print "Credentials file is: {0}".format(credsCSV)
     print "IP List file is: {0}".format(iplistfile)
     print "Function Choice is: {0}".format(addl_opt)
     print "Subset List File is: {0}".format(subsetlist)
-    print "Detail IP is {0}".format(detail_ip)
-
 
 # Main execution loop
 if __name__ == "__main__":
