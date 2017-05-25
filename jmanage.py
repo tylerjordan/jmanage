@@ -151,9 +151,11 @@ def show_devices():
     """ Purpose: Display a table showing devices with general facts.
         Returns: Nothing
     """
-    t = PrettyTable(['Management IP', 'Hostname', 'Model', 'Current Code', 'Serial Number'])
+    t = PrettyTable(['Management IP', 'Hostname', 'Model', 'Current Code', 'Serial Number', 'Last Access',
+                     'Last Config Change', 'Last Parameter Change'])
     for device in listDict:
-        t.add_row([device['ip'], device['hostname'], device['model'], device['version'], device['serialnumber']])
+        t.add_row([device['ip'], device['hostname'], device['model'], device['version'], device['serialnumber'],
+                   device['last_access'], device['last_config_change'], device['last_param_change']])
     print t
 
 def display_device_info(ip):
@@ -212,7 +214,7 @@ if __name__ == '__main__':
         listDict = json_to_listdict(main_list_dict)
 
         # Main Program Loop
-        my_options = ['Display Database', 'Search Database', 'Display Device']
+        my_options = ['Display Database', 'Search Database', 'Display Device', 'Quit']
         while True:
             print "*" * 25 + "\n"
             answer = getOptionAnswerIndex('Choose your poison', my_options)
@@ -233,5 +235,8 @@ if __name__ == '__main__':
                             display_device_info(answer)
                 else:
                     print "No Records in Database!"
+            elif answer == "4":
+                print "Goodbye!"
+                quit()
             else:
                 quit()

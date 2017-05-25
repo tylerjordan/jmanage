@@ -44,12 +44,13 @@ import platform
 import re
 import jxmlease
 
-from jnpr.junos import *
-from jnpr.junos.exception import *
+from operator import itemgetter
 from lxml import etree
-from netaddr import *
 from prettytable import PrettyTable
 
+from jnpr.junos import *
+from jnpr.junos.exception import *
+from netaddr import *
 from utility import *
 
 # Paths
@@ -736,8 +737,25 @@ def check_params(ip, dev):
                     print "Changed!"
                 else:
                     print "Unchanged"
-            # Automatically update interfaces
-            change_record(ip, get_inet_interfaces(ip, dev), key='inet_intf')
+            # Check inet interfaces, if they have changed, update them
+            stdout.write("\t- Check Inet Interfaces...")
+            list1 = get_inet_interfaces(ip, dev)
+            list2 = localDict['inet_intf']
+            # Remove updated keys, these will always be different
+            modlist1 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list1]
+            modlist2 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list2]
+            #print "List 1: {0}".format(list1)
+            #print "List 2: {0}".format(list2)
+            # Use zip to combine two lists to find differences
+            pairs = zip(modlist1, modlist2)
+            if any (x != y for x, y in pairs):
+                #print "Change True"
+                change_record(ip, list1, key='inet_intf')
+                results.append("Inet interfaces have changed")
+                returncode = 2
+                print "Changed!"
+            else:
+                print "Unchanged"
         else:
             returncode = 0
             results.append("ERROR: Unable to collect params from database.")
@@ -1179,6 +1197,7 @@ def check_host_sn(ip, dev):
                 # Get preferred management ip address
                 man_ip = inet_intf[0]['ipaddr']
                 # Make changes
+                print "Change attempt!"
                 if change_record(record['ip'], inet_intf, 'inet_intf') and change_record(record['ip'], man_ip, 'ip'):
                     return True
                 else:
