@@ -11,11 +11,12 @@ from jnpr.junos import *
 from jnpr.junos.exception import *
 from netaddr import *
 from utility import *
+
 from ncclient import manager  # https://github.com/ncclient/ncclient
 from ncclient.transport import errors
-
 from prettytable import PrettyTable
 from os import path
+from operator import itemgetter
 
 # Paths
 iplist_dir = ''
@@ -147,13 +148,34 @@ def run(ip, username, password, port):
             return False
         return output
 
-def show_devices():
+def search_menu():
+    """ Purpose: Determine what user wants to search on.
+        Return: Search criteria
+    """
+    myoptions = ['Alphabetical', "Reverse"]
+    search_key = getOptionAnswer("What key would you like to search for", dbase_order)
+    search_val = getInputAnswer("What value(s) would you like to search for")
+    search_sort_on = getOptionAnswer("What would you like to sort the results on", dbase_order)
+    search_sort_type = getOptionAnswer("How would you like to sort", myoptions)
+
+    # First filter the database based on search criteria
+    keyValList = [search_val]
+    filtered_dict = [d for d in listDict if d[search_key] in keyValList]
+
+    # Now sort the filtered list dict
+    sort_type = False
+    if search_sort_type == 'Reverse': sort_type = True
+    print "Displaying Sorted Table:"
+    show_devices(sorted(filtered_dict, key=itemgetter(search_sort_on), reverse=sort_type))
+
+
+def show_devices(list_dict=listDict):
     """ Purpose: Display a table showing devices with general facts.
         Returns: Nothing
     """
     t = PrettyTable(['Management IP', 'Hostname', 'Model', 'Current Code', 'Serial Number', 'Last Access',
                      'Last Config Change', 'Last Parameter Change'])
-    for device in listDict:
+    for device in list_dict:
         t.add_row([device['ip'], device['hostname'], device['model'], device['version'], device['serialnumber'],
                    device['last_access'], device['last_config_change'], device['last_param_change']])
     print t
@@ -221,9 +243,10 @@ if __name__ == '__main__':
             print "\n" + "*" * 25
             if answer == "1":
                 print "Run -> Display Database"
-                show_devices()
+                show_devices(listDict)
             elif answer == "2":
                 print "Run -> Search Database"
+                search_menu()
             elif answer == "3":
                 if listDict:
                     loop = True

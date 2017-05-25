@@ -29,12 +29,40 @@ def getOptionAnswer(question, options):
             loop += 1
             print '[' + str(loop) + '] -> ' + option
         answer = raw_input('Your Selection: ')
-        if int(answer) >= 1 and int(answer) <= loop:
-            index = int(answer) - 1
-            return options[index]
+        try:
+            if int(answer) >= 1 and int(answer) <= loop:
+                index = int(answer) - 1
+                return options[index]
+        except Exception as err:
+            print "Invalid Entry - ERROR: {0}".format(err)
         else:
             print "Bad Selection"
-            loop = 0
+        answer = ""
+        loop = 0
+
+# Method for asking a question that can have multiple answers, returns list of answers
+def getOptionMultiAnswer(question, options):
+    answer_str = ""
+    loop = 0
+    while not answer_str and options:
+        print question + '?:\n'
+        for option in options:
+            loop += 1
+            print '[' + str(loop) + '] -> ' + option
+        answer_str = raw_input('Your Selections: ')
+        try:
+            answer_list = []
+            index_list = answer_str.split(",")
+            for answer in index_list:
+                index = int(answer) - 1
+                answer_list.append(options[index])
+            return answer_list
+        except Exception as err:
+            print "Invalid Entry - ERROR: {0}".format(err)
+        else:
+            print "Bad Selection"
+        answer_str = ""
+        loop = 0
 
 # Method for asking a question that has a single answer, returns answer index
 def getOptionAnswerIndex(question, options):
@@ -46,11 +74,15 @@ def getOptionAnswerIndex(question, options):
             loop += 1
             print '[' + str(loop) + '] -> ' + option
         answer = raw_input('Your Selection: ')
-        if int(answer) >= 1 and int(answer) <= loop:
-            return answer
+        try:
+            if int(answer) >= 1 and int(answer) <= loop:
+                return answer
+        except Exception as err:
+            print "Invalid Entry - ERROR: {0}".format(err)
         else:
             print "Bad Selection"
-            loop = 0
+        answer = ""
+        loop = 0
 
 # Method for asking a user input question
 def getInputAnswer(question):
@@ -58,6 +90,14 @@ def getInputAnswer(question):
     while not answer:
         answer = raw_input(question + '?: ')
     return answer
+
+# Method for asking a user input question that can have multiple answers
+def getMultiInputAnswer(question):
+    answer = ""
+    while not answer:
+        answer = raw_input(question + '?: ')
+    return answer
+
 
 # Method for asking a Y/N question
 def getYNAnswer(question):
@@ -72,6 +112,20 @@ def getYNAnswer(question):
             print "Bad Selection"
             answer = ""
     return answer
+
+# Method for asking a Y/N question, return True or False
+def getTFAnswer(question):
+    answer = False
+    while not answer:
+        ynanswer = raw_input(question + '?(y/n): ')
+        if ynanswer == 'Y' or ynanswer == 'y':
+            answer = True
+            return answer
+        elif ynanswer == 'N' or ynanswer == 'n':
+            answer = False
+            return answer
+        else:
+            print "Bad Selection"
 
 def createLogFile(path_and_file, columns, delimiter=","):
     try:
