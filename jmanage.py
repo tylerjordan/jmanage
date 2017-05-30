@@ -153,20 +153,34 @@ def search_menu():
         Return: Search criteria
     """
     myoptions = ['Alphabetical', "Reverse"]
-    search_key = getOptionAnswer("What key would you like to search for", dbase_order)
-    search_val = getInputAnswer("What value(s) would you like to search for")
+    search_key = "placeholder"
+    search_dict = {}
+
+    while search_key:
+        search_key = getOptionAnswer("What key would you like to search for", dbase_order)
+        if search_key:
+            search_val = getInputAnswer("What value for \"" + search_key + "\" would you like to search for")
+            search_dict[search_key] = search_val
     search_sort_on = getOptionAnswer("What would you like to sort the results on", dbase_order)
     search_sort_type = getOptionAnswer("How would you like to sort", myoptions)
 
     # First filter the database based on search criteria
-    keyValList = [search_val]
-    filtered_dict = [d for d in listDict if d[search_key] in keyValList]
+    filtered_list_dict = []
+
+    for d in listDict:
+        bad_match = False
+        for s_key, s_val in search_dict.iteritems():
+            #print "Key: {0} | Search Val: {1} | DB Val: {2} ".format(s_key, s_val, d[s_key])
+            if s_val.upper() not in d[s_key]:
+                bad_match = True
+        if not bad_match:
+            filtered_list_dict.append(d)
 
     # Now sort the filtered list dict
     sort_type = False
     if search_sort_type == 'Reverse': sort_type = True
     print "Displaying Sorted Table:"
-    show_devices(sorted(filtered_dict, key=itemgetter(search_sort_on), reverse=sort_type))
+    show_devices(sorted(filtered_list_dict, key=itemgetter(search_sort_on), reverse=sort_type))
 
 
 def show_devices(list_dict=listDict):

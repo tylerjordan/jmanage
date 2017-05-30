@@ -30,6 +30,8 @@ def getOptionAnswer(question, options):
             print '[' + str(loop) + '] -> ' + option
         answer = raw_input('Your Selection: ')
         try:
+            if answer == "":
+                return answer
             if int(answer) >= 1 and int(answer) <= loop:
                 index = int(answer) - 1
                 return options[index]
@@ -93,11 +95,13 @@ def getInputAnswer(question):
 
 # Method for asking a user input question that can have multiple answers
 def getMultiInputAnswer(question):
-    answer = ""
-    while not answer:
+    answer_list = []
+    answer = "placeholder"
+    while answer:
         answer = raw_input(question + '?: ')
-    return answer
-
+        if answer:
+            answer_list.append(answer)
+    return answer_list
 
 # Method for asking a Y/N question
 def getYNAnswer(question):
