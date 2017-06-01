@@ -157,11 +157,15 @@ def search_menu():
     search_dict = {}
 
     while search_key:
+        print "*" * 25
         search_key = getOptionAnswer("What key would you like to search for", dbase_order)
         if search_key:
+            print "*" * 25
             search_val = getInputAnswer("What value for \"" + search_key + "\" would you like to search for")
             search_dict[search_key] = search_val
+    print "*" * 25
     search_sort_on = getOptionAnswer("What would you like to sort the results on", dbase_order)
+    print "*" * 25
     search_sort_type = getOptionAnswer("How would you like to sort", myoptions)
 
     # First filter the database based on search criteria

@@ -376,8 +376,8 @@ def list_dict_custom_sort(list_dict, sort_attrib, sort_list):
     primary_intf_list = []
     secondary_intf_list = []
 
-    # print "Intf List:"
-    # print list_dict
+    print "Intf List:"
+    print list_dict
 
     # Loop over list to get primary interfaces
     for item in sort_list:
@@ -386,8 +386,8 @@ def list_dict_custom_sort(list_dict, sort_attrib, sort_list):
             if intf_rec[sort_attrib] == item:
                 #print "Add dict to list"
                 primary_intf_list.append(intf_rec)
-    #print "Primary List:"
-    #print primary_intf_list
+    print "Primary List:"
+    print primary_intf_list
 
     # Loop over list to get remaining interfaces
     matched = False
@@ -400,8 +400,8 @@ def list_dict_custom_sort(list_dict, sort_attrib, sort_list):
             secondary_intf_list.append(intf_rec)
             # Rest matched term
             matched = False
-    #print "Secondary List:"
-    #print secondary_intf_list
+    print "Secondary List:"
+    print secondary_intf_list
 
     # Combine primary and secondary lists with primary list at the top
     #print "Before sort:"
