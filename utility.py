@@ -24,11 +24,10 @@ def getOptionAnswer(question, options):
     answer = ""
     loop = 0
     while not answer:
-        print question + '?:\n'
         for option in options:
             loop += 1
             print '[' + str(loop) + '] -> ' + option
-        answer = raw_input('Your Selection: ')
+        answer = raw_input(question + ': ')
         try:
             if answer == "":
                 return answer
@@ -47,11 +46,10 @@ def getOptionMultiAnswer(question, options):
     answer_str = ""
     loop = 0
     while not answer_str and options:
-        print question + '?:\n'
         for option in options:
             loop += 1
             print '[' + str(loop) + '] -> ' + option
-        answer_str = raw_input('Your Selections: ')
+        answer_str = raw_input(question + ': ')
         try:
             answer_list = []
             index_list = answer_str.split(",")
@@ -71,11 +69,10 @@ def getOptionAnswerIndex(question, options):
     answer = ""
     loop = 0
     while not answer:
-        print question + '?:\n'
         for option in options:
             loop += 1
             print '[' + str(loop) + '] -> ' + option
-        answer = raw_input('Your Selection: ')
+        answer = raw_input(question + ': ')
         try:
             if int(answer) >= 1 and int(answer) <= loop:
                 return answer
@@ -90,7 +87,7 @@ def getOptionAnswerIndex(question, options):
 def getInputAnswer(question):
     answer = ""
     while not answer:
-        answer = raw_input(question + '?: ')
+        answer = raw_input(question + ': ')
     return answer
 
 # Method for asking a user input question that can have multiple answers
@@ -98,7 +95,7 @@ def getMultiInputAnswer(question):
     answer_list = []
     answer = "placeholder"
     while answer:
-        answer = raw_input(question + '?: ')
+        answer = raw_input(question + ': ')
         if answer:
             answer_list.append(answer)
     return answer_list
@@ -107,7 +104,7 @@ def getMultiInputAnswer(question):
 def getYNAnswer(question):
     answer = ""
     while not answer:
-        answer = raw_input(question + '?(y/n): ')
+        answer = raw_input(question + '(y/n): ')
         if answer == 'Y' or answer == 'y':
             answer = 'y'
         elif answer == 'N' or answer == 'n':
@@ -121,7 +118,7 @@ def getYNAnswer(question):
 def getTFAnswer(question):
     answer = False
     while not answer:
-        ynanswer = raw_input(question + '?(y/n): ')
+        ynanswer = raw_input(question + '(y/n): ')
         if ynanswer == 'Y' or ynanswer == 'y':
             answer = True
             return answer

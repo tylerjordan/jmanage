@@ -1197,7 +1197,7 @@ def check_host_sn(ip, dev):
                 # Get preferred management ip address
                 man_ip = inet_intf[0]['ipaddr']
                 # Make changes
-                print "Change attempt!"
+                #print "Change attempt!"
                 if change_record(record['ip'], inet_intf, 'inet_intf') and change_record(record['ip'], man_ip, 'ip'):
                     return True
                 else:
