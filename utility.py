@@ -370,47 +370,22 @@ def csv_write_sort(list_dict, csv_file, sort_column, reverse_sort=False, column_
         print "ERROR: Unable to perform sort.".format(csv_file)
         return False
 
-# Sorts a dictionary list based on sort_list order
+# Sorts a list of dictionaries based on supplied key/value pair
 def list_dict_custom_sort(list_dict, sort_attrib, sort_list):
+    #print "Intf List:"
+    #print list_dict
     # Sort the dictionary list
-    primary_intf_list = []
-    secondary_intf_list = []
-
-    print "Intf List:"
-    print list_dict
+    mylist = []
 
     # Loop over list to get primary interfaces
-    for item in sort_list:
+    for sort_val in sort_list:
         for intf_rec in list_dict:
             #print "Compare [{0}] to [{1}]".format(item, intf_rec[sort_attrib])
-            if intf_rec[sort_attrib] == item:
+            if intf_rec[sort_attrib] == sort_val:
                 #print "Add dict to list"
-                primary_intf_list.append(intf_rec)
-    print "Primary List:"
-    print primary_intf_list
-
-    # Loop over list to get remaining interfaces
-    matched = False
-    for intf_rec in list_dict:
-        for item in sort_list:
-            if intf_rec[sort_attrib] == item:
-                matched = True
-                break
-        if not matched:
-            secondary_intf_list.append(intf_rec)
-            # Rest matched term
-            matched = False
-    print "Secondary List:"
-    print secondary_intf_list
-
-    # Combine primary and secondary lists with primary list at the top
-    #print "Before sort:"
-    #print list_dict
-    primary_intf_list.extend(secondary_intf_list)
-    #print "After sort:"
-    #print primary_intf_list
-
-    return primary_intf_list
+                mylist = sorted(list_dict, key=lambda x: x[sort_attrib] != sort_val)
+                return mylist
+    return mylist
 
 # Accetps a masked or unmasked IP and returns the IP and mask in a list
 def get_ip_mask(masked_ip):

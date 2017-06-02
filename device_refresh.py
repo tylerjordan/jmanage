@@ -799,7 +799,7 @@ def get_inet_interfaces(ip, dev):
         #print "IP Interfaces..."
         if 'physical-interface' in root['interface-information']:
             for intf in root['interface-information']['physical-interface']:
-                print intf['name']
+                #print intf['name']
                 # Interface Dictionary
                 intf_dict = {'interface': '', 'ipaddr': '', 'ipmask': '', 'status': '', 'updated': ''}
                 # Check if the interface has a logical interface and matches one of the types in the regex
@@ -868,8 +868,8 @@ def get_inet_interfaces(ip, dev):
 
         # Sort criteria
         sort_list = ['me0.0', 'lo0.119', 'lo0.0', 'irb.119', 'irb.0', 'vlan.119', 'vlan.0']
-        print "Interface List:"
-        print intf_list
+        #print "Interface List:"
+        #print intf_list
         # Sort and provide list dictionary
         return list_dict_custom_sort(intf_list, "interface", sort_list)
 
