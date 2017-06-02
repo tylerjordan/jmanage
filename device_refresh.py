@@ -85,6 +85,8 @@ standard_key_list = ['ip', 'message', 'timestamp'] # new_devices_log
 listDict = []
 mypwd = ''
 myuser = ''
+alt_myuser = ''
+alt_mypwd = ''
 port = 22
 num_of_configs = 5
 addl_opt = ''
@@ -412,14 +414,31 @@ def connect(ip, indbase=False):
     except ConnectAuthError as err:
         message = "Unable to connect with credentials. User:" + myuser
         stdout.write("-> " + message + " | ")
-        if indbase:
-            contentList = [ip, message, str(err), get_now_time()]
-            access_error_list.append(dict(zip(error_key_list, contentList)))
+        if alt_myuser:
+            stdout.write("Attempt to connect. User:" + alt_myuser + " | ")
+            dev = Device(host=ip, user=alt_myuser, passwd=alt_mypwd)
+            try:
+                dev.open()
+            except Exception as err:
+                if indbase:
+                    contentList = [ip, message, str(err), get_now_time()]
+                    access_error_list.append(dict(zip(error_key_list, contentList)))
+                else:
+                    contentList = [ip, message, get_now_time()]
+                    new_devices_list.append(dict(zip(standard_key_list, contentList)))
+                no_auth_ips.append(ip)
+                return False
+            else:
+                return dev
         else:
-            contentList = [ip, message, get_now_time()]
-            new_devices_list.append(dict(zip(standard_key_list, contentList)))
-        no_auth_ips.append(ip)
-        return False
+            if indbase:
+                contentList = [ip, message, str(err), get_now_time()]
+                access_error_list.append(dict(zip(error_key_list, contentList)))
+            else:
+                contentList = [ip, message, get_now_time()]
+                new_devices_list.append(dict(zip(standard_key_list, contentList)))
+            no_auth_ips.append(ip)
+            return False
     except ConnectTimeoutError as err:
         message = "Timeout error, possible IP reachability issues."
         stdout.write("-> " + message + " | ")
@@ -822,7 +841,7 @@ def get_inet_interfaces(ip, dev):
 
                                 else:
                                     for mylist in intf['logical-interface']['address-family']['interface-address']:
-                                        ip_and_mask = get_ip_mask(intf['ifa-local'])
+                                        ip_and_mask = get_ip_mask(mylist['ifa-local'])
                                         #print "B IP and Mask {0}".format(intf['ifa-local'])
                                         intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
                                         intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
@@ -1221,10 +1240,11 @@ def explode_masked_list(iplist):
         myip = raw_ip.strip()
         if '/' in myip:
             for ip in IPNetwork(myip):
+                #print "From {0} -> Adding {1}".format(myip, str(ip))
                 exploded_list.append(str(ip))
         elif myip:
+            #print "Adding {0}".format(myip)
             exploded_list.append(myip)
-
     return exploded_list
 
 #-----------------------------------------------------------------
@@ -1450,11 +1470,9 @@ if __name__ == "__main__":
     creds = csv_to_dict(myfile)
     myuser = creds['username']
     mypwd = creds['password']
+    alt_myuser = creds['alt_username']
+    alt_mypwd = creds['alt_password']
 
-    # Test Bed
-    #xml_to_dict(dev=connect('10.104.76.193'))
-
-    #'''
     # Load records from existing CSV
     #print "Loading records..."
     listDict = json_to_listdict(main_list_dict)
