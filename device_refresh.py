@@ -1209,6 +1209,24 @@ def check_host_sn(ip, dev):
         # No records matched
         return False
 
+def explode_masked_list(iplist):
+    """ Purpose: Extracts masked IPs from list and adds to a new list with individual IPs.
+    
+    :param iplist: 
+    :return exploded_list: 
+    """
+    exploded_list = []
+
+    for raw_ip in iplist:
+        myip = raw_ip.strip()
+        if '/' in myip:
+            for ip in IPNetwork(myip):
+                exploded_list.append(str(ip))
+        elif myip:
+            exploded_list.append(myip)
+
+    return exploded_list
+
 #-----------------------------------------------------------------
 # MAIN LOOPS
 #-----------------------------------------------------------------
@@ -1226,20 +1244,14 @@ def add_new_devices_loop(iplistfile):
     # Loop over the list of new IPs
     ip_list = line_list(os.path.join(iplist_dir, iplistfile))
     if ip_list:
-        total_num = len(ip_list)
+        exploded_list = explode_masked_list(ip_list)
+        total_num = len(exploded_list)
         curr_num = 0
-        for raw_ip in ip_list:
-            myip = raw_ip.strip()
-            # Check if this ip address is a network
-            if '/' in myip:
-                for ip in IPNetwork(myip):
-                    # Attempt to add new device
-                    curr_num += 1
-                    add_new_device(str(ip), total_num, curr_num)
-            # Otherwise, it should be a standard IP
-            else:
-                curr_num += 1
-                add_new_device(myip, total_num, curr_num)
+        for myip in exploded_list:
+            curr_num += 1
+            add_new_device(myip, total_num, curr_num)
+    else:
+        print "IP List is empty!"
 
 def param_config_check(record, conf_chg_log, dev):
     """ Purpose: Runs functions for checking parameters and configurations. Creates log entries.
