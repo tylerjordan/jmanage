@@ -443,31 +443,31 @@ def connect(ip, indbase=False):
         message = "Timeout error, possible IP reachability issues."
         stdout.write("-> " + message + " | ")
         contentList = [ ip, message, str(err), get_now_time() ]
-        fail_check(ip, indbase, contentList)
-        no_ping_ips.append(ip)
+        fail_num = fail_check(ip, indbase, contentList)
+        no_ping_ips.append({'ip': ip, 'days': fail_num})
         return False
     except ProbeError as err:
         message = "Probe timeout, possible IP reachability issues."
         stdout.write("-> " + message + " | ")
         contentList = [ ip, message, str(err), get_now_time() ]
-        fail_check(ip, indbase, contentList)
-        no_ping_ips.append(ip)
+        fail_num = fail_check(ip, indbase, contentList)
+        no_ping_ips.append({'ip': ip, 'days': fail_num})
         return False
     except ConnectError as err:
         message = "Unknown connection issue."
         stdout.write("-> " + message + " | ")
         contentList = [ ip, message, str(err), get_now_time() ]
-        fail_check(ip, indbase, contentList)
-        no_connect_ips.append(ip)
+        fail_num = fail_check(ip, indbase, contentList)
+        no_connect_ips.append({'ip': ip, 'days': fail_num})
         return False
     except Exception as err:
         message = "Undefined exception."
         stdout.write("-> " + message + " | ")
         contentList = [ip, message, str(err), get_now_time()]
-        fail_check(ip, indbase, contentList)
-        no_connect_ips.append(ip)
+        fail_num = fail_check(ip, indbase, contentList)
+        no_connect_ips.append({'ip': ip, 'days': fail_num})
         return False
-    # If try arguments succeed...
+    # If try arguments succeeded...
     else:
         return dev
 
@@ -485,6 +485,7 @@ def fail_check(ip, indbase, contentList):
     # Number of days to keep IP after first fail attempt
     attempt_limit = 10
     matched = False
+    days_exp = "0"
 
     if indbase:
         myListDict = csv_to_listdict(fail_devices_csv)
@@ -498,34 +499,39 @@ def fail_check(ip, indbase, contentList):
                     myDict.update({'last_attempt': get_now_time()})
                     past_time = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d_%H%M")
                     now_time = datetime.datetime.now()
-                    days_exp = (now_time - past_time).days
+                    days_exp = str((now_time - past_time).days)
+                    myDict.update({'consec_days': days_exp})
                     print "Consecutive Failed Days: {0}".format(days_exp)
-                    if days_exp > attempt_limit:
+                    if int(days_exp) > attempt_limit:
                         myListDict.remove(myDict)
                         listdict_to_csv(myListDict, fail_devices_csv, myDelimiter)
                         #print "ListDict: {0}".format(listDict)
                         #print "MyDict: {0}".format(myDict)
                         remove_record('ip', ip)
-                    break
         # If this device is not in the failed list or failed devices log doesn't exist
         if not matched:
             # Create new record
             mylist = []
             mydicts = {
                 'ip': ip,
+                'consec_days': "1",
                 'last_attempt': get_now_time(),
                 'date_added': get_now_time(),
             }
             mylist.append(mydicts)
-            attribOrder = ['ip', 'last_attempt', 'date_added']
+            attribOrder = ['ip', 'consec_days', 'last_attempt', 'date_added']
+            days_exp = "1"
             # Add record to failed csv
             listdict_to_csv(mylist, fail_devices_csv, myDelimiter, attribOrder)
         # This applies to devices that are in the database already. Add to access error log.
         access_error_list.append(dict(zip(error_key_list, contentList)))
+        print "Fails: {0}".format(days_exp)
     else:
         # This applies to new devices that had a connection issue. Add to new devices log.
         del contentList[2]
         new_devices_list.append(dict(zip(standard_key_list, contentList)))
+    return days_exp
+
 
 def summaryLog():
     """ Purpose: Creates the log entries and output for the results summary.
@@ -551,13 +557,6 @@ def summaryLog():
 
     # ********** CONNECTION ERRORS ***************
     print_log("[Connection Errors]\n", summary_log)
-    # Unable to Ping
-    print_log("\tUnable to Ping: {0}\n".format(len(no_ping_ips)), summary_log)
-    if len(no_ping_ips) == 0:
-        print_log("\t\t* No Devices *\n", summary_log)
-    else:
-        for ip in no_ping_ips:
-            print_log("\t\t-> " + ip + "\n", summary_log)
     # No NETCONF configured
     print_log("\tNo NETCONF configured: {0}\n".format(len(no_netconf_ips)), summary_log)
     if len(no_netconf_ips) == 0:
@@ -572,16 +571,32 @@ def summaryLog():
     else:
         for ip in no_auth_ips:
             print_log("\t\t-> " + ip + "\n", summary_log)
+    # Unable to Ping
+    print_log("\tUnable to Ping: {0}\n".format(len(no_ping_ips)), summary_log)
+    if len(no_ping_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        #print no_ping_ips
+        for ip in no_ping_ips:
+            if not ip['days'] == "0":
+                print_log("\t\t-> " + ip['ip'] + " (" + ip['days'] + ")\n", summary_log)
+            else:
+                print_log("\t\t-> " + ip['ip'] + "\n", summary_log)
     # Generic Connection Issue
     print_log("\tUnknown connection issue: {0}\n".format(len(no_connect_ips)), summary_log)
     if len(no_connect_ips) == 0:
         print_log("\t\t* No Devices *\n", summary_log)
     else:
+        #print no_connect_ips
         for ip in no_connect_ips:
-            print_log("\t\t-> " + ip + "\n", summary_log)
+            if not ip['days'] == "0":
+                print_log("\t\t-> " + ip['ip'] + " (" + ip['days'] + ")\n", summary_log)
+            else:
+                print_log("\t\t-> " + ip['ip'] + "\n", summary_log)
+
     print_log("=" * 50 + "\n", summary_log)
 
-    # PARAMETER CONTENT
+    # *************** PARAMETER CONTENT ***************
     print_log("[Parameters]\n", summary_log)
     print_log("\tChanged Parameters: {0}\n".format(len(param_change_ips)), summary_log)
     if len(param_change_ips) == 0:
@@ -597,7 +612,7 @@ def summaryLog():
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
-    # CONFIG COMPARE CONTENT
+    # *************** CONFIG COMPARE CONTENT ***************
     print_log("[Configuration Compare]\n", summary_log)
     print_log("\tChanged Configurations: {0}\n".format(len(config_change_ips)), summary_log)
     if len(config_change_ips) == 0:
@@ -619,7 +634,7 @@ def summaryLog():
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
-    # TEMPLATE DEVIATION CONTENT
+    # *************** TEMPLATE DEVIATION CONTENT ***************
     if addl_opt == "template" or addl_opt == "all":
         print_log("[Template Deviation]\n", summary_log)
         print_log("\tTemplate Deviation: {0}\n".format(len(templ_change_ips)), summary_log)
@@ -1161,9 +1176,9 @@ def remove_record(key, value):
     """
     for i in range(len(listDict)):
         if listDict[i][key] == value:
-            print "Removing: {0}".format(listDict[i])
+            #print "Removing: {0}".format(listDict[i])
             del listDict[i]
-            print "Removed!"
+            print "| Device Removed!"
             return True
     return False
 
