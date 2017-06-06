@@ -504,10 +504,10 @@ def fail_check(ip, indbase, contentList):
                     print "Consecutive Failed Days: {0}".format(days_exp)
                     if int(days_exp) > attempt_limit:
                         myListDict.remove(myDict)
-                        listdict_to_csv(myListDict, fail_devices_csv, myDelimiter)
                         #print "ListDict: {0}".format(listDict)
                         #print "MyDict: {0}".format(myDict)
                         remove_record('ip', ip)
+                    listdict_to_csv(myListDict, fail_devices_csv, myDelimiter)
         # If this device is not in the failed list or failed devices log doesn't exist
         if not matched:
             # Create new record
@@ -525,13 +525,12 @@ def fail_check(ip, indbase, contentList):
             listdict_to_csv(mylist, fail_devices_csv, myDelimiter, attribOrder)
         # This applies to devices that are in the database already. Add to access error log.
         access_error_list.append(dict(zip(error_key_list, contentList)))
-        print "Fails: {0}".format(days_exp)
+        #print "Fails: {0}".format(days_exp)
     else:
         # This applies to new devices that had a connection issue. Add to new devices log.
         del contentList[2]
         new_devices_list.append(dict(zip(standard_key_list, contentList)))
     return days_exp
-
 
 def summaryLog():
     """ Purpose: Creates the log entries and output for the results summary.
