@@ -500,11 +500,7 @@ def fail_check(ip, indbase, contentList):
                 if myDict['ip'] == ip:
                     matched = True
                     # Remove the previous record from the Fail Devices list dict
-                    print "myListDict BEFORE: "
-                    print myListDict
                     myListDict.remove(myDict)
-                    print "myListDict AFTER: "
-                    print myListDict
                     # Determine calculate how long device has been unreachable
                     past_time = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d_%H%M")
                     now_time = datetime.datetime.now()
@@ -526,8 +522,6 @@ def fail_check(ip, indbase, contentList):
                         myDict.update({'consec_days': days_exp})
                         # Add the record to the list dictionary
                         myListDict.append(myDict)
-                        print "myListDict AFTER append: "
-                        print myListDict
                         # Update the CSV
                         attribOrderFail = ['ip', 'consec_days', 'last_attempt', 'date_added']
                         listdict_to_csv(myListDict, failing_devices_csv, myDelimiter, attribOrderFail)
