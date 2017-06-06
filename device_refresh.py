@@ -500,7 +500,11 @@ def fail_check(ip, indbase, contentList):
                 if myDict['ip'] == ip:
                     matched = True
                     # Remove the previous record from the Fail Devices list dict
+                    print "myListDict BEFORE: "
+                    print myListDict
                     myListDict.remove(myDict)
+                    print "myListDict AFTER: "
+                    print myListDict
                     # Determine calculate how long device has been unreachable
                     past_time = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d_%H%M")
                     now_time = datetime.datetime.now()
@@ -522,9 +526,11 @@ def fail_check(ip, indbase, contentList):
                         myDict.update({'consec_days': days_exp})
                         # Add the record to the list dictionary
                         myListDict.append(myDict)
+                        print "myListDict AFTER append: "
+                        print myListDict
                         # Update the CSV
                         attribOrderFail = ['ip', 'consec_days', 'last_attempt', 'date_added']
-                        listdict_to_csv(myListDict, fail_devices_csv, myDelimiter, attribOrderFail)
+                        listdict_to_csv(myListDict, failing_devices_csv, myDelimiter, attribOrderFail)
                         access_error_list.append(dict(zip(error_key_list, contentList)))
                     return days_exp
         # If this device is not in the failed list or failed devices log doesn't exist
@@ -542,7 +548,7 @@ def fail_check(ip, indbase, contentList):
             days_exp = "1"
             # Add record to failing CSV
             attribOrderFail = ['ip', 'consec_days', 'last_attempt', 'date_added']
-            listdict_to_csv(mylist, failing_devices_csv, myDelimiter, attribOrder)
+            listdict_to_csv(mylist, failing_devices_csv, myDelimiter, attribOrderFail)
             # This applies to devices that are in the database already. Add to access error log.
             access_error_list.append(dict(zip(error_key_list, contentList)))
     else:

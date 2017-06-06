@@ -252,7 +252,7 @@ def chooseDevices():
 
     return ip_list
 
-# Appends listDict to existing CSV file or creates a new one if it doesn't exist.
+# Creates a new CSV based on contents of listDict
 def listdict_to_csv(aListDict, csvPathName, myDelimiter, columnNames=[]):
     # If columnNames is empty, get the column names from the list dict
     if not columnNames:
@@ -262,14 +262,10 @@ def listdict_to_csv(aListDict, csvPathName, myDelimiter, columnNames=[]):
             break
 
     # Attempt to open the file and write entries to csv
-    need_headers = False
-    if not isfile(csvPathName):
-        need_headers = True
     try:
-        with open(csvPathName, 'a') as csvfile:
+        with open(csvPathName, 'w') as csvfile:
             writer = csv.DictWriter(csvfile, delimiter=myDelimiter, fieldnames=columnNames)
-            if need_headers:
-                writer.writeheader()
+            writer.writeheader()
             writer.writerows(aListDict)
         return True
     except Exception as err:
