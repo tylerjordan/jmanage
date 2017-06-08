@@ -262,6 +262,8 @@ def listdict_to_csv(aListDict, csvPathName, myDelimiter, columnNames=[]):
             break
 
     # Attempt to open the file and write entries to csv
+    if not os.path.exists(csvPathName):
+        os.mknod(csvPathName)
     try:
         with open(csvPathName, 'w') as csvfile:
             writer = csv.DictWriter(csvfile, delimiter=myDelimiter, fieldnames=columnNames)
