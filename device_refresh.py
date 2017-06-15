@@ -892,23 +892,12 @@ def get_inet_interfaces(ip, dev):
                     #print "Has logical interface and matches regex..."
                     if isinstance(intf['logical-interface'], dict):
                         if re.match(logi_regex, intf['logical-interface']['name']):
-                            if intf['logical-interface']['address-family']['address-family-name'] == 'inet' and 'interface-address' in intf['logical-interface']['address-family']:
-                                if isinstance(intf['logical-interface']['address-family']['interface-address'], dict):
-                                    # Assign variables to dictionary
-                                    ip_and_mask = get_ip_mask(intf['logical-interface']['address-family']['interface-address']['ifa-local'])
-                                    #print "A IP and Mask {0}".format(intf['logical-interface']['address-family']['interface-address']['ifa-local'])
-                                    intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
-                                    intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
-                                    intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
-                                    intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
-                                    intf_dict['updated'] = get_now_time()
-                                    # Append dictionary to list
-                                    intf_list.append(intf_dict.copy())
-
-                                else:
-                                    for mylist in intf['logical-interface']['address-family']['interface-address']:
-                                        ip_and_mask = get_ip_mask(mylist['ifa-local'])
-                                        #print "B IP and Mask {0}".format(intf['ifa-local'])
+                            if 'address-family' in intf['logical-interface']:
+                                if intf['logical-interface']['address-family']['address-family-name'] == 'inet' and 'interface-address' in intf['logical-interface']['address-family']:
+                                    if isinstance(intf['logical-interface']['address-family']['interface-address'], dict):
+                                        # Assign variables to dictionary
+                                        ip_and_mask = get_ip_mask(intf['logical-interface']['address-family']['interface-address']['ifa-local'])
+                                        #print "A IP and Mask {0}".format(intf['logical-interface']['address-family']['interface-address']['ifa-local'])
                                         intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
                                         intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
                                         intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
@@ -917,6 +906,20 @@ def get_inet_interfaces(ip, dev):
                                         # Append dictionary to list
                                         intf_list.append(intf_dict.copy())
 
+                                    else:
+                                        for mylist in intf['logical-interface']['address-family']['interface-address']:
+                                            ip_and_mask = get_ip_mask(mylist['ifa-local'])
+                                            #print "B IP and Mask {0}".format(intf['ifa-local'])
+                                            intf_dict['interface'] = intf['logical-interface']['name'].encode('utf-8')
+                                            intf_dict['ipaddr'] = ip_and_mask[0].encode('utf-8')
+                                            intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
+                                            intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
+                                            intf_dict['updated'] = get_now_time()
+                                            # Append dictionary to list
+                                            intf_list.append(intf_dict.copy())
+                            else:
+                                # Doesn't contain "address-family"
+                                pass
                     else:
                         for mylist in intf['logical-interface']:
                             if 'address-family' in mylist:
@@ -947,7 +950,7 @@ def get_inet_interfaces(ip, dev):
                                                 # Append dictionary to list
                                                 intf_list.append(intf_dict.copy())
                             else:
-                                #print "Doesn't contain address-family!"
+                                # Doesn't contain "address-family"
                                 pass
         else:
             message = "Error collecting interface information."
