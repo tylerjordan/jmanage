@@ -758,10 +758,13 @@ def check_params(ip, dev):
     """ Purpose: Chacks the parameters to see if they have changed. If param is changed, it is updated and logged, if 
     not, the "last_param" timestamp is only updated.
 
+        remoteDict: The chassis information gathered from the device now. (NEW INFO)
+        localDict:  The chassis information gathered from the database now. (OLD INFO)
+
         :param ip:          -   String of the IP of the device
         :param dev:         -   The PyEZ SSH netconf connection to the device.
         :return results:    -   A list that contains the results of the check, including the following parameter.
-                            (0 = Unable to Check, 1 = No Changes, 2 = Changes Detected)
+                            (0 = Unable to Check, 1 = No Changes, 2 = Changes Detected
     """
     returncode = 1
     # Store the results of check and returncode
@@ -793,22 +796,44 @@ def check_params(ip, dev):
             # Check inet interfaces, if they have changed, update them
             stdout.write("\t- Check Inet Interfaces...")
             list1 = get_inet_interfaces(ip, dev)
-            list2 = localDict['inet_intf']
-            # Remove updated keys, these will always be different
-            modlist1 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list1]
-            modlist2 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list2]
-            #print "List 1: {0}".format(list1)
-            #print "List 2: {0}".format(list2)
-            # Use zip to combine two lists to find differences
-            pairs = zip(modlist1, modlist2)
-            if any (x != y for x, y in pairs):
-                #print "Change True"
-                change_record(ip, list1, key='inet_intf')
-                results.append("Inet interfaces have changed")
-                returncode = 2
-                print "Changed!"
+            # Check if database info contains "inet interface" data
+            if 'inet_intf' in localDict:
+                # Check if able to get "inet interface" from device now
+                if list1:
+                    list2 = localDict['inet_intf']
+                    # Remove updated keys, these will always be different
+                    modlist1 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list1]
+                    modlist2 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list2]
+                    #print "List 1: {0}".format(list1)
+                    #print "List 2: {0}".format(list2)
+                    # Use zip to combine two lists to find differences
+                    pairs = zip(modlist1, modlist2)
+                    if any (x != y for x, y in pairs):
+                        #print "Change True"
+                        if change_record(ip, list1, key='inet_intf'):
+                            results.append("Inet interfaces have changed")
+                            returncode = 2
+                            print "Changed!"
+                    else:
+                        print "Unchanged"
+                else:
+                    print "Unable to gather new inet interface info. Keeping old info."
+                    returncode = 0
+                    results.append("ERROR: Unable to gather inet interface info.")
+            # This means database does not contain "inet interface" information
             else:
-                print "Unchanged"
+                # Check if able to get "inet interface" from device now
+                if list1:
+                    # Save info to device record
+                    if change_record(ip, list1, key='inet_intf'):
+                        results.append("Inet interfaces have changed")
+                        returncode = 2
+                        print "Changed!"
+                # Unable to collect info, send error
+                else:
+                    print "Unable to gather new inet interface info."
+                    returncode = 0
+                    results.append("ERROR: Unable to gather inet interface info.")
         else:
             returncode = 0
             results.append("ERROR: Unable to collect params from database.")

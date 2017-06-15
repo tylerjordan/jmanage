@@ -217,20 +217,15 @@ def display_device_info(ip):
         print "S/N..............{0}".format(myrecord['serialnumber'])
 
         t = PrettyTable(['Interface', 'IP', 'Mask', 'Status', 'Last Updated'])
-        for my_intf in myrecord['inet_intf']:
-            t.add_row([my_intf['interface'], my_intf['ipaddr'], my_intf['ipmask'], my_intf['status'], my_intf['updated']])
-        print t
-        '''
-        for my_intf in myrecord['inet_intf']:
-            stdout.write("Interface: " + my_intf['interface'])
-            stdout.write(" | IP: " + my_intf['ipaddr'])
-            stdout.write("/" + my_intf['ipmask'])
-            stdout.write(" | Status: " + my_intf['status'])
-            print " | Updated: {0}".format(my_intf['updated'])
-        '''
-        #pp = pprint.PrettyPrinter(indent=4)
-        #pp.pprint(myrecord)
-        return True
+        if 'inet_intf' in myrecord:
+            for my_intf in myrecord['inet_intf']:
+                t.add_row([my_intf['interface'], my_intf['ipaddr'], my_intf['ipmask'], my_intf['status'], my_intf['updated']])
+            print t
+            #pp = pprint.PrettyPrinter(indent=4)
+            #pp.pprint(myrecord)
+            return True
+        else:
+            print "\n- Inet Interface Info not available -\n"
     else:
         print "No record found for IP:{0}".format(ip)
         return False
