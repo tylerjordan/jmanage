@@ -79,7 +79,6 @@ def detect_env():
     template_csv = os.path.join(dir_path, template_dir, "Template_Regex.csv")
     template_file = os.path.join(dir_path, template_dir, "Template.conf")
 
-
 def information(connection, ip, software_info, hostname):
     """ Purpose: This is the function called when using -info. It is grabs the model, running version, 
     and serial number of the device.
@@ -185,7 +184,6 @@ def search_menu():
     if search_sort_type == 'Reverse': sort_type = True
     print "Displaying Sorted Table:"
     show_devices(sorted(filtered_list_dict, key=itemgetter(search_sort_on), reverse=sort_type))
-
 
 def show_devices(list_dict=listDict):
     """ Purpose: Display a table showing devices with general facts.

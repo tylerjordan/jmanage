@@ -113,7 +113,6 @@ dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_acce
                 'last_config_change', 'last_param_check', 'last_param_change', 'last_temp_check']
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
 
-
 def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
     global credsCSV
@@ -496,7 +495,7 @@ def fail_check(ip, indbase, contentList):
         # Go through failed devices log, find a specific ip
         if myListDict:
             for myDict in myListDict:
-                # If we find the IP in this list
+                # If we find the IP in Failed Devices Log
                 if myDict['ip'] == ip:
                     matched = True
                     # Remove the previous record from the Fail Devices list dict
@@ -528,7 +527,7 @@ def fail_check(ip, indbase, contentList):
                     # Add the error to the appropriate list
                     access_error_list.append(dict(zip(error_key_list, contentList)))
                     return days_exp
-        # If this device is not in the failed list or failed devices log doesn't exist
+        # If the IP is not in Failed Devices Log
         if not matched:
             # Create new record
             mylist = []
@@ -538,7 +537,15 @@ def fail_check(ip, indbase, contentList):
                 'last_attempt': get_now_time(),
                 'date_added': get_now_time(),
             }
-            mylist.append(mydicts)
+            # Check if the Failing Devices Logs exists
+            if not os.path.exists(failing_devices_csv):
+                # If it doesn't, just send this dictionary
+                mylist.append(mydicts)
+            else:
+                # If it does, preserve the existing records and add this dictionary to the end
+                mylist = myListDict
+                mylist.append(mydicts)
+
             print "Added to Failed Devices"
             days_exp = "1"
             # Add record to failing CSV
