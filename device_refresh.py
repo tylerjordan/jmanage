@@ -983,7 +983,7 @@ def inet_check(record, inet_chg_log, dev):
     # If inet results are errors
     elif inet_results[-1] == 0:
         message = "Inet results, errors."
-        contentList = [record['ip'], message, param_results[0], get_now_time()]
+        contentList = [record['ip'], message, inet_results[0], get_now_time()]
         ops_error_list.append(dict(zip(error_key_list, contentList)))
         inet_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
@@ -1323,7 +1323,7 @@ def add_new_device(ip, total_num, curr_num):
     :return: None
     """
     # Check if this IP exists in the database or if it belongs to a device already in the database
-    stdout.write("Adding... {0} ({1} of {2}) | ".format(ip, curr_num, total_num))
+    stdout.write("\nAdding... {0} ({1} of {2}) | ".format(ip, curr_num, total_num))
     if not get_record(listDict, ip):
         # Try connecting to this device
         dev = connect(ip, False)
@@ -1333,16 +1333,16 @@ def add_new_device(ip, total_num, curr_num):
             if not check_host_sn(ip, dev):
                 #print "\t-  Trying to add {0}...".format(ip)
                 if add_record(ip, dev):
-                    print "Added Successfully!"
+                    stdout.write("Added Successfully!")
                     message = "Successfully added to database."
                     contentList = [ip, message, get_now_time()]
                     new_devices_list.append(dict(zip(standard_key_list, contentList)))
                 # If "add" fails
                 else:
-                    print "Add Failed!"
+                    stdout.write("Add Failed!")
             # Check matches an existing hostname or S/N...
             else:
-                print "Added to an existing device!"
+                stdout.write("Added to an existing device!")
                 message = "Adding IP to existing device in database."
                 contentList = [ip, message, get_now_time()]
                 new_devices_list.append(dict(zip(standard_key_list, contentList)))
@@ -1630,7 +1630,6 @@ def check_main(record, total_num=1, curr_num=1):
                 template_check(record, temp_dev_log)
         # Close connection to device
         dev.close()
-        stdout.write("Processing Complete |")
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
