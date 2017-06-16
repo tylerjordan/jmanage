@@ -100,13 +100,17 @@ no_ping_ips = []
 no_netconf_ips = []
 no_auth_ips = []
 no_connect_ips = []
+
 config_save_error_ips = []
 config_update_error_ips = []
 param_attrib_error_ips = []
+inet_error_ips = []
 templ_error_ips = []
+
 param_change_ips = []
 config_change_ips = []
 templ_change_ips = []
+inet_change_ips = []
 
 # Key Lists
 dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
@@ -404,7 +408,7 @@ def connect(ip, indbase=False):
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
         message = "Host Reachable, but NETCONF not configured."
-        stdout.write("-> " + message + " | ")
+        stdout.write("Connect Fail - " + message + " |")
         if indbase:
             contentList = [ip, message, str(err), get_now_time()]
             access_error_list.append(dict(zip(error_key_list, contentList)))
@@ -415,9 +419,9 @@ def connect(ip, indbase=False):
         return False
     except ConnectAuthError as err:
         message = "Unable to connect with credentials. User:" + myuser
-        stdout.write("-> " + message + " | ")
+        stdout.write("Connect Fail - " + message + " |")
         if alt_myuser:
-            stdout.write("Attempt to connect. User:" + alt_myuser + " | ")
+            stdout.write("Attempt to connect. User:" + alt_myuser + " |")
             dev = Device(host=ip, user=alt_myuser, passwd=alt_mypwd)
             try:
                 dev.open()
@@ -443,34 +447,35 @@ def connect(ip, indbase=False):
             return False
     except ConnectTimeoutError as err:
         message = "Timeout error, possible IP reachability issues."
-        stdout.write("-> " + message + " | ")
+        stdout.write("Connect Fail - " + message + " |")
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_num = fail_check(ip, indbase, contentList)
         no_ping_ips.append({'ip': ip, 'days': fail_num})
         return False
     except ProbeError as err:
         message = "Probe timeout, possible IP reachability issues."
-        stdout.write("-> " + message + " | ")
+        stdout.write("Connect Fail - " + message + " |")
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_num = fail_check(ip, indbase, contentList)
         no_ping_ips.append({'ip': ip, 'days': fail_num})
         return False
     except ConnectError as err:
         message = "Unknown connection issue."
-        stdout.write("-> " + message + " | ")
+        stdout.write("Connect Fail - " + message + " |")
         contentList = [ ip, message, str(err), get_now_time() ]
         fail_num = fail_check(ip, indbase, contentList)
         no_connect_ips.append({'ip': ip, 'days': fail_num})
         return False
     except Exception as err:
         message = "Undefined exception."
-        stdout.write("-> " + message + " | ")
+        stdout.write("Connect Fail - " + message + " |")
         contentList = [ip, message, str(err), get_now_time()]
         fail_num = fail_check(ip, indbase, contentList)
         no_connect_ips.append({'ip': ip, 'days': fail_num})
         return False
     # If try arguments succeeded...
     else:
+        stdout.write("Connected | ")
         return dev
 
 # -----------------------------------------------------------------
@@ -505,11 +510,11 @@ def fail_check(ip, indbase, contentList):
                     now_time = datetime.datetime.now()
                     days_exp = str((now_time - past_time).days)
                     # Update the record
-                    print "Consecutive Failed Days: {0}".format(days_exp)
+                    stdout.write(" Consecutive Failed Days: {0} |".format(days_exp))
                     # Check if time exceeds the allowable attempt limit
                     if int(days_exp) > attempt_limit:
                         # Remove record from main database
-                        print "Attempts Exceeded Limit - Removing from Database"
+                        stdout.write(" Attempts Exceeded Limit - Removing from Database |")
                         remove_record('ip', ip)
                         # Add record to Removed_Devices CSV
                         attribOrderRemove = ['ip', 'consec_days', 'date_removed']
@@ -546,7 +551,7 @@ def fail_check(ip, indbase, contentList):
                 mylist = myListDict
                 mylist.append(mydicts)
 
-            print "Added to Failed Devices"
+            stdout.write(" Added to Failed Devices |")
             days_exp = "1"
             # Add record to failing CSV
             attribOrderFail = ['ip', 'consec_days', 'last_attempt', 'date_added']
@@ -635,6 +640,22 @@ def summaryLog():
         print_log("\t\t* No Devices *\n", summary_log)
     else:
         for ip in param_attrib_error_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("=" * 50 + "\n", summary_log)
+
+    # *************** INET CONTENT ***************
+    print_log("[Inets]\n", summary_log)
+    print_log("\tChanged Inets: {0}\n".format(len(inet_change_ips)), summary_log)
+    if len(inet_change_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in inet_change_ips:
+            print_log("\t\t-> " + ip + "\n", summary_log)
+    print_log("\tError Accessing Inets: {0}\n".format(len(inet_error_ips)), summary_log)
+    if len(inet_error_ips) == 0:
+        print_log("\t\t* No Devices *\n", summary_log)
+    else:
+        for ip in inet_error_ips:
             print_log("\t\t-> " + ip + "\n", summary_log)
     print_log("=" * 50 + "\n", summary_log)
 
@@ -761,12 +782,12 @@ def sort_and_save():
 # -----------------------------------------------------------------
 # PARAMETER STUFF
 # -----------------------------------------------------------------
-def check_params(ip, dev):
-    """ Purpose: Chacks the parameters to see if they have changed. If param is changed, it is updated and logged, if 
+def check_params(record, dev):
+    """ Purpose: Checks the parameters to see if they have changed. If param is changed, it is updated and logged, if 
     not, the "last_param" timestamp is only updated.
 
         remoteDict: The chassis information gathered from the device now. (NEW INFO)
-        localDict:  The chassis information gathered from the database now. (OLD INFO)
+        record:  The chassis information gathered from the database. (OLD INFO)
 
         :param ip:          -   String of the IP of the device
         :param dev:         -   The PyEZ SSH netconf connection to the device.
@@ -783,75 +804,188 @@ def check_params(ip, dev):
 
     # If info was collected...
     if remoteDict:
-        # Get current information to compare against database info
-        localDict = get_record(listDict, ip)
-        if localDict:
+        if record:
             # Update database date for parameter check
-            localDict.update({'last_param_check': get_now_time()})
+            record.update({'last_param_check': get_now_time()})
             # Check that the existing record is up-to-date. If not, update.
-            print "\t- Check parameters:"
+            #print "\t- Check parameters:"
 
             for item in facts_list:
-                stdout.write("\t\t- Check " + item + "...")
-                if not localDict[item].upper() == remoteDict[item].upper():
-                    results.append(item.upper() + " changed from " + localDict[item] + " to " + remoteDict[item])
+                #stdout.write("\t\t- Check " + item + "...")
+                if not record[item].upper() == remoteDict[item].upper():
+                    message = item.upper() + " changed from " + record[item] + " to " + remoteDict[item]
+                    print "\n\tParam Change: " + message
+                    results.append(message)
                     change_record(ip, remoteDict[item].upper(), key=item)
                     returncode = 2
-                    print "Changed!"
-                else:
-                    print "Unchanged"
-            # Check inet interfaces, if they have changed, update them
-            stdout.write("\t- Check Inet Interfaces...")
-            list1 = get_inet_interfaces(ip, dev)
-            # Check if database info contains "inet interface" data
-            if 'inet_intf' in localDict:
-                # Check if able to get "inet interface" from device now
-                if list1:
-                    list2 = localDict['inet_intf']
-                    # Remove updated keys, these will always be different
-                    modlist1 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list1]
-                    modlist2 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list2]
-                    #print "List 1: {0}".format(list1)
-                    #print "List 2: {0}".format(list2)
-                    # Use zip to combine two lists to find differences
-                    pairs = zip(modlist1, modlist2)
-                    if any (x != y for x, y in pairs):
-                        #print "Change True"
-                        if change_record(ip, list1, key='inet_intf'):
-                            results.append("Inet interfaces have changed")
-                            returncode = 2
-                            print "Changed!"
-                    else:
-                        print "Unchanged"
-                else:
-                    print "Unable to gather new inet interface info. Keeping old info."
-                    returncode = 0
-                    results.append("ERROR: Unable to gather inet interface info.")
-            # This means database does not contain "inet interface" information
-            else:
-                # Check if able to get "inet interface" from device now
-                if list1:
-                    # Save info to device record
-                    if change_record(ip, list1, key='inet_intf'):
-                        results.append("Inet interfaces have changed")
-                        returncode = 2
-                        print "Changed!"
-                # Unable to collect info, send error
-                else:
-                    print "Unable to gather new inet interface info."
-                    returncode = 0
-                    results.append("ERROR: Unable to gather inet interface info.")
+                    #print "Changed!"
         else:
+            message = "Unable to collect parameters from database."
+            print "\n\tParam Error: " + message
             returncode = 0
-            results.append("ERROR: Unable to collect params from database.")
+            results.append(message)
     # If we are unable to collect info from this device
     else:
+        message = "Unable to collect current parameters from device."
+        print "\n\tParam Error: " + message
         returncode = 0
-        results.append("ERROR: Unable to collect current params from device")
+        results.append(message)
 
     # Return the info to caller
     results.append(returncode)
     return results
+
+def param_check(record, param_chg_log, dev):
+    """ Purpose: Runs functions for checking parameters. Creates log entries.
+
+    :param record: A dictionary containing the device information from main_db
+    :param conf_chg_log: Filename/path for the config change log.
+    :param dev: Reference for the connection to a device. 
+    :return: None
+    """
+    param_results = check_params(record, dev)
+
+    # Param Results: 0 = Error, 1 = No Changes, 2 = Changes
+    # Scan param results
+    if param_results[-1] == 2:  # If changes are detected
+        print_log("Report: Parameter Check\n", param_chg_log)
+        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), param_chg_log)
+        print_log("User: {0}\n".format(myuser), param_chg_log)
+        print_log("Checked: {0}\n".format(get_now_time()), param_chg_log)
+        # The "run_change_log" format is "IP,HOSTNAME,DATE"
+        contentList = [record['ip'], record['hostname'], get_now_time()]
+        run_change_list.append(dict(zip(standard_key_list, contentList)))
+
+    # If param results detect changes
+    if param_results[-1] == 2:
+        print_log("Parameter Check:\n", param_chg_log)
+        for result in param_results[:-1]:
+            print_log("\t> {0}\n".format(result), param_chg_log)
+        print_log("\n", param_chg_log)
+        param_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+
+    # If param results are errors
+    elif param_results[-1] == 0:
+        message = "Parameters results, errors."
+        contentList = [record['ip'], message, param_results[0], get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
+        param_attrib_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+
+#-----------------------------------------------------------------
+# INET STUFF
+#-----------------------------------------------------------------
+
+def check_inet(record, dev):
+    """ Purpose: Checks the inet interfaces to see if they have changed. If inets have changed, it is updated and logged, if 
+    not, the "last_inet" timestamp is only updated.
+
+        record:              The chassis information gathered from the database. (OLD INFO)
+        get_inet_interfaces:    Gathers the current inet interface info. (NEW INFO)
+
+        :param ip:          -   String of the IP of the device
+        :param dev:         -   The PyEZ SSH netconf connection to the device.
+        :return results:    -   A list that contains the results of the check, including the following parameter.
+                            (0 = Unable to Check, 1 = No Changes, 2 = Changes Detected
+    """
+    returncode = 1
+    # Store the results of check and returncode
+    results = []
+
+    # Get current information to compare against database info
+    if record:
+        # Update database date for parameter check
+        record.update({'last_param_check': get_now_time()})
+        # Check that the existing record is up-to-date. If not, update.
+        #print "\t- Check parameters:"
+        # Check inet interfaces, if they have changed, update them
+        #stdout.write("\t- Check Inet Interfaces...")
+        list1 = get_inet_interfaces(record['ip'], dev)
+        # Check if database info contains "inet interface" data
+        if 'inet_intf' in record:
+            # Check if able to get "inet interface" from device now
+            if list1:
+                list2 = record['inet_intf']
+                # Remove updated keys, these will always be different
+                modlist1 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list1]
+                modlist2 = [{k: v for k, v in d.iteritems() if k != 'updated'} for d in list2]
+                # print "List 1: {0}".format(list1)
+                # print "List 2: {0}".format(list2)
+                # Use zip to combine two lists to find differences
+                pairs = zip(modlist1, modlist2)
+                if any(x != y for x, y in pairs):
+                    # print "Change True"
+                    if change_record(ip, list1, key='inet_intf'):
+                        message = "Inet intefaces have changed."
+                        print "\n\tInet Check: " + message
+                        results.append(message)
+                        returncode = 2
+                        #print "Changed!"
+            else:
+                meessage = "Unable to collect new inet interface info. Keeping old info."
+                print "\n\tInet Error: " + message
+                returncode = 0
+                results.append(message)
+        # This means database does not contain "inet interface" information
+        else:
+            # Check if able to get "inet interface" from device now
+            if list1:
+                # Save info to device record
+                if change_record(ip, list1, key='inet_intf'):
+                    message = "Inet intefaces have changed."
+                    print "\n\tInet Check: " + message
+                    results.append(message)
+                    returncode = 2
+                    #print "Changed!"
+            # Unable to collect info, send error
+            else:
+                message = "Unable to collect inet interface info from device."
+                print "\n\tInet Error: " + message
+                returncode = 0
+                results.append(message)
+    else:
+        message = "Unable to collect inet interface info from database."
+        print "\n\tInet Error: " + message
+        returncode = 0
+        results.append(message)
+        
+    # Return the info to caller
+    results.append(returncode)
+    return results
+
+def inet_check(record, inet_chg_log, dev):
+    """ Purpose: Runs functions for checking configurations. Creates log entries.
+
+    :param record: A dictionary containing the device information from main_db
+    :param conf_chg_log: Filename/path for the config change log.
+    :param dev: Reference for the connection to a device. 
+    :return: None
+    """
+    inet_results = check_inet(record, dev)
+    # Inet Results: 0 = Error, 1 = No Changes, 2 = Changes Detected
+    # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
+    if inet_results[-1] == 2:  # If changes are detected
+        print_log("Report: Inet Interfaces\n", inet_chg_log)
+        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), inet_chg_log)
+        print_log("User: {0}\n".format(myuser), inet_chg_log)
+        print_log("Checked: {0}\n".format(get_now_time()), inet_chg_log)
+        # The "run_change_log" format is "IP,HOSTNAME,DATE"
+        contentList = [record['ip'], record['hostname'], get_now_time()]
+        run_change_list.append(dict(zip(standard_key_list, contentList)))
+
+    # If inet results detect changes
+    if inet_results[-1] == 2:
+        print_log("Inet Check:\n", param_chg_log)
+        for result in param_results[:-1]:
+            print_log("\t> {0}\n".format(result), param_chg_log)
+        print_log("\n", param_chg_log)
+        inet_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+
+    # If inet results are errors
+    elif inet_results[-1] == 0:
+        message = "Inet results, errors."
+        contentList = [record['ip'], message, param_results[0], get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
+        inet_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
 def get_inet_interfaces(ip, dev):
     """
@@ -987,7 +1121,9 @@ def config_compare(record, dev):
         if save_config_file(fetch_config(dev), record):
             results.append("No Existing Config, Configuration Saved\n")
         else:
-            results.append("No Existing Config, Configuration Save Failed\n")
+            message = "No Existing Config, Configuration Save Failed"
+            print "\n\tConfig Error: " + message
+            results.append(message)
             returncode = 0
     else:
         current_config = fetch_config(dev)
@@ -997,18 +1133,65 @@ def config_compare(record, dev):
             # Update config check date in record
             record.update({'last_config_check': get_now_time()})
             if change_list:
+                stdout.write("\n\tConfig Check: Configuration changed.")
                 returncode = 2
                 # Try to write diffList output to a list
                 for item in change_list:
                     results.append(item)
-                    save_config_file(current_config, record)
-                if not save_config_file(current_config, record):
+                # If configuration save is not successfull
+                if save_config_file(current_config, record):
+                    print " | Config Saved."
+                else:
+                    message = "Unable to save new config."
+                    print " | " + message
+                    results.append(message)
                     returncode = 3
         else:
-            results.append("Unable to retrieve configuration\n")
+            message = "Unable to retrieve configuration."
+            print "\n\tConfig Error: " + message
+            results.append(message)
             returncode = 0
     results.append(returncode)
     return results
+
+def config_check(record, conf_chg_log, dev):
+    """ Purpose: Runs functions for checking configurations. Creates log entries.
+
+    :param record: A dictionary containing the device information from main_db
+    :param conf_chg_log: Filename/path for the config change log.
+    :param dev: Reference for the connection to a device. 
+    :return: None
+    """
+    compare_results = config_compare(record, dev)
+    # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
+    if compare_results[-1] == 2:  # If changes are detected
+        print_log("Report: Config Check\n", conf_chg_log)
+        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), conf_chg_log)
+        print_log("User: {0}\n".format(myuser), conf_chg_log)
+        print_log("Checked: {0}\n".format(get_now_time()), conf_chg_log)
+        # The "run_change_log" format is "IP,HOSTNAME,DATE"
+        contentList = [record['ip'], record['hostname'], get_now_time()]
+        run_change_list.append(dict(zip(standard_key_list, contentList)))
+
+    # If compare results detect differences
+    if compare_results[-1] == 2:
+        print_log("Config Check:\n", conf_chg_log)
+        for result in compare_results[:-1]:
+            print_log("\t> {0}".format(result), conf_chg_log)
+        print_log("\n", conf_chg_log)
+        config_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+    # If compare results are save errors
+    elif compare_results[-1] == 0:
+        message = "Config compare, save errors."
+        contentList = [record['ip'], message, compare_results[0], get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
+        config_save_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+    # If compare results are update errors
+    elif compare_results[-1] == 3:
+        message = "Config compare, update errors."
+        contentList = [record['ip'], message, compare_results[0], get_now_time()]
+        ops_error_list.append(dict(zip(error_key_list, contentList)))
+        config_update_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
 def fetch_config(dev):
     """ Purpose: Creates the log entries and output for the results summary.
@@ -1140,7 +1323,7 @@ def add_new_device(ip, total_num, curr_num):
     :return: None
     """
     # Check if this IP exists in the database or if it belongs to a device already in the database
-    stdout.write("Connecting to {0} ({1} of {2}): ".format(ip, curr_num, total_num))
+    stdout.write("Adding... {0} ({1} of {2}) | ".format(ip, curr_num, total_num))
     if not get_record(listDict, ip):
         # Try connecting to this device
         dev = connect(ip, False)
@@ -1150,24 +1333,21 @@ def add_new_device(ip, total_num, curr_num):
             if not check_host_sn(ip, dev):
                 #print "\t-  Trying to add {0}...".format(ip)
                 if add_record(ip, dev):
-                    print "-> Added Successfully!"
+                    print "Added Successfully!"
                     message = "Successfully added to database."
                     contentList = [ip, message, get_now_time()]
                     new_devices_list.append(dict(zip(standard_key_list, contentList)))
                 # If "add" fails
                 else:
-                    print "-> Add Failed!"
+                    print "Add Failed!"
             # Check matches an existing hostname or S/N...
             else:
-                print "-> Added to an existing device!"
+                print "Added to an existing device!"
                 message = "Adding IP to existing device in database."
                 contentList = [ip, message, get_now_time()]
                 new_devices_list.append(dict(zip(standard_key_list, contentList)))
-        # If we can't connect...
-        else:
-            print "-> Failed Connecting!"
     else:
-        print "\t\t* Skipping device, already in database *"
+        print "Skipping device, already in database"
 
 def add_record(ip, dev):
     """ Purpose: Adds a record to list of dictionaries.
@@ -1348,65 +1528,6 @@ def add_new_devices_loop(iplistfile):
     else:
         print "IP List is empty!"
 
-def param_config_check(record, conf_chg_log, dev):
-    """ Purpose: Runs functions for checking parameters and configurations. Creates log entries.
-
-    :param record: A dictionary containing the device information from main_db
-    :param conf_chg_log: Filename/path for the config change log.
-    :param dev: Reference for the connection to a device. 
-    :return: None
-    """
-    param_results = check_params(str(record['ip']), dev)
-    compare_results = config_compare(record, dev)
-
-    # Param Results: 0 = Error, 1 = No Changes, 2 = Changes
-    # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
-    # Scan param results
-    if param_results[-1] == 1 and compare_results[-1] == 1:  # If no changes are detected
-        no_changes_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-    elif param_results[-1] == 2 or compare_results[-1] == 2:  # If changes are detected
-        print_sl("Report: Parameter and Config Check\n", conf_chg_log)
-        print_sl("Device: {0} ({1})\n".format(record['hostname'], record['ip']), conf_chg_log)
-        print_sl("User: {0}\n".format(myuser), conf_chg_log)
-        print_sl("Checked: {0}\n".format(get_now_time()), conf_chg_log)
-        # The "run_change_log" format is "IP,HOSTNAME,DATE"
-        contentList = [record['ip'], record['hostname'], get_now_time()]
-        run_change_list.append(dict(zip(standard_key_list, contentList)))
-
-    # If param results detect changes
-    if param_results[-1] == 2:
-        print_sl("Parameter Check:\n", conf_chg_log)
-        for result in param_results[:-1]:
-            print_sl("\t> {0}\n".format(result), conf_chg_log)
-        print_sl("\n", conf_chg_log)
-        param_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-
-    # If param results are errors
-    elif param_results[-1] == 0:
-        message = "Parameters results, errors."
-        contentList = [record['ip'], message, param_results[0], get_now_time()]
-        ops_error_list.append(dict(zip(error_key_list, contentList)))
-        param_attrib_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-    # If compare results detect differences
-    if compare_results[-1] == 2:
-        print_sl("Config Check:\n", conf_chg_log)
-        for result in compare_results[:-1]:
-            print_sl("\t> {0}".format(result), conf_chg_log)
-        print_sl("\n", conf_chg_log)
-        config_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-    # If compare results are save errors
-    elif compare_results[-1] == 0:
-        message = "Config compare, save errors."
-        contentList = [record['ip'], message, compare_results[0], get_now_time()]
-        ops_error_list.append(dict(zip(error_key_list, contentList)))
-        config_save_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-    # If compare results are update errors
-    elif compare_results[-1] == 3:
-        message = "Config compare, update errors."
-        contentList = [record['ip'], message, compare_results[0], get_now_time()]
-        ops_error_list.append(dict(zip(error_key_list, contentList)))
-        config_update_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-
 def check_loop(subsetlist):
     """ Purpose: Checks if the subset parameter was set and decide what to execute. Adds device if it is not in the 
     database. Executes a standard check of the entire database if subset is not defined.
@@ -1415,6 +1536,8 @@ def check_loop(subsetlist):
     :return: None
     """
     curr_num = 0
+    print "\nDevice Processsing Begins: {0}".format(get_now_time())
+    print "=" * 80
     if subsetlist:
         ipv4_regex = r'^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])$'
         if re.match(ipv4_regex, subsetlist):
@@ -1444,7 +1567,7 @@ def check_loop(subsetlist):
             check_main(record, total_num, curr_num)
     # End of processing
     print "\n" + "=" * 80
-    print "Device Processsing Ended: {0}\n\n".format(get_now_time())
+    print "Device Processsing Ends: {0}\n\n".format(get_now_time())
 
 def check_main(record, total_num=1, curr_num=1):
     """ Purpose: Performs the selected checks (Parameter/Config, Template, or All)
@@ -1459,33 +1582,55 @@ def check_main(record, total_num=1, curr_num=1):
 
     # Create logs for capturing info
     now = get_now_time()
-    if addl_opt == "configs" or addl_opt == "all":
+    if addl_opt == "config" or addl_opt == "all":
         conf_chg_name = "Config_Change_" + now + ".log"
         conf_chg_log = os.path.join(device_dir, conf_chg_name)
+    
+    if addl_opt == "param" or addl_opt == "all":
+        param_chg_name = "Param_Change_" + now + ".log"
+        param_chg_log = os.path.join(device_dir, param_chg_name)
+
+    if addl_opt == "inet" or addl_opt == "all":
+        inet_chg_name = "Inet_Change_" + now + ".log"
+        inet_chg_log = os.path.join(device_dir, inet_chg_name)
 
     if addl_opt == "template" or addl_opt == "all":
         temp_dev_name = "Template_Deviation_" + now + ".log"
         temp_dev_log = os.path.join(device_dir, temp_dev_name)
 
-    print "\n" + ("-" * 40) + "|" + str(curr_num) + " of " + str(total_num) + "|" + ("-" * 40)
-    print subHeading(record['hostname'] + " - (" + record['ip'] + ")", 15)
+    stdout.write("\n" + "| " + str(curr_num) + " of " + str(total_num) + " | " + record['hostname'] + " (" + record['ip'] + ") | ")
     # Try to connect to device and open a connection
     record.update({'last_access': get_now_time()})
     # Try to connect to the device
     dev = connect(record['ip'], True)
     if dev:
-        #print "IP Interfaces..."
-        #for intf in record['inet_intf']:
-        #    print "\tInterface: {0} | IP: {1} | Mask: {2} | Status: {3}".format(intf['interface'], intf['ipaddr'], intf['ipmask'], intf['status'])
-        if addl_opt == "configs" or addl_opt == "all":
-            print "Running Param/Config Check..."
-            param_config_check(record, conf_chg_log, dev)
-            # Close the connection to the device
-            dev.close()
-        # Try to do the template check
-        if addl_opt == "template" or addl_opt == "all":
-            print "Running Template Check..."
+        stdout.write("Checking: ")
+        if addl_opt == "all":
+            stdout.write("Config|Param|Inet|Template | ")
+            config_check(record, conf_chg_log, dev)
+            param_check(record, param_chg_log, dev)
+            inet_check(record, inet_chg_log, dev)
             template_check(record, temp_dev_log)
+        else:
+            # Running Config Check
+            if addl_opt == "config":
+                stdout.write("Config | ")
+                config_check(record, conf_chg_log, dev)
+            # Running Param Check
+            elif addl_opt == "param":
+                stdout.write("Param | ")
+                param_check(record, param_chg_log, dev)
+            # Running Inet Check
+            elif addl_opt == "inet":
+                stdout.write("Inet | ")
+                inet_check(record, inet_chg_log, dev)
+            # Running Template Check
+            elif addl_opt == "template":
+                stdout.write("Template | ")
+                template_check(record, temp_dev_log)
+        # Close connection to device
+        dev.close()
+        stdout.write("Processing Complete |")
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
