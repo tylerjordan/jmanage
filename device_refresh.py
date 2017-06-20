@@ -115,7 +115,7 @@ inet_change_ips = []
 # Key Lists
 dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
                 'last_config_change', 'last_param_check', 'last_param_change', 'last_inet_check', 'last_inet_change',
-                'last_temp_check']
+                'last_temp_check', 'add_date']
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
 
 def detect_env():
@@ -347,8 +347,7 @@ def save_config_file(myconfig, record):
             ops_error_list.append(dict(zip(error_key_list, contentList)))
             return False
         else:
-            # Update configuration change time for record
-            record.update({'last_config_change': get_now_time()})
+            # Close the file
             newfile.close()
             return True
 
@@ -793,17 +792,17 @@ def check_params(record, dev):
         :param ip:          -   String of the IP of the device
         :param dev:         -   The PyEZ SSH netconf connection to the device.
         :return results:    -   A list that contains the results of the check, including the following parameter.
-                            (0 = Unable to Check, 1 = No Changes, 2 = Changes Detected
+                            (0 = Unable to Check, 1 = No Changes, 2 = Changes Detected    
     """
     returncode = 1
     # Store the results of check and returncode
     results = []
     remoteDict = {}
 
-    stdout.write("\n\t\tParameter Check: ")
+    #stdout.write("\n\t\tParameter Check: ")
     # Try to collect current chassis info
     for key in facts_list:
-        if key in remoteDict:
+        if key in dev.facts:
             remoteDict[key] = dev.facts[key]
         else:
             remoteDict[key] = "UNDEFINED"
@@ -820,31 +819,31 @@ def check_params(record, dev):
                 #stdout.write("\t\t- Check " + item + "...")
                 if remoteDict[item] == "UNDEFINED":
                     message = "Unable to collect " + item.upper() + " from device."
-                    stdout.write("ERROR: " + message)
+                    stdout.write("\n\t\tParameter Check: ERROR: " + message)
                     results.append(message)
                     returncode = 0
                 else:
                     if not record[item].upper() == remoteDict[item].upper():
                         message = item.upper() + " changed from " + record[item] + " to " + remoteDict[item]
-                        stdout.write(message)
+                        stdout.write("\n\t\tParameter Check: " + message)
                         results.append(message)
                         change_record(ip, remoteDict[item].upper(), key=item)
                         returncode = 2
-                        #print "Changed!"
+                        # print "Changed!"
         else:
             message = "Unable to collect parameters from database."
-            stdout.write("ERROR: " + message)
+            stdout.write("\n\t\tParameter Check: ERROR: " + message)
             results.append(message)
             returncode = 0
     # If we are unable to collect info from this device
     else:
         message = "Unable to collect current parameters from device."
-        stdout.write("ERROR: " + message)
+        stdout.write("\n\t\tParameter Check: ERROR: " + message)
         results.append(message)
         returncode = 0
 
-    if returncode == 1:
-        stdout.write("No changes")
+    #if returncode == 1:
+    #   stdout.write("No changes")
 
     # Return the info to caller
     results.append(returncode)
@@ -909,7 +908,6 @@ def check_inet(record, dev):
     results = []
 
     # Get current information to compare against database info
-    stdout.write("\n\t\tInet Check: ")
     if record:
         # Update database date for parameter check
         record.update({'last_inet_check': get_now_time()})
@@ -935,13 +933,13 @@ def check_inet(record, dev):
                     if change_record(ip, list1, key='inet_intf'):
                         record.update({'last_inet_change': get_now_time()})
                         message = "Inet intefaces have changed."
-                        stdout.write(message)
+                        stdout.write("\n\t\tInet Check: " + message)
                         results.append(message)
                         returncode = 2
                         #print "Changed!"
             else:
-                meessage = "Unable to collect new inet interface info. Keeping old info."
-                stdout.write("ERROR: " + message)
+                message = "Unable to collect new inet interface info. Keeping old info."
+                stdout.write("\n\t\tInet Check: ERROR: " + message)
                 results.append(message)
                 returncode = 0
         # This means database does not contain "inet interface" information
@@ -952,24 +950,24 @@ def check_inet(record, dev):
                 if change_record(ip, list1, key='inet_intf'):
                     record.update({'last_inet_change': get_now_time()})
                     message = "Inet intefaces have changed."
-                    stdout.write(message)
+                    stdout.write("\n\t\tInet Check: " + message)
                     results.append(message)
                     returncode = 2
                     #print "Changed!"
             # Unable to collect info, send error
             else:
                 message = "Unable to collect inet interface info from device."
-                stdout.write("ERROR: " + message)
+                stdout.write("\n\t\tInet Check: ERROR: " + message)
                 results.append(message)
                 returncode = 0
     else:
         message = "Unable to collect inet interface info from database."
-        stdout.write("ERROR: " + message)
+        stdout.write("\n\t\tInet Check: ERROR: " + message)
         results.append(message)
         returncode = 0
 
-    if returncode == 1:
-        stdout.write("No changes")
+    #if returncode == 1:
+    #    stdout.write("No changes")
     # Return the info to caller
     results.append(returncode)
     return results
@@ -1141,13 +1139,16 @@ def config_compare(record, dev):
 
     # Check if the appropriate site directory is created. If not, then create it.
     loaded_config = load_config_file(record['ip'], newest=True)
-    stdout.write("\n\t\tConfig Check: ")
+
+    # Update check date
+    record.update({'last_config_check': get_now_time()})
     if not loaded_config:
+        record.update({'last_config_change': get_now_time()})
         if save_config_file(fetch_config(dev), record):
             results.append("No Existing Config, Configuration Saved")
         else:
             message = "No Existing Config, Configuration Save Failed"
-            stdout.write("ERROR: " + message)
+            stdout.write("\n\t\tConfig Check: ERROR: " + message)
             results.append(message)
             returncode = 0
     else:
@@ -1156,14 +1157,14 @@ def config_compare(record, dev):
             # Compare configurations
             change_list = compare_configs(loaded_config, current_config)
             # Update config check date in record
-            record.update({'last_config_check': get_now_time()})
             if change_list:
-                stdout.write("Configuration was changed")
+                record.update({'last_config_change': get_now_time()})
+                stdout.write("\n\t\tConfig Check: Configuration was changed")
                 returncode = 2
                 # Try to write diffList output to a list
                 for item in change_list:
                     results.append(item)
-                # If configuration save is not successfull
+                # Try to save the new config file
                 if save_config_file(current_config, record):
                     stdout.write(" | New config saved")
                 else:
@@ -1173,11 +1174,11 @@ def config_compare(record, dev):
                     returncode = 3
         else:
             message = "Unable to retrieve configuration"
-            stdout.write("ERROR: " + message)
+            stdout.write("\n\t\tConfig Check: ERROR: " + message)
             results.append(message)
             returncode = 0
-    if returncode == 1:
-        stdout.write("No changes")
+    #if returncode == 1:
+    #    stdout.write("No changes")
 
     results.append(returncode)
     return results
@@ -1289,7 +1290,6 @@ def template_scanner(regtmpl_list, record):
     config_list = load_config_file_list(record['ip'], newest=True)
 
     nomatch = True
-    stdout.write("\n\t\tTemplate Check: ")
     # Attempt to check this config against the template
     try:
         firstpass = True
@@ -1306,18 +1306,19 @@ def template_scanner(regtmpl_list, record):
                     nomatch = False
                     results.append(regline)
     except Exception as err:
+        record.update({'last_temp_check': "UNDEFINED"})
         message = "Problems performing template scan"
-        stdout.write("ERROR: " + message)
+        stdout.write("\n\t\tTemplate Check: ERROR: " + message)
         results.append(message)
         returncode = 0
     # If check is successful...
     else:
         record.update({'last_temp_check': get_now_time()})
         if nomatch:
-            stdout.write("No discrepancies detected")
+            stdout.write("\n\t\tTemplate Check: No discrepancies detected")
             returncode = 1
         else:
-            stdout.write("Descrepancies were detected")
+            stdout.write("\n\t\tTemplate Check: Descrepancies were detected")
             returncode = 2
     finally:
         results.append(returncode)
@@ -1416,28 +1417,31 @@ def add_record(ip, dev):
         return False
     else:
         now = get_now_time()
+        mydict['last_inet_check'] = now
         # Try to gather inet interface parameters
         inet_info = get_inet_interfaces(ip, dev)
         #print "------------ INET INFO ---------------"
         #pp = pprint.PrettyPrinter(indent=4)
         #pp.pprint(inet_info)
-        # If we were able to collect the information, add to data structure
+
+        # Define all the record data
         if inet_info:
             mydict['inet_intf'] = inet_info
             mydict['ip'] = mydict['inet_intf'][0]['ipaddr']
+            mydict['last_inet_change'] = now
         else:
             mydict['ip'] = ip
+            mydict['last_inet_change'] = "UNDEFINED"
 
-        # Try to save config file, add appropriate dates to dict if save works
-        if save_config_file(fetch_config(dev), mydict):
-            mydict['last_config_check'] = now
-            mydict['last_config_change'] = now
-        # Apply dates to record dict
+        mydict['last_config_check'] = "UNDEFINED"
+        mydict['last_config_change'] = "UNDEFINED"
         mydict['last_access'] = now
         mydict['last_param_change'] = now
         mydict['last_param_check'] = now
+        mydict['last_temp_check'] = "UNDEFINED"
 
         # Add entire record to database
+        mydict['add_date'] = now
         listDict.append(mydict)
         return True
 
@@ -1565,6 +1569,7 @@ def add_new_devices_loop(iplistfile):
         for myip in exploded_list:
             curr_num += 1
             add_new_device(myip, total_num, curr_num)
+        stdout.write("\n\n")
     else:
         print "IP List is empty!"
 

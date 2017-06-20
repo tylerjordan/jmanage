@@ -39,7 +39,8 @@ port = 22
 
 # Key Lists
 dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
-                'last_config_change', 'last_param_check', 'last_param_change', 'last_temp_check']
+                'last_config_change', 'last_param_check', 'last_param_change', 'last_inet_check', 'last_inet_change',
+                'last_temp_check', 'add_date']
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
 
 def detect_env():
@@ -190,10 +191,11 @@ def show_devices(list_dict=listDict):
         Returns: Nothing
     """
     t = PrettyTable(['Management IP', 'Hostname', 'Model', 'Current Code', 'Serial Number', 'Last Access',
-                     'Last Config Change', 'Last Parameter Change'])
+                     'Last Config Change', 'Last Parameter Change', 'Last Inet Change', 'Add Date'])
     for device in list_dict:
         t.add_row([device['ip'], device['hostname'], device['model'], device['version'], device['serialnumber'],
-                   device['last_access'], device['last_config_change'], device['last_param_change']])
+                   device['last_access'], device['last_config_change'], device['last_param_change'],
+                   device['last_inet_change'], device['add_date']])
     print t
 
 def display_device_info(ip):
@@ -208,11 +210,19 @@ def display_device_info(ip):
 
     if myrecord:
         print subHeading(myrecord['hostname'] + " - (" + ip + ")", 15)
-        print "Hostname.........{0}".format(myrecord['hostname'])
-        print "Management IP....{0}".format(myrecord['ip'])
-        print "Model............{0}".format(myrecord['model'])
-        print "Version..........{0}".format(myrecord['version'])
-        print "S/N..............{0}".format(myrecord['serialnumber'])
+        print "Hostname.............{0}".format(myrecord['hostname'])
+        print "Management IP........{0}".format(myrecord['ip'])
+        print "Model................{0}".format(myrecord['model'])
+        print "Version..............{0}".format(myrecord['version'])
+        print "S/N..................{0}".format(myrecord['serialnumber'])
+        print "Last Access..........{0}".format(myrecord['last_access'])
+        print "Last Config Change...{0}".format(myrecord['last_config_change'])
+        print "Last Config Check....{0}".format(myrecord['last_config_check'])
+        print "Last Param Change....{0}".format(myrecord['last_param_change'])
+        print "Last Param Check.....{0}".format(myrecord['last_param_check'])
+        print "Last Inet Change.....{0}".format(myrecord['last_inet_change'])
+        print "Last Inet Check......{0}".format(myrecord['last_inet_check'])
+        print "Add Date.............{0}".format(myrecord['add_date'])
 
         t = PrettyTable(['Interface', 'IP', 'Mask', 'Status', 'Last Updated'])
         if 'inet_intf' in myrecord:
