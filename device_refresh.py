@@ -1655,26 +1655,34 @@ def check_main(record, total_num=1, curr_num=1):
             result = config_check(record, conf_chg_log, dev)
             result = param_check(record, param_chg_log, dev)
             result = inet_check(record, inet_chg_log, dev)
+            #dev.close()
             result = template_check(record, temp_dev_log)
         else:
             # Running Config Check
             if addl_opt == "config":
                 stdout.write("Config | ")
                 config_check(record, conf_chg_log, dev)
+                #dev.close()
             # Running Param Check
             elif addl_opt == "param":
                 stdout.write("Param | ")
                 param_check(record, param_chg_log, dev)
+                #dev.close()
             # Running Inet Check
             elif addl_opt == "inet":
                 stdout.write("Inet | ")
                 inet_check(record, inet_chg_log, dev)
+                #dev.close()
             # Running Template Check
             elif addl_opt == "template":
                 stdout.write("Template | ")
                 template_check(record, temp_dev_log)
-        # Close connection to device
-        dev.close()
+        try:
+            dev.close()
+        except:
+            print "Caught dev.close() exception"
+            pass
+
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
