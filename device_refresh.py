@@ -354,7 +354,7 @@ def save_config_file(myconfig, record):
 def line_list(filepath):
     """ Purpose: Create a list of lines from the file defined.
  
-        :param filepath:    -   String of the IP of the device
+        :param filepath:    -   The path/filename of the file
         :param dev:         -   The PyEZ SSH netconf connection to the device.
         :return linelist:   -   A list of Strings from the file.
     """
@@ -390,6 +390,112 @@ def getSiteCode(record):
         return mydirect
 
     return siteObj.group()[-3:]
+
+# Convert "XML" formatted file to "set" formatted file
+def xml_to_set(xml_output):
+    set_list = []
+
+    # Regular Expressions
+    config_regex = r'^<configuration.+>\n'
+    term_value_regex = r'\s*<.+>.+<\/.+>\n'         # Matches <term>value</term>
+    term_plain_regex = r'\s*<[^\/]+>\n'             # Matches <term>
+    term_slash_regex = r'\s*<[^\/]+\/>\n'           # Matches <term/>
+    slash_term_regex = r'\s*<\/[^\/]+>\n'           # Matches </term>
+    term_regex = r'<[^\/]+>'
+    value_regex = r'>[^\/]+<'
+    slash_t = r'\/.+>'
+    t_slash = r'.+\/>'
+
+    # Lists
+    quote_list = ['secret', 'authentication-key', 'privacy-key', "encryptec-password"]
+    multi_line_list = ['announcement', 'message']
+    level_list = []
+
+    my_file_list = line_list(xml_output)
+    if my_file_list:
+        multi_line = False
+        set_line = ""
+        # Start looping of lines of the XML configuration
+        for line in my_file_list:
+            if not multi_line:
+                set_line = "set"
+
+            print "Line: {0}".format(line)
+            # Check for start of configuration XML
+            if re.match(config_regex, line):
+                # Start of the configuration file
+                pass
+
+            # Check for term/value format
+            elif re.match(term_value_regex, line):
+                t = re.search(term_regex, line)
+                term = t.group(0).lstrip('<').rstrip('>')
+                v = re.search(value_regex, line)
+                value = v.group(0).lstrip('>').rstrip('<')
+                if term in quote_list:
+                    for a_level in level_list:
+                        set_line = set_line + ' ' + a_level
+                    set_line = set_line + ' ' + term + ' "' + value + '"\n'
+                else:
+                    for a_level in level_list:
+                        set_line = set_line + ' ' + a_level
+                    set_line = set_line + ' ' + term + ' ' + value + '\n'
+                print "Formatted: {0}".format(set_line)
+                set_list.append(set_line)
+
+            # Check for slash/term format (Go down one level)
+            elif re.match(slash_term_regex, line):
+                t = re.search(slash_t, line)
+                term = t.group(0).lstrip('/').rstrip('>')
+                if term in multi_line_list:
+                    set_line = set_line + '"\n'
+                    multi_line = False
+                    print "Formatted: {0}".format(set_line)
+                    set_list.append(set_line)
+                elif term is "configuration":
+                    # End of configuration file
+                    pass
+                else:
+                    # Remove last item from level_list
+                    if level_list[-1] is term:
+                        del level_list[-1]
+                    else:
+                        print "Unexpected value in level list!"
+                        print "Current Term: {0}".format(term)
+                        print "List Level: {0}".format(level_list[-1])
+
+            # Check for term/slash format (Define a static term)
+            elif re.match(term_slash_regex, line):
+                v = re.search(t_slash, line)
+                value = v.group(0).lstrip('<').rstrip('/')
+                for a_level in level_list:
+                    set_line = set_line + ' ' + a_level
+                set_line = set_line + ' ' + value + '\n'
+                print "Formatted: {0}".format(set_line)
+                set_list.append(set_line)
+
+            # Check for a plain term format. (Go up one level)
+            elif re.match(term_plain_regex, line):
+                t = re.search(term_regex, line)
+                term = t.group(0).lstrip('<').rstrip('>')
+                if term in multi_line_list:
+                    for a_level in level_list:
+                        set_line = set_line + ' ' + a_level
+                    set_line = set_line + ' ' + value + ' "'
+                    multi_line = True
+                else:
+                    level_list.append(term)
+
+            # For all other lines, should match multi-line values
+            else:
+                if multi_line:
+                    set_line = set_line + line
+                else:
+                    print "Unexpected string anomoly: {0}".format(line)
+
+        print "### SET LIST ###"
+        print set_list
+
 
 # -----------------------------------------------------------------
 # CONNECTIONS
@@ -1230,13 +1336,20 @@ def fetch_config(dev):
     :param dev:         -   The device handle for gather info from device
     :return:            -   Returns a ASCII set version of the configuration
     """
+    myconfig = dev.rpc.get_config(options={'format': 'set'})
+    print "************* RAW OUTPUT FROM RPC COMMAND **************"
+    config_file = "MyConfig"
+    config_file_path = os.path.join(dir_path, config_file)
+    print_log(etree.tostring(myconfig), config_file_path)
+    xml_to_set(config_file_path)
+    exit()
     try:
         myconfig = dev.cli('show config | display set', warning=False)
     except Exception as err:
         print "Error getting configuration from device. ERROR: {0}".format(err)
         return False
     else:
-        return myconfig
+        return etree.tostring(myconfig)
 
 #-----------------------------------------------------------------
 # TEMPLATE STUFF
