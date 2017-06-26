@@ -396,18 +396,22 @@ def xml_to_set(xml_output):
     set_list = []
 
     # Regular Expressions
-    config_regex = r'^<configuration.+>\n'
-    term_value_regex = r'\s*<.+>.+<\/.+>\n'         # Matches <term>value</term>
-    term_plain_regex = r'\s*<[^\/]+>\n'             # Matches <term>
-    term_slash_regex = r'\s*<[^\/]+\/>\n'           # Matches <term/>
-    slash_term_regex = r'\s*<\/[^\/]+>\n'           # Matches </term>
+    term_regex = r'<.+>'
+    close_regex = r'\/.+'
+    val_regex = r'.+\/'
+
+    config_regex = r'<\/?configuration.*>'
+    term_value_regex = r'<.+>.+<\/.+>'         # Matches <term>value</term>
+    term_plain_regex = r'<[^\/]+>'             # Matches <term>
+    term_slash_regex = r'<[^\/]+\/>'           # Matches <term/>
+    slash_term_regex = r'<\/[^\/]+>'           # Matches </term>
     term_regex = r'<[^\/]+>'
     value_regex = r'>[^\/]+<'
     slash_t = r'\/.+>'
-    t_slash = r'.+\/>'
+    t_slash = r'<.+\/'
 
     # Lists
-    quote_list = ['secret', 'authentication-key', 'privacy-key', "encryptec-password"]
+    quote_list = ['secret', 'authentication-key', 'privacy-key', "encrypted-password"]
     multi_line_list = ['announcement', 'message']
     level_list = []
 
@@ -415,24 +419,96 @@ def xml_to_set(xml_output):
     if my_file_list:
         multi_line = False
         set_line = ""
+        prev_name = False
+        prev_name_val = ""
+        prev_name_parent = ""
         # Start looping of lines of the XML configuration
         for line in my_file_list:
-            if not multi_line:
-                set_line = "set"
+            #if not multi_line:
+             #   set_line = "set"
 
-            print "Line: {0}".format(line)
-            # Check for start of configuration XML
-            if re.match(config_regex, line):
-                # Start of the configuration file
-                pass
+            # Remove all preceeding whitespace
+            print "Raw Line: {0}".format(line)
+            line = line.lstrip().rstrip()
+            print "Stripped Line: {0}".format(line)
 
-            # Check for term/value format
-            elif re.match(term_value_regex, line):
+            # Match string with a term and value
+            if re.match(term_value_regex, line):
                 t = re.search(term_regex, line)
                 term = t.group(0).lstrip('<').rstrip('>')
                 v = re.search(value_regex, line)
                 value = v.group(0).lstrip('>').rstrip('<')
-                if term in quote_list:
+                # Check if prev_name is set to True, if it is, we need to add a level
+                if prev_name:
+                    set_list.append(prev_name_val)
+                    prev_name = False
+                # If term/value is term "name", we might need to treat "value" as the level
+                if term == "name":
+                    prev_name_val = value
+                    prev_name_parent = level_list[-1]
+                    prev_name = True
+                else:
+                    for a_level in level_list:
+                        set_line += ' ' + a_level
+                    if term in quote_list:
+                        set_line += ' ' + term + ' "' + value + '"'
+                    else:
+                        set_line += ' ' + term + ' ' + value
+
+            # Match string with a term
+            elif re.match(term_regex, line):                # Matches <*>
+                t = re.search(term_regex, line)
+                term = t.group(0).lstrip('<').rstrip('>')
+                # Match a close term
+                if re.match(close_regex, term):             # Matches /term
+                    term = term.lstrip("/")
+                    if term == "contents":
+                        pass
+                    # If this happens, print the "name" set command and remove the level
+                    elif prev_name and term == prev_name_parent:
+                        for a_level in level_list:
+                            set_line += ' ' + a_level
+                        set_line += ' ' + prev_name_val
+                    # Otherwise this is a standard close term
+                    else:
+                        if level_list[-1] == term:
+                            del level_list[-1]
+                        else:
+                            print "Unexpected value in level list!"
+                            print "Current Term: '{0}'".format(term)
+                            print "List Level: '{0}'".format(level_list[-1])
+                # Match a value term
+                elif re.match(val_regex, term):             # Matches term/
+                    term = term.rstrip("/")
+                    # If the previous term was a "name" term
+                    if prev_name:
+                        for a_level in level_list:
+                            set_line += ' ' + a_level
+                        set_line += ' ' + prev_name_val + ' ' + term
+                        set_list.append(set_line)
+                    else:
+
+                else:                                       # Matches term
+                    pass
+            else:
+
+
+            # Check for start of configuration XML
+            # Check for term/value format
+            if re.match(term_value_regex, line):
+                t = re.search(term_regex, line)
+                term = t.group(0).lstrip('<').rstrip('>')
+                v = re.search(value_regex, line)
+                value = v.group(0).lstrip('>').rstrip('<')
+                # Check if prev_name is True, if so, means we need to add name to heirarchy list
+                if prev_name:
+                    set_line = set_line + ' ' + prev_name_val
+                    prev_name = False
+                # Check if "name" is part of the name/value pair
+                if term == "name":
+                    prev_name = True
+                    prev_name_val = value
+                elif term in quote_list:
                     for a_level in level_list:
                         set_line = set_line + ' ' + a_level
                     set_line = set_line + ' ' + term + ' "' + value + '"\n'
@@ -440,38 +516,46 @@ def xml_to_set(xml_output):
                     for a_level in level_list:
                         set_line = set_line + ' ' + a_level
                     set_line = set_line + ' ' + term + ' ' + value + '\n'
-                print "Formatted: {0}".format(set_line)
+                print "TV Formatted: {0}".format(set_line)
                 set_list.append(set_line)
 
             # Check for slash/term format (Go down one level)
             elif re.match(slash_term_regex, line):
                 t = re.search(slash_t, line)
                 term = t.group(0).lstrip('/').rstrip('>')
+                # Check if "name" was the previous term, this means its not a level, but a value
+                if prev_name:
+                    set_line = set_line + ' ' + prev_name_val + '\n'
+                    set_list.append(set_line)
+                    prev_name = False
                 if term in multi_line_list:
                     set_line = set_line + '"\n'
                     multi_line = False
-                    print "Formatted: {0}".format(set_line)
+                    print "ST Formatted: {0}".format(set_line)
                     set_list.append(set_line)
                 elif term is "configuration":
                     # End of configuration file
                     pass
                 else:
                     # Remove last item from level_list
-                    if level_list[-1] is term:
+                    list_item = level_list[-1]
+                    if list_item == term:
                         del level_list[-1]
                     else:
                         print "Unexpected value in level list!"
-                        print "Current Term: {0}".format(term)
-                        print "List Level: {0}".format(level_list[-1])
+                        print "Current Term: '{0}'".format(term)
+                        print "List Level: '{0}'".format(level_list[-1])
 
             # Check for term/slash format (Define a static term)
             elif re.match(term_slash_regex, line):
                 v = re.search(t_slash, line)
                 value = v.group(0).lstrip('<').rstrip('/')
+                if prev_name:
+
                 for a_level in level_list:
                     set_line = set_line + ' ' + a_level
                 set_line = set_line + ' ' + value + '\n'
-                print "Formatted: {0}".format(set_line)
+                print "TS Formatted: {0}".format(set_line)
                 set_list.append(set_line)
 
             # Check for a plain term format. (Go up one level)
@@ -1340,7 +1424,7 @@ def fetch_config(dev):
     print "************* RAW OUTPUT FROM RPC COMMAND **************"
     config_file = "MyConfig"
     config_file_path = os.path.join(dir_path, config_file)
-    print_log(etree.tostring(myconfig), config_file_path)
+    print_file(etree.tostring(myconfig), config_file_path)
     xml_to_set(config_file_path)
     exit()
     try:

@@ -474,7 +474,7 @@ def print_sl(statement, file_list):
     else:
         print_log(statement, file_list)
 
-# Print output to log file only
+# Append output to log file only
 def print_log(statement, logfile):
     # Print to log
     #print "Log File: {0}".format(logfile)
@@ -485,6 +485,19 @@ def print_log(statement, logfile):
     else:
         logobj.write(statement)
         logobj.close()
+
+# Write text to a file. Overwrite existing contents.
+def print_file(statement, myfile):
+    # Print to log
+    #print "Log File: {0}".format(logfile)
+    try:
+        myobj = open(myfile, 'w')
+    except Exception as err:
+        print "Error opening log file {0}".format(err)
+    else:
+        myobj.write(statement)
+        myobj.close()
+
 
 # Return a specifically formatted timestamp
 def get_now_time():
