@@ -394,17 +394,17 @@ def getSiteCode(record):
 # Convert "XML" formatted file to "set" formatted file
 def xml_to_set(xml_output):
     # Regular Expressions
+    config_regex = r'<\/?configuration.*>'
+    term_value_regex = r'<.+>.+<\/.+>'         # Matches <term>value</term>
+    value_regex = r'>[^\/]+<'
     term_regex = r'<.+>'
+    term_noslash_regex = r'^<[^\/]+>'
+
     close_regex = r'\/.+'
     val_regex = r'.+\/'
 
-    config_regex = r'<\/?configuration.*>'
-    term_value_regex = r'<.+>.+<\/.+>'         # Matches <term>value</term>
-    term_regex = r'<[^\/]+>'
-    value_regex = r'>[^\/]+<'
-
     # Lists
-    quote_list = ['secret', 'authentication-key', 'privacy-key', "encrypted-password"]
+    quote_list = ['secret', 'authentication-key', 'privacy-key', "encrypted-password", "full-name"]
     multi_line_list = ['announcement', 'message']
     level_list = []
     set_list = []
@@ -416,18 +416,20 @@ def xml_to_set(xml_output):
         prev_name = False
         prev_name_val = ""
         prev_name_parent = ""
+        prev_open = ""
 
         # Start looping of lines of the XML configuration
         for line in my_file_list:
             # Remove all preceeding whitespace
             raw_line = line.lstrip()
-            print "Raw Line: {0}".format(line)
+            print "\n" + "-" * 50
+            #print "Raw Line: {0}".format(line)
             line = line.lstrip().rstrip()
             print "Stripped Line: {0}".format(line)
 
             # Match string with a term and value
             if re.match(term_value_regex, line):
-                t = re.search(term_regex, line)
+                t = re.search(term_noslash_regex, line)
                 term = t.group(0).lstrip('<').rstrip('>')
                 v = re.search(value_regex, line)
                 value = v.group(0).lstrip('>').rstrip('<')
@@ -448,8 +450,17 @@ def xml_to_set(xml_output):
                         set_line += ' ' + term + ' "' + value + '"'
                     else:
                         set_line += ' ' + term + ' ' + value
+                    print "SET: {0}".format(set_line)
                     set_list.append(set_line)
-
+                prev_open = ""
+            # Match string against config term regex
+            elif re.match(config_regex, line):              # Matches </configuration and <configuration
+                if line.startswith( "</configuration"):
+                    print "--- END OF CONFIGURATION ---"
+                    break
+                else:
+                    print "--- START OF CONFIGURATION ---"
+                prev_open = ""
             # Match string with a term
             elif re.match(term_regex, line):                # Matches <*>
                 t = re.search(term_regex, line)
@@ -459,28 +470,46 @@ def xml_to_set(xml_output):
                     term = term.lstrip("/")
                     if term == "contents":
                         pass
-                    # If prev_name is True, print the "name" set command and remove the level
+                    # If prev_name is True and this term is the "close" of the parent, print term and remove this level
                     elif prev_name and term == prev_name_parent:
                         set_line = "set"
                         for a_level in level_list:
                             set_line += ' ' + a_level
                         set_line += ' ' + prev_name_val
+                        print "SET: {0}".format(set_line)
                         set_list.append(set_line)
                         prev_name = False
+                        print "Removing Level: {0}".format(level_list[-1])
+                        del level_list[-1]
                     # If this close term is a multi_line term
                     elif multi_line and term in multi_line_list:
                         # Add current line to the list
                         set_line += '"'
+                        print "SET: {0}".format(set_line)
                         set_list.append(set_line)
                         multi_line = False
+                    # If the previous term was an open of the same term
+                    elif prev_open == term:
+                        set_line = "set"
+                        for a_level in level_list:
+                            set_line += ' ' + a_level
+                        print "SET: {0}".format(set_line)
+                        set_list.append(set_line)
+                        del level_list[-1]
                     # Otherwise this is a standard close term
                     else:
-                        if level_list[-1] == term:
+                        while level_list[-1] != term:
+                            print "Removing Level: {0}".format(level_list[-1])
                             del level_list[-1]
                         else:
-                            print "Unexpected value in level list!"
-                            print "Current Term: '{0}'".format(term)
-                            print "List Level: '{0}'".format(level_list[-1])
+                            if level_list[-1] == term:
+                                print "Removing Final Level: {0}".format(level_list[-1])
+                                del level_list[-1]
+                            else:
+                                print "Unexpected value in level list!"
+                                print "Current Term: '{0}'".format(term)
+                                print "List Level: '{0}'".format(level_list[-1])
+                    prev_open = ""
                 # Match a value term
                 elif re.match(val_regex, term):             # Matches term/
                     term = term.rstrip("/")
@@ -492,7 +521,9 @@ def xml_to_set(xml_output):
                     for a_level in level_list:
                         set_line += ' ' + a_level
                     set_line += ' ' + term
+                    print "SET: {0}".format(set_line)
                     set_list.append(set_line)
+                    prev_open = ""
                 # Matches an open term
                 else:                                       # Matches term
                     # If the previous term as "name", we need to add name value as a level
@@ -510,12 +541,12 @@ def xml_to_set(xml_output):
                             value = raw_line.split('>', 1)
                         for a_level in level_list:
                             set_line += ' ' + a_level
-                        set_line += ' ' + term + ' "' + value
+                        set_line += ' ' + term + ' "' + value[1]
                         multi_line = True
                     else:
                         # Add a term to the level list
                         level_list.append(term)
-
+                    prev_open = term
             # Match all other formats, which should only be multi-line content
             else:
                 if multi_line:
@@ -523,6 +554,8 @@ def xml_to_set(xml_output):
                 else:
                     print "Content not captured!"
                     print "Content: '{0}'".format(raw_line)
+                prev_open = ""
+
         print "### SET LIST ###"
         print set_list
 
