@@ -1399,20 +1399,21 @@ def fetch_config(dev):
     :param dev:         -   The device handle for gather info from device
     :return:            -   Returns a ASCII set version of the configuration
     """
-    myconfig = dev.rpc.get_config(options={'format': 'set'})
-    print "************* RAW OUTPUT FROM RPC COMMAND **************"
-    config_file = "MyConfig"
-    config_file_path = os.path.join(dir_path, config_file)
-    print_file(etree.tostring(myconfig), config_file_path)
-    xml_to_set(config_file_path)
-    exit()
+
+    #print "************* RAW OUTPUT FROM RPC COMMAND **************"
+    #config_file = "MyConfig"
+    #config_file_path = os.path.join(dir_path, config_file)
+    #print_file(etree.tostring(myconfig), config_file_path)
+    #xml_to_set(config_file_path)
+    #exit()
     try:
-        myconfig = dev.cli('show config | display set', warning=False)
+        myconfig = dev.rpc.get_config(options={'format': 'set'})
+        #myconfig = dev.cli('show config | display set', warning=False)
     except Exception as err:
         print "Error getting configuration from device. ERROR: {0}".format(err)
         return False
     else:
-        return etree.tostring(myconfig)
+        return myconfig #etree.tostring(myconfig)
 
 #-----------------------------------------------------------------
 # TEMPLATE STUFF
@@ -1512,20 +1513,20 @@ def template_regex():
 
     # Process for replacing placeholders with regexs
     varindc = "{{"
-    templ_list = line_list(template_file)
     regtmpl_list = []
-    for tline in templ_list:
-        tline = re.sub(r"\*", r"\*", tline)
-        if varindc in tline:
-            str_out = ''
-            for key in d:
-                str_out = re.subn(key, d[key], tline)
-                if str_out[1] > 0:
-                    tline = str_out[0]
-            regtmpl_list.append(tline.strip('\n\t'))
-        elif tline != '':
-            regtmpl_list.append(tline.strip('\n\t'))
-
+    templ_list = line_list(template_file)
+    if templ_list:
+        for tline in templ_list:
+            tline = re.sub(r"\*", r"\*", tline)
+            if varindc in tline:
+                str_out = ''
+                for key in d:
+                    str_out = re.subn(key, d[key], tline)
+                    if str_out[1] > 0:
+                        tline = str_out[0]
+                regtmpl_list.append(tline.strip('\n\t'))
+            elif tline != '':
+                regtmpl_list.append(tline.strip('\n\t'))
     return regtmpl_list
 
 #-----------------------------------------------------------------
