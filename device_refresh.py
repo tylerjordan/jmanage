@@ -1401,6 +1401,7 @@ def fetch_config(dev):
     """
 
     #print "************* RAW OUTPUT FROM RPC COMMAND **************"
+    #myconfig = dev.rpc.get_config(options={'format': 'set'})
     #config_file = "MyConfig"
     #config_file_path = os.path.join(dir_path, config_file)
     #print_file(etree.tostring(myconfig), config_file_path)
@@ -1408,6 +1409,9 @@ def fetch_config(dev):
     #exit()
     try:
         myconfig = dev.rpc.get_config(options={'format': 'set'})
+        print "******* RAW CONFIGURATION ***********"
+        print etree.tostring(myconfig)
+        exit()
         #myconfig = dev.cli('show config | display set', warning=False)
     except Exception as err:
         print "Error getting configuration from device. ERROR: {0}".format(err)
