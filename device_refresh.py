@@ -1589,13 +1589,22 @@ def check_loop(subsetlist):
     :param record: A list containing IP addresses to query.
     :return: None
     """
+    # Create a single change log for all changes
+    now = get_now_time()
+    if addl_opt == "config" or "param" or "inet" or "all":
+        chg_log_name = "Change_Log|" + now + "|.log"
+        chg_log = os.path.join(log_dir, chg_log_name)
+
+    # Begin processing all the devices
     curr_num = 0
     print "\nDevice Processsing Begins: {0}".format(get_now_time())
     print "=" * 80
     if subsetlist:
+
         ipv4_regex = r'^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])$'
         if re.match(ipv4_regex, subsetlist):
-            check_main(get_record(listDict, subsetlist))
+            total_num = len(subsetlist)
+            check_main(get_record(listDict, subsetlist), chg_log, total_num, curr_num)
         else:
             temp_list = []
             for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
@@ -1612,18 +1621,18 @@ def check_loop(subsetlist):
                     add_new_device(ip, total_num, curr_num)
                 # If the IP IS present, execute this...
                 else:
-                    check_main(get_record(listDict, ip), total_num, curr_num)
+                    check_main(get_record(listDict, ip), chg_log, total_num, curr_num)
     # Check the entire database
     else:
         total_num = len(listDict)
         for record in listDict:
             curr_num += 1
-            check_main(record, total_num, curr_num)
+            check_main(record, chg_log, total_num, curr_num)
     # End of processing
     print "\n\n" + "=" * 80
     print "Device Processsing Ends: {0}\n\n".format(get_now_time())
 
-def check_main(record, total_num=1, curr_num=1):
+def check_main(record, chg_log, total_num=1, curr_num=1):
     """ Purpose: Performs the selected checks (Parameter/Config, Template, or All)
         
     :param record: A dictionary containing the device information from main_db.
@@ -1634,12 +1643,13 @@ def check_main(record, total_num=1, curr_num=1):
     directory_check(record)
     device_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
 
+    '''
     # Create logs for capturing info
     now = get_now_time()
     if addl_opt == "config" or "param" or "inet" or "all":
         chg_log_name = "Change_Log|" + now + "|.log"
         chg_log = os.path.join(log_dir, chg_log_name)
-    '''    
+    
     if addl_opt == "config" or addl_opt == "all":
         conf_chg_name = "Config_Change_" + now + ".log"
         conf_chg_log = os.path.join(device_dir, conf_chg_name)
@@ -1651,11 +1661,11 @@ def check_main(record, total_num=1, curr_num=1):
     if addl_opt == "inet" or addl_opt == "all":
         inet_chg_name = "Inet_Change_" + now + ".log"
         inet_chg_log = os.path.join(device_dir, inet_chg_name)
-
+    '''
     if addl_opt == "template" or addl_opt == "all":
         temp_dev_name = "Template_Deviation_" + now + ".log"
         temp_dev_log = os.path.join(device_dir, temp_dev_name)
-    '''
+
     stdout.write("\n" + "| " + str(curr_num) + " of " + str(total_num) + " | " + record['hostname'] + " (" + record['ip'] + ") | ")
     # Try to connect to device and open a connection
     record.update({'last_access': get_now_time()})
