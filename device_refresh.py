@@ -391,175 +391,6 @@ def getSiteCode(record):
 
     return siteObj.group()[-3:]
 
-# Convert "XML" formatted file to "set" formatted file
-def xml_to_set(xml_output):
-    # Regular Expressions
-    config_regex = r'<\/?configuration.*>'
-    term_value_regex = r'<.+>.+<\/.+>'         # Matches <term>value</term>
-    value_regex = r'>[^\/]+<'
-    term_regex = r'<.+>'
-    term_noslash_regex = r'^<[^\/]+>'
-
-    close_regex = r'\/.+'
-    val_regex = r'.+\/'
-
-    # Lists
-    quote_list = ['secret', 'authentication-key', 'privacy-key', "encrypted-password", "full-name"]
-    multi_line_list = ['announcement', 'message']
-    level_list = []
-    set_list = []
-
-    my_file_list = line_list(xml_output)
-    if my_file_list:
-        multi_line = False
-        set_line = ""
-        prev_name = False
-        prev_name_val = ""
-        prev_name_parent = ""
-        prev_open = ""
-
-        # Start looping of lines of the XML configuration
-        for line in my_file_list:
-            # Remove all preceeding whitespace
-            raw_line = line.lstrip()
-            print "\n" + "-" * 50
-            #print "Raw Line: {0}".format(line)
-            line = line.lstrip().rstrip()
-            print "Stripped Line: {0}".format(line)
-
-            # Match string with a term and value
-            if re.match(term_value_regex, line):
-                t = re.search(term_noslash_regex, line)
-                term = t.group(0).lstrip('<').rstrip('>')
-                v = re.search(value_regex, line)
-                value = v.group(0).lstrip('>').rstrip('<')
-                # Check if prev_name is set to True, if it is, we need to add a level
-                if prev_name:
-                    level_list.append(prev_name_val)
-                    prev_name = False
-                # If term/value is term "name", we might need to treat "value" as the level
-                if term == "name":
-                    prev_name_val = value
-                    prev_name_parent = level_list[-1]
-                    prev_name = True
-                else:
-                    set_line = "set"
-                    for a_level in level_list:
-                        set_line += ' ' + a_level
-                    if term in quote_list:
-                        set_line += ' ' + term + ' "' + value + '"'
-                    else:
-                        set_line += ' ' + term + ' ' + value
-                    print "SET: {0}".format(set_line)
-                    set_list.append(set_line)
-                prev_open = ""
-            # Match string against config term regex
-            elif re.match(config_regex, line):              # Matches </configuration and <configuration
-                if line.startswith( "</configuration"):
-                    print "--- END OF CONFIGURATION ---"
-                    break
-                else:
-                    print "--- START OF CONFIGURATION ---"
-                prev_open = ""
-            # Match string with a term
-            elif re.match(term_regex, line):                # Matches <*>
-                t = re.search(term_regex, line)
-                term = t.group(0).lstrip('<').rstrip('>')
-                # Match a close term
-                if re.match(close_regex, term):             # Matches /term
-                    term = term.lstrip("/")
-                    if term == "contents":
-                        pass
-                    # If prev_name is True and this term is the "close" of the parent, print term and remove this level
-                    elif prev_name and term == prev_name_parent:
-                        set_line = "set"
-                        for a_level in level_list:
-                            set_line += ' ' + a_level
-                        set_line += ' ' + prev_name_val
-                        print "SET: {0}".format(set_line)
-                        set_list.append(set_line)
-                        prev_name = False
-                        print "Removing Level: {0}".format(level_list[-1])
-                        del level_list[-1]
-                    # If this close term is a multi_line term
-                    elif multi_line and term in multi_line_list:
-                        # Add current line to the list
-                        set_line += '"'
-                        print "SET: {0}".format(set_line)
-                        set_list.append(set_line)
-                        multi_line = False
-                    # If the previous term was an open of the same term
-                    elif prev_open == term:
-                        set_line = "set"
-                        for a_level in level_list:
-                            set_line += ' ' + a_level
-                        print "SET: {0}".format(set_line)
-                        set_list.append(set_line)
-                        del level_list[-1]
-                    # Otherwise this is a standard close term
-                    else:
-                        while level_list[-1] != term:
-                            print "Removing Level: {0}".format(level_list[-1])
-                            del level_list[-1]
-                        else:
-                            if level_list[-1] == term:
-                                print "Removing Final Level: {0}".format(level_list[-1])
-                                del level_list[-1]
-                            else:
-                                print "Unexpected value in level list!"
-                                print "Current Term: '{0}'".format(term)
-                                print "List Level: '{0}'".format(level_list[-1])
-                    prev_open = ""
-                # Match a value term
-                elif re.match(val_regex, term):             # Matches term/
-                    term = term.rstrip("/")
-                    # If the previous term was a "name" term
-                    if prev_name:
-                        level_list.append(prev_name_val)
-                        prev_name = False
-                    set_line = "set"
-                    for a_level in level_list:
-                        set_line += ' ' + a_level
-                    set_line += ' ' + term
-                    print "SET: {0}".format(set_line)
-                    set_list.append(set_line)
-                    prev_open = ""
-                # Matches an open term
-                else:                                       # Matches term
-                    # If the previous term as "name", we need to add name value as a level
-                    if prev_name:
-                        level_list.append(prev_name_val)
-                        prev_name = False
-                    # If current term is "contents", ignore it
-                    if term == "contents":
-                        pass
-                    # If current term is a "multi-line" term, create a set for it
-                    elif term in multi_line_list:
-                        value = ""
-                        set_line = "set"
-                        if raw_line.startswith( '<' + term + '>'):
-                            value = raw_line.split('>', 1)
-                        for a_level in level_list:
-                            set_line += ' ' + a_level
-                        set_line += ' ' + term + ' "' + value[1]
-                        multi_line = True
-                    else:
-                        # Add a term to the level list
-                        level_list.append(term)
-                    prev_open = term
-            # Match all other formats, which should only be multi-line content
-            else:
-                if multi_line:
-                    set_line += raw_line
-                else:
-                    print "Content not captured!"
-                    print "Content: '{0}'".format(raw_line)
-                prev_open = ""
-
-        print "### SET LIST ###"
-        print set_list
-
-
 # -----------------------------------------------------------------
 # CONNECTIONS
 # -----------------------------------------------------------------
@@ -1313,7 +1144,7 @@ def config_compare(record, dev):
     record.update({'last_config_check': get_now_time()})
     if not loaded_config:
         record.update({'last_config_change': get_now_time()})
-        if save_config_file(fetch_config(dev), record):
+        if save_config_file(fetch_config(dev, record['version']), record):
             results.append("No Existing Config, Configuration Saved")
         else:
             message = "No Existing Config, Configuration Save Failed"
@@ -1321,7 +1152,7 @@ def config_compare(record, dev):
             results.append(message)
             returncode = 0
     else:
-        current_config = fetch_config(dev)
+        current_config = fetch_config(dev, record['version'])
         if current_config:
             # Compare configurations
             change_list = compare_configs(loaded_config, current_config)
@@ -1393,31 +1224,28 @@ def config_check(record, conf_chg_log, dev):
 
     return compare_results[-1]
 
-def fetch_config(dev):
+def fetch_config(dev, ver):
     """ Purpose: Creates the log entries and output for the results summary.
 
     :param dev:         -   The device handle for gather info from device
+    :param sn:          -   The serial-number of the device
     :return:            -   Returns a ASCII set version of the configuration
     """
-
-    #print "************* RAW OUTPUT FROM RPC COMMAND **************"
-    #myconfig = dev.rpc.get_config(options={'format': 'set'})
-    #config_file = "MyConfig"
-    #config_file_path = os.path.join(dir_path, config_file)
-    #print_file(etree.tostring(myconfig), config_file_path)
-    #xml_to_set(config_file_path)
-    #exit()
     try:
-        myconfig = dev.rpc.get_config(options={'format': 'set'})
-        print "******* RAW CONFIGURATION ***********"
-        print etree.tostring(myconfig)
-        exit()
-        #myconfig = dev.cli('show config | display set', warning=False)
+        # Get the interger representation of the major version
+        maj_ver = int(ver[:2])
+        # Attempts to use cli hack if version is earlier than 15
+        if maj_ver < 15:
+            myconfig = dev.cli('show config | display set', warning=False)
+        # Otherwise use the "better" get_config rpc that is supported in JunOS 15.1 and later
+        else:
+            rawconfig = dev.rpc.get_config(options={'format': 'set'})
+            myconfig = re.sub('<.+>', '', etree.tostring(rawconfig))
     except Exception as err:
         print "Error getting configuration from device. ERROR: {0}".format(err)
         return False
     else:
-        return myconfig #etree.tostring(myconfig)
+        return myconfig
 
 #-----------------------------------------------------------------
 # TEMPLATE STUFF
@@ -1808,6 +1636,10 @@ def check_main(record, total_num=1, curr_num=1):
 
     # Create logs for capturing info
     now = get_now_time()
+    if addl_opt == "config" or "param" or "inet" or "all":
+        chg_log_name = "Change_Log|" + now + "|.log"
+        chg_log = os.path.join(log_dir, chg_log_name)
+    '''    
     if addl_opt == "config" or addl_opt == "all":
         conf_chg_name = "Config_Change_" + now + ".log"
         conf_chg_log = os.path.join(device_dir, conf_chg_name)
@@ -1823,7 +1655,7 @@ def check_main(record, total_num=1, curr_num=1):
     if addl_opt == "template" or addl_opt == "all":
         temp_dev_name = "Template_Deviation_" + now + ".log"
         temp_dev_log = os.path.join(device_dir, temp_dev_name)
-
+    '''
     stdout.write("\n" + "| " + str(curr_num) + " of " + str(total_num) + " | " + record['hostname'] + " (" + record['ip'] + ") | ")
     # Try to connect to device and open a connection
     record.update({'last_access': get_now_time()})
@@ -1833,26 +1665,26 @@ def check_main(record, total_num=1, curr_num=1):
         stdout.write("Checking: ")
         if addl_opt == "all":
             stdout.write("Config|Param|Inet|Template | ")
-            result = config_check(record, conf_chg_log, dev)
-            result = param_check(record, param_chg_log, dev)
-            result = inet_check(record, inet_chg_log, dev)
+            result = config_check(record, chg_log, dev)
+            result = param_check(record, chg_log, dev)
+            result = inet_check(record, chg_log, dev)
             #dev.close()
             result = template_check(record, temp_dev_log)
         else:
             # Running Config Check
             if addl_opt == "config":
                 stdout.write("Config | ")
-                config_check(record, conf_chg_log, dev)
+                config_check(record, chg_log, dev)
                 #dev.close()
             # Running Param Check
             elif addl_opt == "param":
                 stdout.write("Param | ")
-                param_check(record, param_chg_log, dev)
+                param_check(record, chg_log, dev)
                 #dev.close()
             # Running Inet Check
             elif addl_opt == "inet":
                 stdout.write("Inet | ")
-                inet_check(record, inet_chg_log, dev)
+                inet_check(record, chg_log, dev)
                 #dev.close()
             # Running Template Check
             elif addl_opt == "template":
@@ -1863,7 +1695,6 @@ def check_main(record, total_num=1, curr_num=1):
         except:
             print "Caught dev.close() exception"
             pass
-
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
