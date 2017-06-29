@@ -1645,7 +1645,7 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
 
     '''
     # Create logs for capturing info
-    now = get_now_time()
+    
     if addl_opt == "config" or "param" or "inet" or "all":
         chg_log_name = "Change_Log|" + now + "|.log"
         chg_log = os.path.join(log_dir, chg_log_name)
@@ -1662,6 +1662,7 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
         inet_chg_name = "Inet_Change_" + now + ".log"
         inet_chg_log = os.path.join(device_dir, inet_chg_name)
     '''
+    now = get_now_time()
     if addl_opt == "template" or addl_opt == "all":
         temp_dev_name = "Template_Deviation_" + now + ".log"
         temp_dev_log = os.path.join(device_dir, temp_dev_name)
