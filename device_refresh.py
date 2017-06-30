@@ -789,7 +789,7 @@ def check_params(record, dev):
         remoteDict: The chassis information gathered from the device now. (NEW INFO)
         record:  The chassis information gathered from the database. (OLD INFO)
 
-        :param ip:          -   String of the IP of the device
+        :param record:      -   Contains the parameters of the devicels
         :param dev:         -   The PyEZ SSH netconf connection to the device.
         :return results:    -   A list that contains the results of the check, including the following parameter.
                             (0 = Unable to Check, 1 = No Changes, 2 = Changes Detected    
@@ -816,7 +816,9 @@ def check_params(record, dev):
             #print "\t- Check parameters:"
 
             for item in facts_list:
-                #stdout.write("\t\t- Check " + item + "...")
+                print "Check Item: {0}".format(item)
+                print "Remote Item: {0}".format(remoteDict[item])
+                print "Record Item: {0}".format(record[item])
                 if remoteDict[item] == "UNDEFINED":
                     message = "Unable to collect " + item.upper() + " from device."
                     stdout.write("\n\t\tParameter Check: ERROR: " + message)
@@ -827,7 +829,7 @@ def check_params(record, dev):
                         message = item.upper() + " changed from " + record[item] + " to " + remoteDict[item]
                         stdout.write("\n\t\tParameter Check: " + message)
                         results.append(message)
-                        change_record(ip, remoteDict[item].upper(), key=item)
+                        change_record(record['ip'], remoteDict[item].upper(), key=item)
                         returncode = 2
                         # print "Changed!"
         else:
@@ -1231,21 +1233,22 @@ def fetch_config(dev, ver):
     :param sn:          -   The serial-number of the device
     :return:            -   Returns a ASCII set version of the configuration
     """
-    try:
-        # Get the interger representation of the major version
-        maj_ver = int(ver[:2])
-        # Attempts to use cli hack if version is earlier than 15
-        if maj_ver < 15:
-            myconfig = dev.cli('show config | display set', warning=False)
-        # Otherwise use the "better" get_config rpc that is supported in JunOS 15.1 and later
-        else:
-            rawconfig = dev.rpc.get_config(options={'format': 'set'})
-            myconfig = re.sub('<.+>', '', etree.tostring(rawconfig))
-    except Exception as err:
-        print "Error getting configuration from device. ERROR: {0}".format(err)
-        return False
+    myconfig = ""
+    # Get the interger representation of the major version
+    maj_ver = int(ver[:2])
+    # Attempts to use cli hack if version is earlier than 15
+    if maj_ver < 15:
+        myconfig = dev.cli('show config | display set', warning=False)
+        if re.match('\w+Error', myconfig):
+            err = re.search('\w+Error', myconfig)
+            print "CLI Error: {0}".format(err.group(0))
+            myconfig = ""
+    # Otherwise use the "better" get_config rpc that is supported in JunOS 15.1 and later
     else:
-        return myconfig
+        rawconfig = dev.rpc.get_config(options={'format': 'set'})
+        myconfig = re.sub('<.+>', '', etree.tostring(rawconfig))
+
+    return myconfig
 
 #-----------------------------------------------------------------
 # TEMPLATE STUFF
@@ -1554,6 +1557,47 @@ def explode_masked_list(iplist):
             #print "Adding {0}".format(myip)
             exploded_list.append(myip)
     return exploded_list
+
+def get_record(listDict, ip='', hostname='', sn='', code=''):
+    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
+                three different methods to return the data.
+
+        :param ip:          -   String of the IP of the device
+        :param hostname:    -   String of the device hostname
+        :parma sn:          -   String of the device chassis serial number
+        :param code:        -   String of the JunOS code version
+        :return:            -   True/False
+    """
+    has_record = False
+    # Make sure listDict has contents
+    if listDict:
+        if ip:
+            for record in listDict:
+                # Make sure this info exists, it may have failed
+                if 'inet_intf' in record:
+                    for inet_intf in record['inet_intf']:
+                        if inet_intf['ipaddr'] == ip:
+                            return record
+                # If it did, just search the 'ip" attribute
+                else:
+                    if record['ip'] == ip:
+                        return record
+        elif hostname:
+            for record in listDict:
+                if record['hostname'] == hostname:
+                    return record
+        elif sn:
+            for record in listDict:
+                if record['serialnumber'] == sn:
+                    return record
+        elif code:
+            for record in listDict:
+                if record['version'] == code:
+                    return record
+        else:
+            return has_record
+    else:
+        return has_record
 
 #-----------------------------------------------------------------
 # MAIN LOOPS

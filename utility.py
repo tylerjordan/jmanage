@@ -508,47 +508,6 @@ def get_now_time():
     now = datetime.datetime.now()
     return now.strftime("%Y-%m-%d_%H%M")
 
-def get_record(listDict, ip='', hostname='', sn='', code=''):
-    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
-                three different methods to return the data.
-
-        :param ip:          -   String of the IP of the device
-        :param hostname:    -   String of the device hostname
-        :parma sn:          -   String of the device chassis serial number
-        :param code:        -   String of the JunOS code version
-        :return:            -   True/False
-    """
-    has_record = False
-    # Make sure listDict has contents
-    if listDict:
-        if ip:
-            for record in listDict:
-                # Make sure this info exists, it may have failed
-                if 'inet_intf' in record:
-                    for inet_intf in record['inet_intf']:
-                        if inet_intf['ipaddr'] == ip:
-                            return record
-                # If it did, just search the 'ip" attribute
-                else:
-                    if record['ip'] == ip:
-                        return record
-        elif hostname:
-            for record in listDict:
-                if record['hostname'] == hostname:
-                    return record
-        elif sn:
-            for record in listDict:
-                if record['serialnumber'] == sn:
-                    return record
-        elif code:
-            for record in listDict:
-                if record['version'] == code:
-                    return record
-        else:
-            return has_record
-    else:
-        return has_record
-
 # Convert "XML" formatted file to "set" formatted file
 def xml_to_set(xml_output):
     # Regular Expressions
