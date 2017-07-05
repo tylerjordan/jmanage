@@ -56,6 +56,7 @@ def detect_env():
     global template_file
     global template_csv
 
+    global listDict
     global main_list_dict
     global intf_list_dict
 
@@ -148,6 +149,23 @@ def run(ip, username, password, port):
             return False
         return output
 
+def search_dict_multi(search_dict):
+    """ Purpose: Searches the main record dictionary based on defined criteria.
+        Returns: A filtered list dictionary of records
+    """
+    filtered_list_dict = []
+
+    for d in listDict:
+        bad_match = False
+        for s_key, s_val in search_dict.iteritems():
+            #print "Key: {0} | Search Val: {1} | DB Val: {2} ".format(s_key, s_val, d[s_key])
+            if s_val.upper() not in d[s_key]:
+                bad_match = True
+        if not bad_match:
+            filtered_list_dict.append(d)
+
+    return filtered_list_dict
+
 def search_menu():
     """ Purpose: Determine what user wants to search on.
         Return: Search criteria
@@ -169,16 +187,7 @@ def search_menu():
     search_sort_type = getOptionAnswer("How would you like to sort", myoptions)
 
     # First filter the database based on search criteria
-    filtered_list_dict = []
-
-    for d in listDict:
-        bad_match = False
-        for s_key, s_val in search_dict.iteritems():
-            #print "Key: {0} | Search Val: {1} | DB Val: {2} ".format(s_key, s_val, d[s_key])
-            if s_val.upper() not in d[s_key]:
-                bad_match = True
-        if not bad_match:
-            filtered_list_dict.append(d)
+    filtered_list_dict = search_dict_multi(search_dict)
 
     # Now sort the filtered list dict
     sort_type = False
@@ -186,7 +195,7 @@ def search_menu():
     print "Displaying Sorted Table:"
     show_devices(sorted(filtered_list_dict, key=itemgetter(search_sort_on), reverse=sort_type))
 
-def show_devices(list_dict=listDict):
+def show_devices(list_dict):
     """ Purpose: Display a table showing devices with general facts.
         Returns: Nothing
     """
@@ -198,18 +207,65 @@ def show_devices(list_dict=listDict):
                    device['last_inet_change'], device['add_date']])
     print t
 
-def display_device_info(ip):
+def delete_menu():
+    """ Purpose: Menu for selecting a record to delete.
+        Returns: T/F
+    """
+    search_key = "placeholder"
+    search_dict = {}
+
+    while search_key:
+        print "*" * 25
+        search_key = getOptionAnswer("What key would you like to delete on", dbase_order)
+        if search_key:
+            print "*" * 25
+            search_val = getInputAnswer("What value for \"" + search_key + "\" would you like to delete on")
+            search_dict[search_key] = search_val
+
+    # Filter the database based on search criteria and sort
+    sorted_list_dict = sorted(search_dict_multi(search_dict), key=itemgetter('ip'), reverse=False)
+
+    # Show the table of devices
+    show_devices(sorted_list_dict)
+
+    # Get list of IPs from sorted list as selection criteria
+    host_list = []
+    for device in sorted_list_dict:
+        host_list.append(device['hostname'])
+
+    # Ask question to get answers and delete valid answers
+    if host_list:
+        host_answer_list = getOptionMultiAnswer("Which devices would you like to delete", host_list)
+        if host_answer_list:
+            for ip in host_answer_list:
+                remove_record(listDict, 'ip', ip)
+                print "Removed: {0}".format(ip)
+
+                # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
+                stdout.write("Applying database changes (" + main_list_dict + "): ")
+                if write_to_json(listDict, main_list_dict):
+                    print "Successful!"
+                else:
+                    print "Failed!"
+    else:
+        print "No hosts in the defined criteria!"
+
+def display_device_info(search_str):
     """ Purpose: Display a devices info to the screen
 
     :param ip:          -   The IP of the device
     :param dev:         -   The PyEZ connection object (SSH Netconf)
     :return:            -   True/False
     """
-    print "Trying IP:{0}".format(ip)
-    myrecord = get_record(listDict, ip)
+    if re.match(r'[S|s][W|w]?[a-zA-Z]{3}.*', search_str):
+        print "Trying Host: {0}".format(search_str.upper())
+        myrecord = get_record(listDict, hostname=search_str.upper())
+    else:
+        print "Trying IP: {0}".format(search_str)
+        myrecord = get_record(listDict, ip=search_str)
 
     if myrecord:
-        print subHeading(myrecord['hostname'] + " - (" + ip + ")", 15)
+        print subHeading(myrecord['hostname'] + " - (" + search_str + ")", 15)
         print "Hostname.............{0}".format(myrecord['hostname'])
         print "Management IP........{0}".format(myrecord['ip'])
         print "Model................{0}".format(myrecord['model'])
@@ -235,7 +291,7 @@ def display_device_info(ip):
         else:
             print "\n- Inet Interface Info not available -\n"
     else:
-        print "No record found for IP:{0}".format(ip)
+        print "No record found for:{0}".format(search_str)
         return False
 
 # START OF SCRIPT #
@@ -257,7 +313,7 @@ if __name__ == '__main__':
         listDict = json_to_listdict(main_list_dict)
 
         # Main Program Loop
-        my_options = ['Display Database', 'Search Database', 'Display Device', 'Quit']
+        my_options = ['Display Database', 'Search Database', 'Display Device', 'Delete Record', 'Quit']
         while True:
             print "*" * 25 + "\n"
             answer = getOptionAnswerIndex('Choose your poison', my_options)
@@ -272,7 +328,7 @@ if __name__ == '__main__':
                 if listDict:
                     loop = True
                     while (loop):
-                        answer = getInputAnswer("Device IP('Q' to quit)")
+                        answer = getInputAnswer("Device IP or Hostname('Q' to quit)")
                         if answer == 'q' or answer == 'Q':
                             loop = False
                         else:
@@ -280,6 +336,9 @@ if __name__ == '__main__':
                 else:
                     print "No Records in Database!"
             elif answer == "4":
+                print "Run -> Delete Record"
+                delete_menu()
+            elif answer == "5":
                 print "Goodbye!"
                 quit()
             else:

@@ -297,6 +297,65 @@ def csv_to_dict(filePathName):
     for row in input_file:
         return row
 
+# Removes a record from the specified list of dictionaries
+def remove_record(listDict, key, value):
+    """ Purpose: Remove a record from the provided list of dictionaries. 
+    NOTE: Removes only the first record found with the specified value.
+
+    :param key:         -   The key to search for
+    :param value:       -   The value to search for
+    :return:            -   Returns True/False
+    """
+    for i in range(len(listDict)):
+        if listDict[i][key] == value:
+            # print "Removing: {0}".format(listDict[i])
+            del listDict[i]
+            print "| Device Removed!"
+            return True
+    return False
+
+# Gets a record
+def get_record(listDict, ip='', hostname='', sn='', code=''):
+    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
+                three different methods to return the data.
+
+        :param ip:          -   String of the IP of the device
+        :param hostname:    -   String of the device hostname
+        :parma sn:          -   String of the device chassis serial number
+        :param code:        -   String of the JunOS code version
+        :return:            -   True/False
+    """
+    has_record = False
+    # Make sure listDict has contents
+    if listDict:
+        if ip:
+            for record in listDict:
+                # Make sure this info exists, it may have failed
+                if 'inet_intf' in record:
+                    for inet_intf in record['inet_intf']:
+                        if inet_intf['ipaddr'] == ip:
+                            return record
+                # If it did, just search the 'ip" attribute
+                else:
+                    if record['ip'] == ip:
+                        return record
+        elif hostname:
+            for record in listDict:
+                if record['hostname'] == hostname:
+                    return record
+        elif sn:
+            for record in listDict:
+                if record['serialnumber'] == sn:
+                    return record
+        elif code:
+            for record in listDict:
+                if record['version'] == code:
+                    return record
+        else:
+            return has_record
+    else:
+        return has_record
+
 # Write database to JSON
 def write_to_json(list_dict, main_list_dict):
     try:

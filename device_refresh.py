@@ -515,7 +515,7 @@ def fail_check(ip, indbase, contentList):
                     if int(days_exp) > attempt_limit:
                         # Remove record from main database
                         stdout.write(" Attempts Exceeded Limit - Removing from Database |")
-                        remove_record('ip', ip)
+                        remove_record(listDict, 'ip', ip)
                         # Add record to Removed_Devices CSV
                         attribOrderRemove = ['ip', 'consec_days', 'date_removed']
                         remListDict = [{'ip': ip, 'consec_days': days_exp, 'date_removed': get_now_time()}]
@@ -802,9 +802,11 @@ def check_params(record, dev):
     #stdout.write("\n\t\tParameter Check: ")
     # Try to collect current chassis info
     for key in facts_list:
-        if key in dev.facts:
+        if key in dev.facts and dev.facts[key]:
+            #print "Matched Key!"
             remoteDict[key] = dev.facts[key]
         else:
+            #print "No Key Match!"
             remoteDict[key] = "UNDEFINED"
 
     # If info was collected...
@@ -816,9 +818,9 @@ def check_params(record, dev):
             #print "\t- Check parameters:"
 
             for item in facts_list:
-                print "Check Item: {0}".format(item)
-                print "Remote Item: {0}".format(remoteDict[item])
-                print "Record Item: {0}".format(record[item])
+                #print "Check Item: {0}".format(item)
+                #print "Remote Item: {0}".format(remoteDict[item])
+                #print "Record Item: {0}".format(record[item])
                 if remoteDict[item] == "UNDEFINED":
                     message = "Unable to collect " + item.upper() + " from device."
                     stdout.write("\n\t\tParameter Check: ERROR: " + message)
@@ -1021,6 +1023,8 @@ def get_inet_interfaces(ip, dev):
     phys_regex = r'^irb$|^vlan$|^lo0$|^ae\d{1,3}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}$|^me0$'
     # Logical Interface Regex
     logi_regex = r'^irb\.\d{1,3}$|^vlan\.\d{1,3}$|^lo0\.\d{1,3}$|^ae\d{1,3}\.\d{1,4}$|^ge-\d{1,3}/\d{1,3}/\d{1,3}\.\d{1,4}$|^me0\.0$'
+    # IP Exclude List
+    excluded_ip_list = ['127.0.0.1', '255.255.255.255']
 
     # Get the "interface" information from the device
     try:
@@ -1061,8 +1065,9 @@ def get_inet_interfaces(ip, dev):
                                         intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
                                         intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
                                         intf_dict['updated'] = get_now_time()
-                                        # Append dictionary to list
-                                        intf_list.append(intf_dict.copy())
+                                        # Append dictionary to list if the IP is not from the excluded list
+                                        if not intf_dict['ipaddr'] in excluded_ip_list:
+                                            intf_list.append(intf_dict.copy())
 
                                     else:
                                         for mylist in intf['logical-interface']['address-family']['interface-address']:
@@ -1073,8 +1078,9 @@ def get_inet_interfaces(ip, dev):
                                             intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
                                             intf_dict['status'] = intf['logical-interface']['oper-status'].encode('utf-8')
                                             intf_dict['updated'] = get_now_time()
-                                            # Append dictionary to list
-                                            intf_list.append(intf_dict.copy())
+                                            # Append dictionary to list if the IP is not from the excluded list
+                                            if not intf_dict['ipaddr'] in excluded_ip_list:
+                                                intf_list.append(intf_dict.copy())
                             else:
                                 # Doesn't contain "address-family"
                                 pass
@@ -1093,8 +1099,9 @@ def get_inet_interfaces(ip, dev):
                                             intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
                                             intf_dict['status'] =  mylist['oper-status'].encode('utf-8')
                                             intf_dict['updated'] = get_now_time()
-                                            # Append dictionary to list
-                                            intf_list.append(intf_dict.copy())
+                                            # Append dictionary to list if the IP is not from the excluded list
+                                            if not intf_dict['ipaddr'] in excluded_ip_list:
+                                                intf_list.append(intf_dict.copy())
 
                                         else:
                                             for mynewlist in mylist['address-family']['interface-address']:
@@ -1105,8 +1112,9 @@ def get_inet_interfaces(ip, dev):
                                                 intf_dict['ipmask'] = ip_and_mask[1].encode('utf-8')
                                                 intf_dict['status'] = mylist['oper-status'].encode('utf-8')
                                                 intf_dict['updated'] = get_now_time()
-                                                # Append dictionary to list
-                                                intf_list.append(intf_dict.copy())
+                                                # Append dictionary to list if the IP is not from the excluded list
+                                                if not intf_dict['ipaddr'] in excluded_ip_list:
+                                                    intf_list.append(intf_dict.copy())
                             else:
                                 # Doesn't contain "address-family"
                                 pass
@@ -1457,21 +1465,6 @@ def add_record(ip, dev):
         listDict.append(mydict)
         return True
 
-def remove_record(key, value):
-    """ Purpose: Remove a record from the main database. Removes only the first record found with the value.
-
-    :param key:         -   The key to search for
-    :param value:       -   The value to search for
-    :return:            -   Returns True/False
-    """
-    for i in range(len(listDict)):
-        if listDict[i][key] == value:
-            #print "Removing: {0}".format(listDict[i])
-            del listDict[i]
-            print "| Device Removed!"
-            return True
-    return False
-
 def change_record(ip, value, key):
     """ Purpose: Change an attribute of an existing record. Record is a dictionary.
 
@@ -1557,47 +1550,6 @@ def explode_masked_list(iplist):
             #print "Adding {0}".format(myip)
             exploded_list.append(myip)
     return exploded_list
-
-def get_record(listDict, ip='', hostname='', sn='', code=''):
-    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
-                three different methods to return the data.
-
-        :param ip:          -   String of the IP of the device
-        :param hostname:    -   String of the device hostname
-        :parma sn:          -   String of the device chassis serial number
-        :param code:        -   String of the JunOS code version
-        :return:            -   True/False
-    """
-    has_record = False
-    # Make sure listDict has contents
-    if listDict:
-        if ip:
-            for record in listDict:
-                # Make sure this info exists, it may have failed
-                if 'inet_intf' in record:
-                    for inet_intf in record['inet_intf']:
-                        if inet_intf['ipaddr'] == ip:
-                            return record
-                # If it did, just search the 'ip" attribute
-                else:
-                    if record['ip'] == ip:
-                        return record
-        elif hostname:
-            for record in listDict:
-                if record['hostname'] == hostname:
-                    return record
-        elif sn:
-            for record in listDict:
-                if record['serialnumber'] == sn:
-                    return record
-        elif code:
-            for record in listDict:
-                if record['version'] == code:
-                    return record
-        else:
-            return has_record
-    else:
-        return has_record
 
 #-----------------------------------------------------------------
 # MAIN LOOPS
