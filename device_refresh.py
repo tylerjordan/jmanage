@@ -1004,7 +1004,7 @@ def check_inet(record, dev):
             # Check if able to get "inet interface" from device now
             if list1:
                 # Save info to device record
-                if change_record(ip, list1, key='inet_intf'):
+                if change_record(record['ip'], list1, key='inet_intf'):
                     record.update({'last_inet_change': get_now_time()})
                     message = "Inet intefaces have changed."
                     stdout.write("\n\t\tInet Check: " + message)
