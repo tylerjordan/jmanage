@@ -56,7 +56,6 @@ def detect_env():
     global template_file
     global template_csv
 
-    global listDict
     global main_list_dict
     global intf_list_dict
 
@@ -237,16 +236,17 @@ def delete_menu():
     if host_list:
         host_answer_list = getOptionMultiAnswer("Which devices would you like to delete", host_list)
         if host_answer_list:
-            for ip in host_answer_list:
-                remove_record(listDict, 'ip', ip)
-                print "Removed: {0}".format(ip)
-
-                # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
-                stdout.write("Applying database changes (" + main_list_dict + "): ")
-                if write_to_json(listDict, main_list_dict):
-                    print "Successful!"
+            for hostname in host_answer_list:
+                if remove_record(listDict, 'hostname', hostname):
+                    print "Removed: {0}".format(hostname)
                 else:
-                    print "Failed!"
+                    print "Removal Failed: {0}".format(hostname)
+            # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
+            stdout.write("Applying database changes (" + main_list_dict + "): ")
+            if write_to_json(listDict, main_list_dict):
+                print "Successful!"
+            else:
+                print "Failed!"
     else:
         print "No hosts in the defined criteria!"
 
@@ -315,7 +315,9 @@ if __name__ == '__main__':
         # Main Program Loop
         my_options = ['Display Database', 'Search Database', 'Display Device', 'Delete Record', 'Quit']
         while True:
-            print "*" * 25 + "\n"
+            print "\n" + "*" * 25
+            print "Total Records: {0}".format(len(listDict))
+            print "*" * 25
             answer = getOptionAnswerIndex('Choose your poison', my_options)
             print "\n" + "*" * 25
             if answer == "1":

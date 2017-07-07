@@ -306,13 +306,18 @@ def remove_record(listDict, key, value):
     :param value:       -   The value to search for
     :return:            -   Returns True/False
     """
-    for i in range(len(listDict)):
-        if listDict[i][key] == value:
-            # print "Removing: {0}".format(listDict[i])
-            del listDict[i]
+    was_changed = False
+    for record in listDict:
+        #print "Provided: {0} -> Comparing to Key: {1} | Value: {2} --> ".format(listDict[i][key], key, value)
+        if record[key] == value:
+            #print "Removing: {0}".format(listDict[i])
+            listDict.remove(record)
             print "| Device Removed!"
-            return True
-    return False
+            was_changed = True
+    if was_changed:
+        return listDict
+    else:
+        return False
 
 # Gets a record
 def get_record(listDict, ip='', hostname='', sn='', code=''):
@@ -428,7 +433,7 @@ def csv_write_sort(list_dict, csv_file, sort_column, reverse_sort=False, column_
         return False
 
 # Sorts a list of dictionaries based on supplied key/value pair
-def list_dict_custom_sort(list_dict, sort_attrib, sort_list):
+def list_dict_custom_sort(list_dict, sort_attrib, sort_list, exclusion_attrib, exclustion_list):
     #print "Intf List:"
     #print list_dict
     # Sort the dictionary list
@@ -438,10 +443,14 @@ def list_dict_custom_sort(list_dict, sort_attrib, sort_list):
     for sort_val in sort_list:
         for intf_rec in list_dict:
             #print "Compare [{0}] to [{1}]".format(item, intf_rec[sort_attrib])
+            #print "Sort Val: {0} | Attrib Val: {1}".format(sort_val, intf_rec[sort_attrib])
             if intf_rec[sort_attrib] == sort_val:
-                #print "Add dict to list"
-                mylist = sorted(list_dict, key=lambda x: x[sort_attrib] != sort_val)
-                return mylist
+                if intf_rec[exclusion_attrib] not in exclustion_list:
+                    #print "Selected {0}".format(sort_val)
+                    mylist = sorted(list_dict, key=lambda x: x[sort_attrib] != sort_val)
+                    return mylist
+                #else:
+                #    print "Excluded {0} due to {1}".format(sort_val, intf_rec[exclusion_attrib])
     return mylist
 
 # Accetps a masked or unmasked IP and returns the IP and mask in a list
