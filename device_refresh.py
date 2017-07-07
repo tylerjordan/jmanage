@@ -391,6 +391,115 @@ def getSiteCode(record):
 
     return siteObj.group()[-3:]
 
+def sort_and_save_csv(log_name, list_name, key_list, sort_column, new_first=True, delimiter=";"):
+    """ Purpose: Adds new data to and sorts a csv log file.
+
+    :param  log_name.........The fully qualified name of the log being saved.
+            list_name........The list containing the changes for the log.
+            key_list.........A list containing the fields for this log.
+            sort_column......The column that this log should be sort by.
+            new_first........Boolean, if True, sorts with most recent changes at top of file. (Default is "True")
+            delimiter........The delimiter of this file. (Default is ";")
+    :return: None
+    """
+    # Print brief results to screen
+    if list_name:
+        stdout.write("Saving -> " + log_name + ": ")
+        if csv_write_sort(list_name, log_name, sort_column=sort_column, reverse_sort=new_first,
+                          column_names=key_list, my_delimiter=delimiter):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "No changes to " + log_name
+
+def sort_and_save_json(db_list_dict, db_file):
+    """ Purpose: Adds new data to and sorts a json file.
+
+    :param  db_list_dict....The list dictionary being saved into the json file.
+            db_file.........The fully qualified name of the json file being saved.
+    :return: None
+    """
+    if db_list_dict:
+        # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
+        stdout.write("Saving -> " + db_file + ": ")
+        if write_to_json(db_list_dict, db_file):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "Database list dict not found!"
+
+def sort_and_save():
+    """ Purpose: Saves main database and sorts and saves the logs.
+
+    :param: None
+    :return: None
+    """
+    # Main Database
+    sort_and_save_json(listDict, main_list_dict)
+    '''
+    if listDict:
+        # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
+        stdout.write("Save -> Main Database (" + main_list_dict + "): ")
+        if write_to_json(listDict, main_list_dict):
+            print "Successful!"
+        else:
+            print "Failed!"
+    '''
+    # Access Error Log
+    sort_and_save_csv(access_error_log, access_error_list, error_key_list, 3)
+    '''
+    if access_error_list:
+        stdout.write("Save -> Access Error Log (" + access_error_log + "): ")
+        if csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
+                          column_names=error_key_list, my_delimiter=delimiter):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "No changes to Access Error Log"
+    '''
+    # Operations Error Log
+    sort_and_save_csv(ops_error_log, ops_error_list, error_key_list, 3)
+    '''
+    if ops_error_list:
+        stdout.write("Save -> Ops Error Log (" + ops_error_log + "): ")
+        if csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
+                          column_names=error_key_list, my_delimiter=delimiter):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "No changes to Ops Error Log"
+    '''
+    # New Devices Log
+    sort_and_save_csv(new_devices_log, new_devices_list, standard_key_list, 2)
+    '''
+    if new_devices_list:
+        stdout.write("Save -> New Devices Log (" + new_devices_log + "): ")
+        if csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
+                          column_names=standard_key_list, my_delimiter=delimiter):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "No changes to New Devices Log"
+    '''
+    # Running Changes Log
+    sort_and_save_csv(run_change_log, run_change_list, standard_key_list, 2)
+    '''
+    if run_change_list:
+        stdout.write("Save -> Run Change Log (" + run_change_log + "): ")
+        if csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
+                          column_names=standard_key_list, my_delimiter=delimiter):
+            print "Successful!"
+        else:
+            print "Failed!"
+    else:
+        print "No changes to Run Change Log"
+    '''
+
 # -----------------------------------------------------------------
 # CONNECTIONS
 # -----------------------------------------------------------------
@@ -722,115 +831,6 @@ def scan_results():
     if addl_opt == "template" or addl_opt == "all":
         print"Template Mismatches........{0}".format(len(templ_change_ips))
     print"=============================="
-
-def sort_and_save_csv(log_name, list_name, key_list, sort_column, new_first=True, delimiter=";"):
-    """ Purpose: Adds new data to and sorts a csv log file.
-
-    :param  log_name.........The fully qualified name of the log being saved.
-            list_name........The list containing the changes for the log.
-            key_list.........A list containing the fields for this log.
-            sort_column......The column that this log should be sort by.
-            new_first........Boolean, if True, sorts with most recent changes at top of file. (Default is "True")
-            delimiter........The delimiter of this file. (Default is ";")
-    :return: None
-    """
-    # Print brief results to screen
-    if list_name:
-        stdout.write("Saving -> " + log_name + ": ")
-        if csv_write_sort(list_name, log_name, sort_column=sort_column, reverse_sort=new_first,
-                          column_names=key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "No changes to " + log_name
-
-def sort_and_save_json(db_list_dict, db_file):
-    """ Purpose: Adds new data to and sorts a json file.
-
-    :param  db_list_dict....The list dictionary being saved into the json file.
-            db_file.........The fully qualified name of the json file being saved.
-    :return: None
-    """
-    if db_list_dict:
-        # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
-        stdout.write("Saving -> " + db_file + ": ")
-        if write_to_json(db_list_dict, db_file):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "Database list dict not found!"
-
-def sort_and_save():
-    """ Purpose: Saves main database and sorts and saves the logs.
-
-    :param: None
-    :return: None
-    """
-    # Main Database
-    sort_and_save_json(listDict, main_list_dict)
-    '''
-    if listDict:
-        # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
-        stdout.write("Save -> Main Database (" + main_list_dict + "): ")
-        if write_to_json(listDict, main_list_dict):
-            print "Successful!"
-        else:
-            print "Failed!"
-    '''
-    # Access Error Log
-    sort_and_save_csv(access_error_log, access_error_list, error_key_list, 3)
-    '''
-    if access_error_list:
-        stdout.write("Save -> Access Error Log (" + access_error_log + "): ")
-        if csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
-                          column_names=error_key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "No changes to Access Error Log"
-    '''
-    # Operations Error Log
-    sort_and_save_csv(ops_error_log, ops_error_list, error_key_list, 3)
-    '''
-    if ops_error_list:
-        stdout.write("Save -> Ops Error Log (" + ops_error_log + "): ")
-        if csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
-                          column_names=error_key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "No changes to Ops Error Log"
-    '''
-    # New Devices Log
-    sort_and_save_csv(new_devices_log, new_devices_list, standard_key_list, 2)
-    '''
-    if new_devices_list:
-        stdout.write("Save -> New Devices Log (" + new_devices_log + "): ")
-        if csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
-                          column_names=standard_key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "No changes to New Devices Log"
-    '''
-    # Running Changes Log
-    sort_and_save_csv(run_change_log, run_change_list, standard_key_list, 2)
-    '''
-    if run_change_list:
-        stdout.write("Save -> Run Change Log (" + run_change_log + "): ")
-        if csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
-                          column_names=standard_key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "No changes to Run Change Log"
-    '''
 
 # -----------------------------------------------------------------
 # PARAMETER STUFF
