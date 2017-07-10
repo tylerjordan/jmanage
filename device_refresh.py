@@ -947,7 +947,6 @@ def param_check(record, param_chg_log, dev):
 #-----------------------------------------------------------------
 # INET STUFF
 #-----------------------------------------------------------------
-
 def check_inet(record, dev):
     """ Purpose: Checks the inet interfaces to see if they have changed. If inets have changed, it is updated and logged, if 
     not, the "last_inet" timestamp is only updated.
@@ -1051,10 +1050,10 @@ def inet_check(record, inet_chg_log, dev):
 
     # If inet results detect changes
     if inet_results[-1] == 2:
-        print_log("Inet Check:\n", param_chg_log)
-        for result in param_results[:-1]:
-            print_log("\t> {0}\n".format(result), param_chg_log)
-        print_log("\n", param_chg_log)
+        print_log("Inet Check:\n", inet_chg_log)
+        for result in inet_results[:-1]:
+            print_log("\t> {0}\n".format(result), inet_chg_log)
+        print_log("\n", inet_chg_log)
         inet_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
     # If inet results are errors
