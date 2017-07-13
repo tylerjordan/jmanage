@@ -1343,7 +1343,7 @@ def template_check(record, temp_dev_log):
     elif templ_results[-1] == 0:
         print_log("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
         message = "Issue in template scanner function."
-        contentList = [ip, message, templ_results[0], get_now_time()]
+        contentList = [record['ip'], message, templ_results[0], get_now_time()]
         ops_error_list.append(dict(zip(error_key_list, contentList)))
         templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
@@ -1364,18 +1364,26 @@ def template_scanner(regtmpl_list, record):
     nomatch = True
     # Attempt to check this config against the template
     try:
-        firstpass = True
+        print "Regline:"
+        print regtmpl_list
         for regline in regtmpl_list:
+            #print "Using Regline: {0}".format(regline)
             matched = False
             if regline != "":
                 for compline in config_list:
-                    compline = re.sub(r"\\n", r"", compline)
-                    if re.search(regline, compline):
-                        matched = True
+                    compline.replace('\n', '').replace('\r', '')
+                    if compline != "":
+                        #print "LINE:"
+                        #print "\t - Compare Regex: {0}".format(regline)
+                        #print "\t - To Line: {0}".format(compline)
+                        if re.search(regline, compline):
+                            matched = True
+                            print "MATCH!"
+                            print "\t - Regline: {0}".format(regline)
+                            print "\t - Compline: {0}".format(compline)
+                            break
                 if not matched:
-                    if firstpass:
-                        firstpass = False
-                    nomatch = False
+                    print "NO MATCH FOR: {0}".format(regline)
                     results.append(regline)
     except Exception as err:
         record.update({'last_temp_check': "UNDEFINED"})
@@ -1411,17 +1419,21 @@ def template_regex():
     regtmpl_list = []
     templ_list = line_list(template_file)
     if templ_list:
+        #print "Printing TLINE"
         for tline in templ_list:
-            tline = re.sub(r"\*", r"\*", tline)
-            if varindc in tline:
-                str_out = ''
-                for key in d:
-                    str_out = re.subn(key, d[key], tline)
-                    if str_out[1] > 0:
-                        tline = str_out[0]
-                regtmpl_list.append(tline.strip('\n\t'))
-            elif tline != '':
-                regtmpl_list.append(tline.strip('\n\t'))
+            tline = tline.replace('\n', '').replace('\r', '')
+            if tline != "":
+                #print "TLINE: [{0}]".format(tline)
+                tline = re.sub(r"\*", r"\*", tline)
+                if varindc in tline:
+                    str_out = ''
+                    for key in d:
+                        str_out = re.subn(key, d[key], tline)
+                        if str_out[1] > 0:
+                            tline = str_out[0]
+                    regtmpl_list.append(tline.strip('\n\t'))
+                elif tline != '':
+                    regtmpl_list.append(tline.strip('\n\t'))
     return regtmpl_list
 
 #-----------------------------------------------------------------

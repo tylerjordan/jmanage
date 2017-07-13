@@ -128,6 +128,7 @@ def getTFAnswer(question):
         else:
             print "Bad Selection"
 
+# Method for creating a log file
 def createLogFile(path_and_file, columns, delimiter=","):
     try:
         with open(path_and_file, 'w+') as fh:
@@ -565,7 +566,6 @@ def print_file(statement, myfile):
     else:
         myobj.write(statement)
         myobj.close()
-
 
 # Return a specifically formatted timestamp
 def get_now_time():
