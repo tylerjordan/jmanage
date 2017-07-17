@@ -1374,9 +1374,9 @@ def template_scanner(regtmpl_list, record):
     # Attempt to check this config against the template
     if config_list:
         #print "\nTemplate List:"
-        print regtmpl_list
+        #print regtmpl_list
         #print "\nConfig List: "
-        print config_list
+        #print config_list
         for regline in regtmpl_list:
             #print "Using Regline: {0}".format(regline)
             matched = False
