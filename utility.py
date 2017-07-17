@@ -293,10 +293,20 @@ def csv_to_listdict(filePathName):
         return emptyList
 
 # Converts CSV file to Dictionary
-def csv_to_dict(filePathName):
-    input_file = csv.DictReader(open(filePathName))
+def csv_to_dict(filePathName, mydelim=","):
+    input_file = csv.DictReader(open(filePathName), delimiter=mydelim)
     for row in input_file:
         return row
+
+# Converts a two term CSV file into a dicionary of key, value pairs
+def csv_to_dict_twoterm(filePathName, mydelim=","):
+    try:
+        with open(filePathName) as f:
+            d = dict(filter(None, csv.reader(f, delimiter=mydelim)))
+    except Exception as err:
+        print "Error converting file to dictionary: ERROR: {0}".format(err)
+    else:
+        return d
 
 # Removes a record from the specified list of dictionaries
 def remove_record(listDict, key, value):

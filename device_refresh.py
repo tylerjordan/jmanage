@@ -313,43 +313,48 @@ def save_config_file(myconfig, record):
     # Check if the appropriate site directory is created. If not, then create it.
     directory_check(record)
 
-    # Create the filename
-    now = get_now_time()
-    site_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
-    filename = record['hostname'] + "_" + now + ".conf"
-    fileandpath = os.path.join(site_dir, filename)
-    try:
-        newfile = open(fileandpath, "w+")
-    except Exception as err:
-        #print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, fileandpath)
-        message = "Unable to open file: " + fileandpath + "."
-        contentList = [record['ip'], message, str(err), get_now_time()]
-        ops_error_list.append(dict(zip(error_key_list, contentList)))
-        return False
-    else:
-        # Remove excess configurations if necessary
-        if get_file_number(record) > 5:
-            del_file = get_old_new_file(record, newest=False)
-            try:
-                os.remove(del_file)
-            except Exception as err:
-                message = "Unable to remove config file: " + del_file + "."
-                contentList = [record['ip'], message, str(err), get_now_time()]
-                ops_error_list.append(dict(zip(error_key_list, contentList)))
-                #print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
+    # Check if supplied config has contents
+    if myconfig:
+        # Create the filename
+        now = get_now_time()
+        site_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
+        filename = record['hostname'] + "_" + now + ".conf"
+        fileandpath = os.path.join(site_dir, filename)
         try:
-            # Write the new configuration to the new file
-            newfile.write(myconfig)
+            newfile = open(fileandpath, "w+")
         except Exception as err:
-            #print "ERROR: Unable to write config to file: {0}".format(err)
-            message = "Unable to write config to file: " + fileandpath + "."
-            contentList = [ record['ip'], message, str(err), get_now_time() ]
+            #print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, fileandpath)
+            message = "Unable to open file: " + fileandpath + "."
+            contentList = [record['ip'], message, str(err), get_now_time()]
             ops_error_list.append(dict(zip(error_key_list, contentList)))
             return False
         else:
-            # Close the file
-            newfile.close()
-            return True
+            # Remove excess configurations if necessary
+            if get_file_number(record) > 5:
+                del_file = get_old_new_file(record, newest=False)
+                try:
+                    os.remove(del_file)
+                except Exception as err:
+                    message = "Unable to remove config file: " + del_file + "."
+                    contentList = [record['ip'], message, str(err), get_now_time()]
+                    ops_error_list.append(dict(zip(error_key_list, contentList)))
+                    #print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
+            try:
+                # Write the new configuration to the new file
+                newfile.write(myconfig)
+            except Exception as err:
+                #print "ERROR: Unable to write config to file: {0}".format(err)
+                message = "Unable to write config to file: " + fileandpath + "."
+                contentList = [ record['ip'], message, str(err), get_now_time() ]
+                ops_error_list.append(dict(zip(error_key_list, contentList)))
+                return False
+            else:
+                # Close the file
+                newfile.close()
+                return True
+    # If this is executed, the myconfig variable was empty. Fetch did not work.
+    else:
+        return False
 
 def line_list(filepath):
     """ Purpose: Create a list of lines from the file defined.
@@ -370,7 +375,8 @@ def line_list(filepath):
     except Exception as err:
         print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, filepath)
     else:
-        linelist = f.readlines()
+        for line in f.readlines():
+            linelist.append(line.replace('\n', '').replace('\r', ''))
         f.close()
         return linelist
 
@@ -1298,10 +1304,11 @@ def fetch_config(dev, ver):
     maj_ver = int(ver[:2])
     # Attempts to use cli hack if version is earlier than 15
     if maj_ver < 15:
-        myconfig = dev.cli('show config | display set', warning=False)
-        if re.match('\w+Error', myconfig):
-            err = re.search('\w+Error', myconfig)
-            print "CLI Error: {0}".format(err.group(0))
+        rawconfig = dev.cli('show config | display set', warning=False)
+        myconfig = rawconfig.strip(' \t\n\r')
+        if not re.match('^set\s', myconfig):
+            err = re.search('^.*', myconfig)
+            print "Config Error: {0}".format(err.group(0))
             myconfig = ""
     # Otherwise use the "better" get_config rpc that is supported in JunOS 15.1 and later
     else:
@@ -1333,7 +1340,7 @@ def template_check(record, temp_dev_log):
     print_log("User: {0}\n".format(myuser), temp_dev_log)
     print_log("Checked: {0}\n".format(get_now_time()), temp_dev_log)
 
-    print_log("\nMissing Configuration:", temp_dev_log)
+    print_log("\nMissing Configuration:\n", temp_dev_log)
     if templ_results[-1] == 2:
         for result in templ_results[:-1]:
             print_log("\t> {0}\n".format(result), temp_dev_log)
@@ -1361,38 +1368,50 @@ def template_scanner(regtmpl_list, record):
     returncode = 1
     config_list = load_config_file_list(record['ip'], newest=True)
 
+    regex_map = csv_to_dict_twoterm(template_csv, ";")
+
     nomatch = True
     # Attempt to check this config against the template
-    try:
-        print "Regline:"
+    if config_list:
+        #print "\nTemplate List:"
         print regtmpl_list
+        #print "\nConfig List: "
+        print config_list
         for regline in regtmpl_list:
             #print "Using Regline: {0}".format(regline)
             matched = False
             if regline != "":
+                #print "RegLine: {0}".format(regline)
                 for compline in config_list:
                     compline.replace('\n', '').replace('\r', '')
                     if compline != "":
                         #print "LINE:"
                         #print "\t - Compare Regex: {0}".format(regline)
                         #print "\t - To Line: {0}".format(compline)
-                        if re.search(regline, compline):
-                            matched = True
-                            print "MATCH!"
-                            print "\t - Regline: {0}".format(regline)
-                            print "\t - Compline: {0}".format(compline)
-                            break
+                        if re.match('^set\s.*$', compline):
+                            #print "CompLine: {0}".format(compline)
+                            if re.search(regline, compline):
+                                matched = True
+                                #print "MATCH!"
+                                #print "\t - Regline: {0}".format(regline)
+                                #print "\t - Compline: {0}".format(compline)
+                                break
+                        else:
+                            record.update({'last_temp_check': get_now_time()})
+                            stdout.write("Template Check: ERROR: Unexpected string format")
+                            results.append(compline)
+                            returncode = 0
+                            return results
                 if not matched:
-                    print "NO MATCH FOR: {0}".format(regline)
-                    results.append(regline)
-    except Exception as err:
-        record.update({'last_temp_check': "UNDEFINED"})
-        message = "Problems performing template scan"
-        stdout.write("\n\t\tTemplate Check: ERROR: " + message)
-        results.append(message)
-        returncode = 0
+                    #print "NO MATCH FOR: {0}".format(regline)
+                    nice_output = ""
+                    nomatch = False
+                    for key, value in regex_map.iteritems():
+                        if re.match(value, regline):
+                            nice_output = re.sub(value, key, regline)
+                            results.append(nice_output)
+
     # If check is successful...
-    else:
         record.update({'last_temp_check': get_now_time()})
         if nomatch:
             stdout.write("\n\t\tTemplate Check: No discrepancies detected")
@@ -1400,9 +1419,16 @@ def template_scanner(regtmpl_list, record):
         else:
             stdout.write("\n\t\tTemplate Check: Descrepancies were detected")
             returncode = 2
-    finally:
-        results.append(returncode)
-        return results
+    # Execute this if the config file is empty
+    else:
+        record.update({'last_temp_check': get_now_time()})
+        message = "Template Check: ERROR: Problem loading configuation"
+        stdout.write(message)
+        results.append(message)
+        returncode = 0
+
+    results.append(returncode)
+    return results
 
 def template_regex():
     """ Purpose: Creates the template regex using the template file and regex mapping document.
@@ -1411,8 +1437,7 @@ def template_regex():
     :return regtmpl_list: A list containing regexs for template scanner. 
     """
     # Regexs for template comparisons
-    with open(template_csv) as f:
-        d = dict(filter(None, csv.reader(f, delimiter=";")))
+    d = csv_to_dict_twoterm(template_csv, ";")
 
     # Process for replacing placeholders with regexs
     varindc = "{{"
@@ -1421,10 +1446,9 @@ def template_regex():
     if templ_list:
         #print "Printing TLINE"
         for tline in templ_list:
-            tline = tline.replace('\n', '').replace('\r', '')
             if tline != "":
-                #print "TLINE: [{0}]".format(tline)
-                tline = re.sub(r"\*", r"\*", tline)
+                # Make sure this line of
+                #
                 if varindc in tline:
                     str_out = ''
                     for key in d:
@@ -1432,8 +1456,9 @@ def template_regex():
                         if str_out[1] > 0:
                             tline = str_out[0]
                     regtmpl_list.append(tline.strip('\n\t'))
-                elif tline != '':
+                else:
                     regtmpl_list.append(tline.strip('\n\t'))
+    # Return the regex infused template list
     return regtmpl_list
 
 #-----------------------------------------------------------------
