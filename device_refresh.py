@@ -1385,9 +1385,6 @@ def template_scanner(regtmpl_list, record):
                             #print "CompLine: {0}".format(compline)
                             if re.search(regline, compline):
                                 matched = True
-                                #print "MATCH!"
-                                #print "\t - Regline: {0}".format(regline)
-                                #print "\t - Compline: {0}".format(compline)
                                 break
                         else:
                             record.update({'last_temp_check': get_now_time()})
