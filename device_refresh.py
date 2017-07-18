@@ -1381,7 +1381,7 @@ def template_scanner(regtmpl_list, record):
                 for compline in config_list:
                     compline.replace('\n', '').replace('\r', '')
                     if compline != "":
-                        if re.match('^set\s.*$', compline):
+                        if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
                             #print "CompLine: {0}".format(compline)
                             if re.search(regline, compline):
                                 matched = True
