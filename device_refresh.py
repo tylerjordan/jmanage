@@ -1391,9 +1391,7 @@ def template_scanner(regtmpl_list, record):
                                 break
                         else:
                             record.update({'last_temp_check': get_now_time()})
-                            message = "Template Check: ERROR: Unexpected string format"
-                            stdout.write(message)
-                            #print "Unexpected String: {0}".format(compline)
+                            stdout.write("\n\t\tTemplate Check: ERROR: Unexpected string format")
                             results.append(compline)
                             returncode = 0
                             return results
