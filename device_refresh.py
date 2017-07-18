@@ -1373,10 +1373,6 @@ def template_scanner(regtmpl_list, record):
     nomatch = True
     # Attempt to check this config against the template
     if config_list:
-        #print "\nTemplate List:"
-        #print regtmpl_list
-        #print "\nConfig List: "
-        #print config_list
         for regline in regtmpl_list:
             #print "Using Regline: {0}".format(regline)
             matched = False
@@ -1385,9 +1381,6 @@ def template_scanner(regtmpl_list, record):
                 for compline in config_list:
                     compline.replace('\n', '').replace('\r', '')
                     if compline != "":
-                        #print "LINE:"
-                        #print "\t - Compare Regex: {0}".format(regline)
-                        #print "\t - To Line: {0}".format(compline)
                         if re.match('^set\s.*$', compline):
                             #print "CompLine: {0}".format(compline)
                             if re.search(regline, compline):
@@ -1398,7 +1391,9 @@ def template_scanner(regtmpl_list, record):
                                 break
                         else:
                             record.update({'last_temp_check': get_now_time()})
-                            stdout.write("Template Check: ERROR: Unexpected string format")
+                            message = "Template Check: ERROR: Unexpected string format"
+                            stdout.write(message)
+                            #print "Unexpected String: {0}".format(compline)
                             results.append(compline)
                             returncode = 0
                             return results
@@ -1406,10 +1401,19 @@ def template_scanner(regtmpl_list, record):
                     #print "NO MATCH FOR: {0}".format(regline)
                     nice_output = ""
                     nomatch = False
+                    first_pass = True
                     for key, value in regex_map.iteritems():
-                        if re.match(value, regline):
-                            nice_output = re.sub(value, key, regline)
-                            results.append(nice_output)
+                        if value in regline:
+                            if first_pass:
+                                nice_output = regline
+                            #print "Key: {0} | Value: {1}".format(key, value)
+                            nice_output = nice_output.replace(value, key)
+                            #print "NEW OUTPUT: {0}".format(nice_output)
+                            first_pass = False
+                    if first_pass:
+                        results.append(regline)
+                    else:
+                        results.append(nice_output)
 
     # If check is successful...
         record.update({'last_temp_check': get_now_time()})
