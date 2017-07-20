@@ -170,66 +170,104 @@ def detect_env():
 # -----------------------------------------------------------------
 # FILE OPERATIONS
 # -----------------------------------------------------------------
-def load_config_file(ip, newest):
+def get_config_str(hostname, newest):
     """ Purpose: Load the selected device's configuration file into a variable.
     
-        :param ip           -   Management IP address of the device
+        :param hostname     -   Hostname of the device
         :param newest:      -   True/False (True means newest, false means oldest file)
         :return:            -   A string containing the configuration   
     """
-    record = get_record(listDict, ip=ip)
-    if record:
-        my_file = get_old_new_file(record, newest)
-        if my_file:
-            try:
-                file_string = open(my_file, 'r').read()
-            except Exception as err:
-                print 'ERROR: Unable to read file: {0} | File: {1}'.format(err, my_file)
-                return False
-            else:
-                return file_string
-    else:
-        print "Problem getting record information..."
+    my_file = get_config_filename(hostname, hostname, newest)
+    if my_file:
+        try:
+            file_string = open(my_file, 'r').read()
+        except Exception as err:
+            print 'ERROR: Unable to read file: {0} | File: {1}'.format(err, my_file)
+            return False
+        else:
+            return file_string
 
-def get_old_new_file(record, newest):
-    """ Purpose: Returns the oldest or newest config file from specified IP
+def get_config_filename(hostname, startwith, newest):
+    """ Purpose: Returns the oldest or newest config file from specified hostname
 
-        :param record:      -   The dictionary information of the device.
+        :param hostname:    -   The hostname of the device.
+        :param startwith:   -   A common string that the file starts with
         :param newest:      -   True/False (True means newest, false means oldest file)
         :return:            -   A string containing the file with complete path. False   
     """
     filtered_list = []
-    if record:
-        # Create the appropriate absolute path for the config file
-        my_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
-        if os.path.exists(my_dir):
-            for file in listdir(my_dir):
-                if file.startswith(record['hostname']):
-                    filtered_list.append(os.path.join(my_dir, file))
-            try:
-                sorted_list = sorted(filtered_list, key=os.path.getctime)
-            except Exception as err:
-                print "Error with sorted function. ERROR: {0}".format(err)
-            else:
-                if sorted_list:
-                    if newest:
-                        return sorted_list[-1]
-                    else:
-                        return sorted_list[0]
-                else:
-                    return filtered_list
-        # Returns an empty list, if directory doesn't exist
-        else:
+    # Create the appropriate absolute path for the config file
+    my_dir = os.path.join(config_dir, getSiteCode(hostname), hostname)
+    if os.path.exists(my_dir):
+        for file in listdir(my_dir):
+            if file.startswith(startwith):
+                filtered_list.append(os.path.join(my_dir, file))
+        try:
+            sorted_list = sorted(filtered_list, key=os.path.getctime)
+        except Exception as err:
+            print "Error with sorted function. ERROR: {0}".format(err)
             return filtered_list
+        else:
+            if sorted_list:
+                if newest:
+                    return sorted_list[-1]
+                else:
+                    return sorted_list[0]
+            else:
+                return filtered_list
+    # Returns an empty list, if directory doesn't exist
+    else:
+        return filtered_list
 
-def remove_template_file(record):
+def get_config_list(hostname, newest):
+    """ Purpose: Load the selected device's configuration file into a list.
+
+        :param ip:          -   Dictionary record of the device.
+        :param newest:      -   Parameter for the "get_old_new_file" function
+        :return:            -   List containing file contents
+    """
+    linelist = []
+    my_file = get_config_filename(hostname, hostname, newest)
+    try:
+        linelist = line_list(my_file)
+    except Exception as err:
+        print 'ERROR: Unable to read file: {0} | File: {1}'.format(err, my_file)
+        return False
+    else:
+        return linelist
+
+def line_list(filepath):
+    """ Purpose: Create a list of lines from the file defined.
+
+        :param filepath:    -   The path/filename of the file
+        :param dev:         -   The PyEZ SSH netconf connection to the device.
+        :return linelist:   -   A list of Strings from the file.
+    """
+    linelist = []
+    try:
+        f = open(filepath, 'r')
+    except IOError as ioex:
+        if ioex.errno == 2:
+            print "No IPList Defined"
+        else:
+            print 'IOERROR: Unable to open file: {0} | File: {1}'.format(err, filepath)
+        return False
+    except Exception as err:
+        print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, filepath)
+    else:
+        for line in f.readlines():
+            linelist.append(line.replace('\n', '').replace('\r', ''))
+        f.close()
+        return linelist
+
+def remove_template_file(hostname):
     """ Purpose: Remove the template of the corresponding device.
 
         :param record:      -   The dictionary information of the device.
         :return:            -   True/False
     """
     file_start = "Template_Deviation_"
-    device_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
+    device_dir = os.path.join(config_dir, getSiteCode(hostname), hostname)
     if os.path.exists(device_dir):
         for file in getFileList(device_dir):
             if file.startswith(file_start):
@@ -242,40 +280,17 @@ def remove_template_file(record):
         print "Directory does not exist: {0}".format(device_dir)
         return False
 
-def get_file_number(record):
+def get_file_number(searchdir, matchstring):
     """ Purpose: Returns the number of configuration files for the defined device.
 
         :param record:      -   Parameter for the "get_old_new_file" function
         :return:            -   List containing file contents
     """
     file_num = 0
-    if record:
-        my_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
-        for file in listdir(my_dir):
-            if file.startswith(record['hostname']):
-                file_num += 1
+    for file in listdir(searchdir):
+        if file.contains(matchstring):
+            file_num += 1
     return file_num
-
-def load_config_file_list(ip, newest):
-    """ Purpose: Load the selected device's configuration file into a list.
-    
-        :param ip:          -   Dictionary record of the device.
-        :param newest:      -   Parameter for the "get_old_new_file" function
-        :return:            -   List containing file contents
-    """
-    record = get_record(listDict, ip=ip)
-    linelist = []
-    if record:
-        my_file = get_old_new_file(record, newest)
-        try:
-            linelist = line_list(my_file)
-        except Exception as err:
-            print 'ERROR: Unable to read file: {0} | File: {1}'.format(err, my_file)
-            return False
-        else:
-            return linelist
-    else:
-        print "Problem getting record information..."
 
 def directory_check(record):
     """ Purpose: Check if the site/device dirs exists. Creates it if it does not.
@@ -284,19 +299,19 @@ def directory_check(record):
         :return:            -   True/False
     """
     # Check for site specific directory
-    if not os.path.isdir(os.path.join(config_dir, getSiteCode(record))):
+    if not os.path.isdir(os.path.join(config_dir, getSiteCode(record['hostname']))):
         try:
-            os.mkdir(os.path.join(config_dir, getSiteCode(record)))
+            os.mkdir(os.path.join(config_dir, getSiteCode(record['hostname'])))
         except Exception as err:
             print "Failed Creating Directory -> ERROR: {0}".format(err)
             return False
 
     # Check for the device specific directory
-    if os.path.isdir(os.path.join(config_dir, getSiteCode(record), record['hostname'])):
+    if os.path.isdir(os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])):
         return True
     else:
         try:
-            os.mkdir(os.path.join(config_dir, getSiteCode(record), record['hostname']))
+            os.mkdir(os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname']))
         except Exception as err:
             print "Failed Creating Directory -> ERROR: {0}".format(err)
             return False
@@ -317,7 +332,7 @@ def save_config_file(myconfig, record):
     if myconfig:
         # Create the filename
         now = get_now_time()
-        site_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
+        site_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
         filename = record['hostname'] + "_" + now + ".conf"
         fileandpath = os.path.join(site_dir, filename)
         try:
@@ -329,9 +344,10 @@ def save_config_file(myconfig, record):
             ops_error_list.append(dict(zip(error_key_list, contentList)))
             return False
         else:
+            mydir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
             # Remove excess configurations if necessary
-            if get_file_number(record) > 5:
-                del_file = get_old_new_file(record, newest=False)
+            if get_file_number(mydir, record['hostname']) > 5:
+                del_file = get_config_filename(record['hostname'], record['hostname'], newest=False)
                 try:
                     os.remove(del_file)
                 except Exception as err:
@@ -356,41 +372,16 @@ def save_config_file(myconfig, record):
     else:
         return False
 
-def line_list(filepath):
-    """ Purpose: Create a list of lines from the file defined.
- 
-        :param filepath:    -   The path/filename of the file
-        :param dev:         -   The PyEZ SSH netconf connection to the device.
-        :return linelist:   -   A list of Strings from the file.
-    """
-    linelist = []
-    try:
-        f = open(filepath, 'r')
-    except IOError as ioex:
-        if ioex.errno == 2:
-            print "No IPList Defined"
-        else:
-            print 'IOERROR: Unable to open file: {0} | File: {1}'.format(err, filepath)
-        return False
-    except Exception as err:
-        print 'ERROR: Unable to open file: {0} | File: {1}'.format(err, filepath)
-    else:
-        for line in f.readlines():
-            linelist.append(line.replace('\n', '').replace('\r', ''))
-        f.close()
-        return linelist
-
-def getSiteCode(record):
+def getSiteCode(hostname):
     """ Purpose: Get the site code from the Hostname. Use "MISC" if it doesn't match the two regular expressions.
 
     :param record:      -   Dictionary of the parameters of the device in question
     :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
     """
-    hostname = record['hostname'].upper()
-    if re.match(r'SW[A-Z]{3}', hostname):
-        siteObj = re.match(r'SW[A-Z]{3}', hostname)
-    elif re.match(r'S[A-Z]{3}', hostname):
-        siteObj = re.match(r'S[A-Z]{3}', hostname)
+    if re.match(r'SW[A-Z]{3}', hostname.upper()):
+        siteObj = re.match(r'SW[A-Z]{3}', hostname.upper())
+    elif re.match(r'S[A-Z]{3}', hostname.upper()):
+        siteObj = re.match(r'S[A-Z]{3}', hostname.upper())
     else:
         mydirect = "MISC"
         return mydirect
@@ -1206,7 +1197,7 @@ def config_compare(record, dev):
     returncode = 1
 
     # Check if the appropriate site directory is created. If not, then create it.
-    loaded_config = load_config_file(record['ip'], newest=True)
+    loaded_config = get_config_str(record['ip'], newest=True)
 
     # Update check date
     record.update({'last_config_check': get_now_time()})
@@ -1328,105 +1319,143 @@ def template_check(record, temp_dev_log):
     :return: None
     """
     # Check if template option was specified
-    # Template Results: 0 = Error, 1 = No Deviations, 2 = Deviations
+    # Template Results: 0 = Error, 1 = No Deviations, 2 = Deviations, 3 = No New Template Needed
     # Delete existing template file(s)
-    remove_template_file(record)
+    remove_template_file(record['hostname'])
 
     # Run template check
-    templ_results = template_scanner(template_regex(), record)
+    templ_results = template_scan(template_regex(), record)
 
-    print_log("Report: Template Deviation Check\n", temp_dev_log)
-    print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), temp_dev_log)
-    print_log("User: {0}\n".format(myuser), temp_dev_log)
-    print_log("Checked: {0}\n".format(get_now_time()), temp_dev_log)
+    # Check to see if a template run was even needed.
+    if templ_results[-1] != 3:
+        print_log("Report: Template Deviation Check\n", temp_dev_log)
+        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), temp_dev_log)
+        print_log("User: {0}\n".format(myuser), temp_dev_log)
+        print_log("Checked: {0}\n".format(get_now_time()), temp_dev_log)
 
-    print_log("\nMissing Configuration:\n", temp_dev_log)
-    if templ_results[-1] == 2:
-        for result in templ_results[:-1]:
-            print_log("\t> {0}\n".format(result), temp_dev_log)
-        templ_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-    elif templ_results[-1] == 1:
-        print_log("\t* Template Matches *\n", temp_dev_log)
-    elif templ_results[-1] == 0:
-        print_log("\t* {0} *\n".format(templ_results[0]), temp_dev_log)
-        message = "Issue in template scanner function."
-        contentList = [record['ip'], message, templ_results[0], get_now_time()]
-        ops_error_list.append(dict(zip(error_key_list, contentList)))
-        templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+        # Run this if we have missing configuration components reported
+        if templ_results[-1] == 2:
+            print_log("\nMissing Configuration:\n", temp_dev_log)
+            for result in templ_results[:-1]:
+                print_log("\t> {0}\n".format(result), temp_dev_log)
+            templ_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+        # Run this if we have not found any missing configuration
+        elif templ_results[-1] == 1:
+            print_log("\t* Template Matches *\n", temp_dev_log)
+        # Run this if an error was reported
+        elif templ_results[-1] == 0:
+            print_log("\t* Template Error: {0} *\n".format(templ_results[0]), temp_dev_log)
+            message = "Error when running template function."
+            contentList = [record['ip'], message, templ_results[0], get_now_time()]
+            ops_error_list.append(dict(zip(error_key_list, contentList)))
+            templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
     return templ_results[-1]
 
-def template_scanner(regtmpl_list, record):
-    """ Purpose: Compares a regex list against a config list.
+def template_scan(regtmpl_list, record):
+    """ Purpose: Make sure a new template is needed. If it is, create deviation log, and return results.
 
     :param regtmpl_list:    -   List of template set commands with regex
     :param record:          -   A dictionary containing device attributes
     :return results:        -   A list containing results of scan.
     """
-    # Template Results: 0 = Error, 1 = No Changes, 2 = Changes
-    results = []
-    returncode = 1
-    config_list = load_config_file_list(record['ip'], newest=True)
-
-    regex_map = csv_to_dict_twoterm(template_csv, ";")
-
-    nomatch = True
-    # Attempt to check this config against the template
-    if config_list:
-        for regline in regtmpl_list:
-            #print "Using Regline: {0}".format(regline)
-            matched = False
-            if regline != "":
-                #print "RegLine: {0}".format(regline)
-                for compline in config_list:
-                    compline.replace('\n', '').replace('\r', '')
-                    if compline != "":
-                        if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
-                            #print "CompLine: {0}".format(compline)
-                            if re.search(regline, compline):
-                                matched = True
-                                break
-                        else:
-                            record.update({'last_temp_check': get_now_time()})
-                            stdout.write("\n\t\tTemplate Check: ERROR: Unexpected string format")
-                            results.append(compline)
-                            returncode = 0
-                            return results
-                if not matched:
-                    #print "NO MATCH FOR: {0}".format(regline)
-                    nice_output = ""
-                    nomatch = False
-                    first_pass = True
-                    for key, value in regex_map.iteritems():
-                        if value in regline:
-                            if first_pass:
-                                nice_output = regline
-                            #print "Key: {0} | Value: {1}".format(key, value)
-                            nice_output = nice_output.replace(value, key)
-                            #print "NEW OUTPUT: {0}".format(nice_output)
-                            first_pass = False
-                    if first_pass:
-                        results.append(regline)
-                    else:
-                        results.append(nice_output)
-
-    # If check is successful...
-        record.update({'last_temp_check': get_now_time()})
-        if nomatch:
-            stdout.write("\n\t\tTemplate Check: No discrepancies detected")
-            returncode = 1
+    # Template Results: 0 = Error, 1 = No Changes, 2 = Changes, 3 = No Template Needed
+    newest_config_file = get_config_filename(record['hostname'], record['hostname'], newest=True)
+    if newest_config_file:
+        config_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_config_file)
+        newest_template_file = get_config_filename(record['hostname'], 'Template_Deviation', newest=True)
+        if newest_template_file:
+            template_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_template_file)
+            c_time = datetime.strptime(config_time_obj.group[0], "%Y-%m-%d_%H%M")
+            t_time = datetime.strptime(template_time_obj.group[0], "%Y-%m-%d_%H%M")
+            difference = t_time - c_time
+            # The difference between the current configuration and current template warrants a new template
+            if difference.minutes > 2:
+                results = template_results(record, regtmpl_list)
+                return results
+            # The template file is current for the latest config file available, skip template function
+            else:
+                record.update({'last_temp_check': get_now_time()})
+                message = "Template Check: Latest Template Already Created"
+                stdout.write(message)
+                results.append(message)
+                returncode = 3
+        # There is no template file, but there is a config file, try to compare and create a template
         else:
-            stdout.write("\n\t\tTemplate Check: Descrepancies were detected")
-            returncode = 2
-    # Execute this if the config file is empty
+            results = template_results(record, regtmpl_list)
+            return results
+    # No config file, skip template function
     else:
         record.update({'last_temp_check': get_now_time()})
-        message = "Template Check: ERROR: Problem loading configuation"
+        message = "Template Check: ERROR: No valid configuration available"
         stdout.write(message)
         results.append(message)
         returncode = 0
 
     results.append(returncode)
+    return results
+
+def template_results(record, regtmpl_list):
+    """ Purpose: Run the template against the record
+
+    :param record:          -   A dictionary containing device attributes
+    :return results:        -   A list containing results of scan.
+    """
+    # Template Results: 0 = Error, 1 = No Changes, 2 = Changes
+    nomatch = True
+    results = []
+    returncode = 1
+
+    config_list = get_config_list(record['hostname'], newest=True)
+    regex_map = csv_to_dict_twoterm(template_csv, ";")
+    for regline in regtmpl_list:
+        # print "Using Regline: {0}".format(regline)
+        matched = False
+        if regline != "":
+            # print "RegLine: {0}".format(regline)
+            for compline in config_list:
+                compline.replace('\n', '').replace('\r', '')
+                if compline != "":
+                    if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
+                        # print "CompLine: {0}".format(compline)
+                        if re.search(regline, compline):
+                            matched = True
+                            break
+                    else:
+                        record.update({'last_temp_check': get_now_time()})
+                        stdout.write("\n\t\tTemplate Check: ERROR: Unexpected string format")
+                        results.append(compline)
+                        returncode = 0
+                        results.append(returncode)
+                        return results
+            if not matched:
+                # print "NO MATCH FOR: {0}".format(regline)
+                nice_output = ""
+                nomatch = False
+                first_pass = True
+                for key, value in regex_map.iteritems():
+                    if value in regline:
+                        if first_pass:
+                            nice_output = regline
+                        # print "Key: {0} | Value: {1}".format(key, value)
+                        nice_output = nice_output.replace(value, key)
+                        # print "NEW OUTPUT: {0}".format(nice_output)
+                        first_pass = False
+                if first_pass:
+                    results.append(regline)
+                else:
+                    results.append(nice_output)
+
+                    # If check is successful...
+    record.update({'last_temp_check': get_now_time()})
+    if nomatch:
+        stdout.write("\n\t\tTemplate Check: No discrepancies detected")
+        returncode = 1
+    else:
+        stdout.write("\n\t\tTemplate Check: Descrepancies were detected")
+        returncode = 2
+
+    # Return the results
     return results
 
 def template_regex():
@@ -1725,7 +1754,7 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
     :return: None
     """
     directory_check(record)
-    device_dir = os.path.join(config_dir, getSiteCode(record), record['hostname'])
+    device_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
 
     '''
     # Create logs for capturing info
