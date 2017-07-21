@@ -3,7 +3,7 @@ __version__ = "0.2.0"
 __email__ = "tjordan@juniper.net"
 
 # ------------------------------------------------------------------------------------------------------------------- #
-# Main Database Attributes:
+# Main JSON Database Attributes:
 # ip ................. Management IP Address (address to connect to device)
 # inet_intf .......... List of dictionaries containing
 #   - interface ...... Logical Interface
