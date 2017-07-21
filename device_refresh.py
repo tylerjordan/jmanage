@@ -195,11 +195,14 @@ def get_config_filename(hostname, startwith, newest):
         :param newest:      -   True/False (True means newest, false means oldest file)
         :return:            -   A string containing the file with complete path. False   
     """
+    #print "vars: {0}|{1}|{2}".format(hostname, startwith, newest)
     filtered_list = []
     # Create the appropriate absolute path for the config file
     my_dir = os.path.join(config_dir, getSiteCode(hostname), hostname)
+    #print "MyDir: {0}".format(my_dir)
     if os.path.exists(my_dir):
         for file in listdir(my_dir):
+            #print "File: {0}".format(file)
             if file.startswith(startwith):
                 filtered_list.append(os.path.join(my_dir, file))
         try:
@@ -288,7 +291,7 @@ def get_file_number(searchdir, matchstring):
     """
     file_num = 0
     for file in listdir(searchdir):
-        if file.contains(matchstring):
+        if matchstring in file:
             file_num += 1
     return file_num
 
@@ -1321,12 +1324,12 @@ def template_check(record, temp_dev_log):
     # Check if template option was specified
     # Template Results: 0 = Error, 1 = No Deviations, 2 = Deviations, 3 = No New Template Needed
     # Delete existing template file(s)
-    remove_template_file(record['hostname'])
 
     # Run template check
     templ_results = template_scan(template_regex(), record)
 
     # Check to see if a template run was even needed.
+    #print "Result Code: {0}".format(templ_results[-1])
     if templ_results[-1] != 3:
         print_log("Report: Template Deviation Check\n", temp_dev_log)
         print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), temp_dev_log)
@@ -1359,18 +1362,27 @@ def template_scan(regtmpl_list, record):
     :param record:          -   A dictionary containing device attributes
     :return results:        -   A list containing results of scan.
     """
+    results = []
+
     # Template Results: 0 = Error, 1 = No Changes, 2 = Changes, 3 = No Template Needed
     newest_config_file = get_config_filename(record['hostname'], record['hostname'], newest=True)
     if newest_config_file:
         config_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_config_file)
+        #print "Config Time: {0}".format(config_time_obj.group(0))
         newest_template_file = get_config_filename(record['hostname'], 'Template_Deviation', newest=True)
+        #print "Template File: {0}".format(newest_template_file)
         if newest_template_file:
             template_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_template_file)
-            c_time = datetime.strptime(config_time_obj.group[0], "%Y-%m-%d_%H%M")
-            t_time = datetime.strptime(template_time_obj.group[0], "%Y-%m-%d_%H%M")
-            difference = t_time - c_time
+            #print "Template Time: {0}".format(template_time_obj.group(0))
+            c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
+            t_time = datetime.datetime.strptime(template_time_obj.group(0), "%Y-%m-%d_%H%M")
+            daysDiff = (t_time - c_time).days
+            minsDiff = daysDiff * 24 * 60
             # The difference between the current configuration and current template warrants a new template
-            if difference.minutes > 2:
+            # Checks if there is less than 2 mins between
+            #print "Difference: {0}".format(minsDiff)
+            if minsDiff < 2:
+                remove_template_file(record['hostname'])
                 results = template_results(record, regtmpl_list)
                 return results
             # The template file is current for the latest config file available, skip template function
@@ -1382,6 +1394,7 @@ def template_scan(regtmpl_list, record):
                 returncode = 3
         # There is no template file, but there is a config file, try to compare and create a template
         else:
+            remove_template_file(record['hostname'])
             results = template_results(record, regtmpl_list)
             return results
     # No config file, skip template function
@@ -1456,6 +1469,7 @@ def template_results(record, regtmpl_list):
         returncode = 2
 
     # Return the results
+    results.append(returncode)
     return results
 
 def template_regex():
