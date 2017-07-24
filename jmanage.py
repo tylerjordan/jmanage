@@ -205,6 +205,7 @@ def show_devices(list_dict):
                    device['last_access'], device['last_config_change'], device['last_param_change'],
                    device['last_inet_change'], device['add_date']])
     print t
+    print "Device Total: {0}".format(len(list_dict))
 
 def delete_menu():
     """ Purpose: Menu for selecting a record to delete.
