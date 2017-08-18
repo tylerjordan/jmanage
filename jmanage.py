@@ -15,6 +15,7 @@ from utility import *
 from ncclient import manager  # https://github.com/ncclient/ncclient
 from ncclient.transport import errors
 from prettytable import PrettyTable
+from pprint import pprint
 from os import path
 from operator import itemgetter
 
@@ -288,9 +289,23 @@ def display_device_info(search_str):
             print t
             #pp = pprint.PrettyPrinter(indent=4)
             #pp.pprint(myrecord)
-            return True
         else:
             print "\n- Inet Interface Info not available -\n"
+
+        # Display all the facts
+        dev = Device(host=myrecord['ip'], passwd=mypwd, user=myuser)
+        try:
+            dev.open()
+        except Exception as err:
+            print "Error connecting using PyEZ: {0}".format(err)
+        else:
+            print "Connection Opened to {0}".format(myrecord['ip'])
+            pprint( dev.facts )
+            print "HOSTNAME: {0}".format(dev.facts["hostname"])
+            print "VC MODE: {0}".format(dev.facts["vc_mode"])
+            dev.close()
+        return True
+
     else:
         print "No record found for:{0}".format(search_str)
         return False
