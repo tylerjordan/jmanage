@@ -300,8 +300,11 @@ def display_device_info(search_str):
             print "Error connecting using PyEZ: {0}".format(err)
         else:
             print "Connection Opened to {0}".format(myrecord['ip'])
-            pprint( dev.facts )
             print "HOSTNAME: {0}".format(dev.facts["hostname"])
+            if dev.facts["junos_info"]["fpc1"]:
+                print "VC: This is a real VC"
+            else:
+                print "VC: This is NOT a VC"
             print "VC MODE: {0}".format(dev.facts["vc_mode"])
             dev.close()
         return True
