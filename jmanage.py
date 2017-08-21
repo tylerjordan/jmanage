@@ -301,11 +301,12 @@ def display_device_info(search_str):
         else:
             print "Connection Opened to {0}".format(myrecord['ip'])
             print "HOSTNAME: {0}".format(dev.facts["hostname"])
-            if dev.facts["junos_info"]["fpc1"]:
+            if 'fpc1' in dev.facts['junos_info']:
                 print "VC: This is a real VC"
             else:
                 print "VC: This is NOT a VC"
             print "VC MODE: {0}".format(dev.facts["vc_mode"])
+            pprint( dev.facts )
             dev.close()
         return True
 
