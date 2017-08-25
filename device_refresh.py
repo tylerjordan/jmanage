@@ -1422,16 +1422,18 @@ def template_results(record, regtmpl_list):
     config_list = get_config_list(record['hostname'], newest=True)
     regex_map = csv_to_dict_twoterm(template_csv, ";")
     for regline in regtmpl_list:
-        # print "Using Regline: {0}".format(regline)
+        #print "Using Regline: {0}".format(regline)
         matched = False
         if regline != "":
-            # print "RegLine: {0}".format(regline)
+            #print "\nRegLine: {0}".format(regline)
             for compline in config_list:
                 compline.replace('\n', '').replace('\r', '')
                 if compline != "":
                     if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
-                        # print "CompLine: {0}".format(compline)
+                        #print "CompLine: {0}".format(compline)
                         if re.search(regline, compline):
+                            #print "\tMatch RegLine: {0}".format(regline)
+                            #print "\tMatch CompLine: {0}".format(compline)
                             matched = True
                             break
                     else:
@@ -1727,7 +1729,6 @@ def check_loop(subsetlist):
     print "\nDevice Processsing Begins: {0}".format(get_now_time())
     print "=" * 80
     if subsetlist:
-
         ipv4_regex = r'^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])$'
         if re.match(ipv4_regex, subsetlist):
             total_num = len(subsetlist)
