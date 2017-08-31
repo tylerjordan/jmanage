@@ -504,7 +504,7 @@ def get_vc_fact(dev):
     # Return T/F if this is a virutal chassis
     junos_info = 'False'
     capt_info = dev.facts['junos_info']
-    if myinfo is None:
+    if capt_info is None:
         if 'fpc1' or 'fpc2' in capt_info:
             junos_info = 'True'
     else:

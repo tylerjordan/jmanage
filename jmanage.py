@@ -199,10 +199,10 @@ def show_devices(list_dict):
     """ Purpose: Display a table showing devices with general facts.
         Returns: Nothing
     """
-    t = PrettyTable(['Management IP', 'Hostname', 'Model', 'Current Code', 'Serial Number', 'Last Access',
+    t = PrettyTable(['Management IP', 'Hostname', 'Model', 'VC', 'Current Code', 'Serial Number', 'Last Access',
                      'Last Config Change', 'Last Parameter Change', 'Last Inet Change', 'Last Temp Check', 'Add Date'])
     for device in list_dict:
-        t.add_row([device['ip'], device['hostname'], device['model'], device['version'], device['serialnumber'],
+        t.add_row([device['ip'], device['hostname'], device['model'], device['vc'], device['version'], device['serialnumber'],
                    device['last_access'], device['last_config_change'], device['last_param_change'],
                    device['last_inet_change'], device['last_temp_check'], device['add_date']])
     print t
@@ -271,6 +271,7 @@ def display_device_info(search_str):
         print "Hostname.............{0}".format(myrecord['hostname'])
         print "Management IP........{0}".format(myrecord['ip'])
         print "Model................{0}".format(myrecord['model'])
+        print "VC...................{0}".format(myrecord['vc'])
         print "Version..............{0}".format(myrecord['version'])
         print "S/N..................{0}".format(myrecord['serialnumber'])
         print "Last Access..........{0}".format(myrecord['last_access'])
@@ -293,6 +294,7 @@ def display_device_info(search_str):
             print "\n- Inet Interface Info not available -\n"
 
         # Display all the facts
+        """
         dev = Device(host=myrecord['ip'], passwd=mypwd, user=myuser)
         try:
             dev.open()
@@ -308,6 +310,7 @@ def display_device_info(search_str):
             print "VC MODE: {0}".format(dev.facts["vc_mode"])
             pprint( dev.facts )
             dev.close()
+        """
         return True
 
     else:
