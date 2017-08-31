@@ -500,6 +500,17 @@ def sort_and_save():
         print "No changes to Run Change Log"
     '''
 
+def get_vc_fact(dev):
+    # Return T/F if this is a virutal chassis
+    junos_info = 'False'
+    capt_info = dev.facts['junos_info']
+    if myinfo is None:
+        if 'fpc1' or 'fpc2' in capt_info:
+            junos_info = 'True'
+    else:
+        print "Returned NONE on junos_info term!"
+    return junos_info
+
 # -----------------------------------------------------------------
 # CONNECTIONS
 # -----------------------------------------------------------------
@@ -861,6 +872,8 @@ def check_params(record, dev):
         else:
             #print "No Key Match!"
             remoteDict[key] = "UNDEFINED"
+    # Try to collect this VC info
+    remoteDict['vc'] = get_vc_fact(dev)
 
     # If info was collected...
     if remoteDict:
@@ -887,6 +900,14 @@ def check_params(record, dev):
                         change_record(record['ip'], remoteDict[item].upper(), key=item)
                         returncode = 2
                         # print "Changed!"
+            # Check if VC has changed
+            if not record['vc'] == remoteDict['vc']:
+                message = "VC changed from " + record['vc'] + " to " + remoteDict['vc']
+                stdout.write("\n\t\tParameter Check: " + message)
+                results.append(message)
+                change_record(record['ip'], remoteDict['vc'], key='vc')
+                returncode = 2
+                # print "Changed!"
         else:
             message = "Unable to collect parameters from database."
             stdout.write("\n\t\tParameter Check: ERROR: " + message)
@@ -1553,6 +1574,7 @@ def add_record(ip, dev):
     mydict = {}
     # Try to gather facts from device
     try:
+        # Try to capture general device parameters
         for key in facts_list:
             temp = dev.facts[key]
             if temp is None:
@@ -1563,6 +1585,8 @@ def add_record(ip, dev):
                 #mydict[key]
             else:
                 mydict[key] = temp.upper()
+        # Get VC status
+        mydict['vc'] = get_vc_fact(dev)
     except Exception as err:
         message = "Add Failed - Error accessing facts on device. ERROR:{0}".format(err)
         contentList = [ip, message, get_now_time()]
@@ -1592,6 +1616,7 @@ def add_record(ip, dev):
         mydict['last_param_change'] = now
         mydict['last_param_check'] = now
         mydict['last_temp_check'] = "UNDEFINED"
+
 
         # Add entire record to database
         mydict['add_date'] = now
@@ -1771,25 +1796,6 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
     directory_check(record)
     device_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
 
-    '''
-    # Create logs for capturing info
-    
-    if addl_opt == "config" or "param" or "inet" or "all":
-        chg_log_name = "Change_Log|" + now + "|.log"
-        chg_log = os.path.join(log_dir, chg_log_name)
-    
-    if addl_opt == "config" or addl_opt == "all":
-        conf_chg_name = "Config_Change_" + now + ".log"
-        conf_chg_log = os.path.join(device_dir, conf_chg_name)
-    
-    if addl_opt == "param" or addl_opt == "all":
-        param_chg_name = "Param_Change_" + now + ".log"
-        param_chg_log = os.path.join(device_dir, param_chg_name)
-
-    if addl_opt == "inet" or addl_opt == "all":
-        inet_chg_name = "Inet_Change_" + now + ".log"
-        inet_chg_log = os.path.join(device_dir, inet_chg_name)
-    '''
     now = get_now_time()
     if addl_opt == "template" or addl_opt == "all":
         temp_dev_name = "Template_Deviation_" + now + ".log"

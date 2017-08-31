@@ -200,11 +200,11 @@ def show_devices(list_dict):
         Returns: Nothing
     """
     t = PrettyTable(['Management IP', 'Hostname', 'Model', 'Current Code', 'Serial Number', 'Last Access',
-                     'Last Config Change', 'Last Parameter Change', 'Last Inet Change', 'Add Date'])
+                     'Last Config Change', 'Last Parameter Change', 'Last Inet Change', 'Last Temp Check', 'Add Date'])
     for device in list_dict:
         t.add_row([device['ip'], device['hostname'], device['model'], device['version'], device['serialnumber'],
                    device['last_access'], device['last_config_change'], device['last_param_change'],
-                   device['last_inet_change'], device['add_date']])
+                   device['last_inet_change'], device['last_temp_check'], device['add_date']])
     print t
     print "Device Total: {0}".format(len(list_dict))
 
