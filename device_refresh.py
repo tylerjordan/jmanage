@@ -503,12 +503,10 @@ def sort_and_save():
 def get_vc_fact(dev):
     # Return T/F if this is a virutal chassis
     junos_info = 'False'
-    capt_info = dev.facts['junos_info']
-    if capt_info is None:
-        if 'fpc1' or 'fpc2' in capt_info:
+    capt_info = str(dev.facts['junos_info'])
+    #print "JUNOS_INFO: {0}".format(capt_info)
+    if capt_info.count('fpc') > 1:
             junos_info = 'True'
-    else:
-        print "Returned NONE on junos_info term!"
     return junos_info
 
 # -----------------------------------------------------------------
@@ -874,6 +872,7 @@ def check_params(record, dev):
             remoteDict[key] = "UNDEFINED"
     # Try to collect this VC info
     remoteDict['vc'] = get_vc_fact(dev)
+    #print "RemoteDict VC Value: {0}".format(remoteDict['vc'])
 
     # If info was collected...
     if remoteDict:
@@ -901,13 +900,21 @@ def check_params(record, dev):
                         returncode = 2
                         # print "Changed!"
             # Check if VC has changed
-            if not record['vc'] == remoteDict['vc']:
-                message = "VC changed from " + record['vc'] + " to " + remoteDict['vc']
-                stdout.write("\n\t\tParameter Check: " + message)
-                results.append(message)
-                change_record(record['ip'], remoteDict['vc'], key='vc')
-                returncode = 2
-                # print "Changed!"
+            if 'vc' in remoteDict:
+                if 'vc' in record:
+                    if not record['vc'] == remoteDict['vc']:
+                        message = "VC changed from " + record['vc'] + " to " + remoteDict['vc']
+                        stdout.write("\n\t\tParameter Check: " + message)
+                        results.append(message)
+                        change_record(record['ip'], remoteDict['vc'], key='vc')
+                        returncode = 2
+                else:
+                    message = "VC changed from NONE to " + remoteDict['vc']
+                    stdout.write("\n\t\tParameter Check: " + message)
+                    results.append(message)
+                    change_record(record['ip'], remoteDict['vc'], key='vc')
+                    returncode = 2
+
         else:
             message = "Unable to collect parameters from database."
             stdout.write("\n\t\tParameter Check: ERROR: " + message)
@@ -1847,7 +1854,7 @@ def main(argv):
             -c    -  (Required) The CSV file containing credentials to be used to access devices.
             -s    -  (Optional) The TEXT file that contains a list of device IPs to scan.
             -o    -  (Optional) Run one of the following options.
-                        - "configs" will run the Param and Config Check Function
+                        - "config" will run the Param and Config Check Function
                         - "template" will run the Template Scan Function of existing devices
                         - "all" will run both of the above functions
             -i    -  (Optional) A TEXT file containing a list of ip addresses to add to the database.
@@ -1870,7 +1877,8 @@ def main(argv):
             print '  -s : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IP addresses to scan.'
             print '  -i : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the database.'
             print '  -o : (OPTIONAL) Allows various options, provide one of the following three arguments:'
-            print '      - "configs"  : Performs the parameter and configuration checks.'
+            print '      - "config"   : Performs the configuration check.'
+            print '      - "param"    : Performs the parameter check.'
             print '      - "template" : Performs the template scan.'
             print '      - "all"      : Performs all the above checks.'
             sys.exit()
