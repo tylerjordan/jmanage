@@ -39,7 +39,7 @@ myuser = ''
 port = 22
 
 # Key Lists
-dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
+dbase_order = [ 'hostname', 'ip', 'vc', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
                 'last_config_change', 'last_param_check', 'last_param_change', 'last_inet_check', 'last_inet_change',
                 'last_temp_check', 'add_date']
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
@@ -158,7 +158,7 @@ def search_dict_multi(search_dict):
     for d in listDict:
         bad_match = False
         for s_key, s_val in search_dict.iteritems():
-            #print "Key: {0} | Search Val: {1} | DB Val: {2} ".format(s_key, s_val, d[s_key])
+            print "Key: {0} | Search Val: {1} | DB Val: {2} ".format(s_key, s_val, d[s_key])
             if s_val.upper() not in d[s_key]:
                 bad_match = True
         if not bad_match:
@@ -202,9 +202,13 @@ def show_devices(list_dict):
     t = PrettyTable(['Management IP', 'Hostname', 'Model', 'VC', 'Current Code', 'Serial Number', 'Last Access',
                      'Last Config Change', 'Last Parameter Change', 'Last Inet Change', 'Last Temp Check', 'Add Date'])
     for device in list_dict:
-        t.add_row([device['ip'], device['hostname'], device['model'], device['vc'], device['version'], device['serialnumber'],
-                   device['last_access'], device['last_config_change'], device['last_param_change'],
-                   device['last_inet_change'], device['last_temp_check'], device['add_date']])
+        #print device
+        if 'vc' not in device:
+            stdout.write("\nDevice: {0} -> ".format(device['ip']))
+        t.add_row([device['ip'], device['hostname'], device['model'], device['vc'], device['version'],
+                   device['serialnumber'], device['last_access'], device['last_config_change'],
+                   device['last_param_change'], device['last_inet_change'], device['last_temp_check'],
+                   device['add_date']])
     print t
     print "Device Total: {0}".format(len(list_dict))
 

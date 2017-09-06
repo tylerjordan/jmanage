@@ -902,17 +902,17 @@ def check_params(record, dev):
             # Check if VC has changed
             if 'vc' in remoteDict:
                 if 'vc' in record:
-                    if not record['vc'] == remoteDict['vc']:
+                    if not record['vc'].upper() == remoteDict['vc'].upper():
                         message = "VC changed from " + record['vc'] + " to " + remoteDict['vc']
                         stdout.write("\n\t\tParameter Check: " + message)
                         results.append(message)
-                        change_record(record['ip'], remoteDict['vc'], key='vc')
+                        change_record(record['ip'], remoteDict['vc'].upper(), key='vc')
                         returncode = 2
                 else:
-                    message = "VC changed from NONE to " + remoteDict['vc']
+                    message = "VC changed from NONE to " + remoteDict['vc'].upper()
                     stdout.write("\n\t\tParameter Check: " + message)
                     results.append(message)
-                    change_record(record['ip'], remoteDict['vc'], key='vc')
+                    change_record(record['ip'], remoteDict['vc'].upper(), key='vc')
                     returncode = 2
 
         else:
@@ -1592,8 +1592,6 @@ def add_record(ip, dev):
                 #mydict[key]
             else:
                 mydict[key] = temp.upper()
-        # Get VC status
-        mydict['vc'] = get_vc_fact(dev)
     except Exception as err:
         message = "Add Failed - Error accessing facts on device. ERROR:{0}".format(err)
         contentList = [ip, message, get_now_time()]
@@ -1617,13 +1615,16 @@ def add_record(ip, dev):
             mydict['ip'] = ip
             mydict['last_inet_change'] = "UNDEFINED"
 
+        # Get VC status
+        mydict['vc'] = get_vc_fact(dev).upper()
+
+        # Set other timestamp params
         mydict['last_config_check'] = "UNDEFINED"
         mydict['last_config_change'] = "UNDEFINED"
         mydict['last_access'] = now
         mydict['last_param_change'] = now
         mydict['last_param_check'] = now
         mydict['last_temp_check'] = "UNDEFINED"
-
 
         # Add entire record to database
         mydict['add_date'] = now
@@ -1773,6 +1774,12 @@ def check_loop(subsetlist):
             total_num = len(temp_list)
             # Loop through IPs in the provided list
             for ip in temp_list:
+                record = get_record(listDict, ip)
+                # Check if record has "VC", if it doesn't, add it.
+                if 'vc' not in record:
+                    stdout.write("\nVC not detected - ")
+                    change_record(record['ip'], 'False', 'vc')
+                    stdout.write("Record Changed!\n")
                 curr_num += 1
                 # Checks if the specified IP is NOT defined in the list of dictionaries.
                 if not any(ipaddr.get('ip', None) == ip for ipaddr in listDict):
@@ -1781,11 +1788,16 @@ def check_loop(subsetlist):
                     add_new_device(ip, total_num, curr_num)
                 # If the IP IS present, execute this...
                 else:
-                    check_main(get_record(listDict, ip), chg_log, total_num, curr_num)
+                    check_main(record, chg_log, total_num, curr_num)
     # Check the entire database
     else:
         total_num = len(listDict)
         for record in listDict:
+            # Check if record has "VC", if it doesn't, add it.
+            if record['vc'] != 'TRUE' or record['vc'] != 'FALSE':
+                stdout.write("\nVC not Upper -> ")
+                change_record(record['ip'], record['vc'].upper(), 'vc')
+                stdout.write("Record Changed!")
             curr_num += 1
             check_main(record, chg_log, total_num, curr_num)
     # End of processing
