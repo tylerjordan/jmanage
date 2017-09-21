@@ -158,7 +158,7 @@ def search_dict_multi(search_dict):
     for d in listDict:
         bad_match = False
         for s_key, s_val in search_dict.iteritems():
-            print "Key: {0} | Search Val: {1} | DB Val: {2} ".format(s_key, s_val, d[s_key])
+            #print "Key: {0} | Search Val: {1} | DB Val: {2} ".format(s_key, s_val, d[s_key])
             if s_val.upper() not in d[s_key]:
                 bad_match = True
         if not bad_match:
