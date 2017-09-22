@@ -6,10 +6,11 @@ import datetime
 import platform
 import json
 import os
+import netaddr
+import jxmlease
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
-from netaddr import *
 from utility import *
 
 from ncclient import manager  # https://github.com/ncclient/ncclient
@@ -18,6 +19,7 @@ from prettytable import PrettyTable
 from pprint import pprint
 from os import path
 from operator import itemgetter
+from netaddr import IPAddress, IPNetwork
 
 # Paths
 iplist_dir = ''
@@ -81,74 +83,6 @@ def detect_env():
     template_csv = os.path.join(dir_path, template_dir, "Template_Regex.csv")
     template_file = os.path.join(dir_path, template_dir, "Template.conf")
 
-def information(connection, ip, software_info, hostname):
-    """ Purpose: This is the function called when using -info. It is grabs the model, running version, 
-    and serial number of the device.
-
-    :param connection:      -   This is the ncclient manager connection to the remote device.
-    :param ip:              -   String containing the IP of the remote device, used for logging purposes.
-    :param software_info:   -   A "show version" aka "get-software-information".
-    :param hostname:        -   The device host-name for output purposes.
-    :return:                -   Dictionary of requested output
-    """
-    try:
-        model = software_info.xpath('//software-information/product-model')[0].text
-        version = (
-        software_info.xpath('//software-information/package-information/comment')[0].text.split('[')[1].split(']')[0])
-        chassis_inventory = connection.get_chassis_inventory(format='xml')
-        serialnumber = chassis_inventory.xpath('//chassis-inventory/chassis/serial-number')[0].text
-        return {'hostname': hostname, 'ip': ip, 'model': model, 'version': version, 'serialnumber': serialnumber}
-    except Exception as err:
-        # print '\t- ERROR: Device was reachable, the information was not found.'
-        message = "Device was reachable, but unable to gather system information."
-        contentList = [ip, message, str(err), get_now_time()]
-        ops_error_list.append(dict(zip(error_key_list, contentList)))
-        return False
-
-def run(ip, username, password, port):
-    """ Purpose: To open an NCClient manager session to the device, and run the appropriate function against the device.
-
-    :param ip:          -   String of the IP of the device, to open the connection, and for logging purposes.
-    :param username:    -   String username used to connect to the device.
-    :param password:    -   String password used to connect to the device.
-    :param port:        -   Integer port number of SSH (830)
-    :return output:     -   Returns device parameters
-    """
-    try:
-        connection = manager.connect(host=ip,
-                                     port=port,
-                                     username=username,
-                                     password=password,
-                                     timeout=15,
-                                     device_params={'name': 'junos'},
-                                     hostkey_verify=False)
-        connection.timeout = 300
-    except Exception as err:
-        print '\t- ERROR: Unable to connect using NCCLIENT. ERROR: {0}'.format(err)
-        message = "Unable to connect using NCCLIENT."
-        contentList = [ip, message, str(err), get_now_time()]
-        access_error_list.append(dict(zip(error_key_list, contentList)))
-        return False
-    else:
-        try:
-            software_info = connection.get_software_information(format='xml')
-        except Exception as err:
-            message = "Unable to get software information."
-            contentList = [ip, message, str(err).strip('\b\r\n'), get_now_time()]
-            ops_error_list.append(dict(zip(error_key_list, contentList)))
-            return False
-        # Collect information from device
-        hostname = software_info.xpath('//software-information/host-name')[0].text
-        output = information(connection, ip, software_info, hostname)
-
-        # Close the session
-        connection.close_session()
-
-        # Determine what to return
-        if not output:
-            return False
-        return output
-
 def search_dict_multi(search_dict):
     """ Purpose: Searches the main record dictionary based on defined criteria.
         Returns: A filtered list dictionary of records
@@ -195,8 +129,41 @@ def search_menu():
     print "Displaying Sorted Table:"
     show_devices(sorted(filtered_list_dict, key=itemgetter(search_sort_on), reverse=sort_type))
 
+def ip_search_menu(list_dict):
+    """ 
+        Purpose: Identifies exact location of a single IP address
+        Returns: Nothing
+    """
+    user_input = getInputAnswer("What IP would you like to locate")
+    if netaddr.valid_ipv4(user_input):
+        print "{0} is a valid IP!".format(user_input)
+        for device in list_dict:
+            print "Checking {0}...".format(device['ip'])
+            if 'inet_intf' in device:
+                for my_intf in device['inet_intf']:
+                    if IPAddress(user_input) in IPNetwork(my_intf['ipaddr'] + '/' + my_intf['ipmask']):
+                        print "\tFound possible match!"
+                        print "\tIP:{0}".format(user_input)
+                        print "\tNetwork:{0}".format(my_intf['ipaddr'] + '/' + my_intf['ipmask'])
+                        # Connect to device
+                        dev = Device(host=device['ip'], passwd=mypwd, user=myuser)
+                        try:
+                            dev.open()
+                        except Exception as err:
+                            print "Error connecting using PyEZ: {0}".format(err)
+                        else:
+                            print "Connection Opened to {0}".format(device['ip'])
+                            #response = jxmlease.parse_etree(dev.cli('show arp', format='xml'))
+                            response = jxmlease.parse_etree(dev.rpc.get_arp_table_information())
+                            print(response)
+                            exit()
+    else:
+        print "{0} is an invalid IP!".format(user_input)
+
+
 def show_devices(list_dict):
-    """ Purpose: Display a table showing devices with general facts.
+    """ 
+        Purpose: Display a table showing devices with general facts.
         Returns: Nothing
     """
     t = PrettyTable(['Management IP', 'Hostname', 'Model', 'VC', 'Current Code', 'Serial Number', 'Last Access',
@@ -340,7 +307,7 @@ if __name__ == '__main__':
         listDict = json_to_listdict(main_list_dict)
 
         # Main Program Loop
-        my_options = ['Display Database', 'Search Database', 'Display Device', 'Delete Record', 'Quit']
+        my_options = ['Display Database', 'Search Database', 'Display Device', 'IP Search', 'Delete Record', 'Quit']
         while True:
             print "\n" + "*" * 25
             print "Total Records: {0}".format(len(listDict))
@@ -365,9 +332,12 @@ if __name__ == '__main__':
                 else:
                     print "No Records in Database!"
             elif answer == "4":
+                print "Run -> IP Search"
+                ip_search_menu(listDict)
+            elif answer == "5":
                 print "Run -> Delete Record"
                 delete_menu()
-            elif answer == "5":
+            elif answer == "6":
                 print "Goodbye!"
                 quit()
             else:
