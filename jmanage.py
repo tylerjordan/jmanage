@@ -137,14 +137,15 @@ def ip_search_menu(list_dict):
     user_input = getInputAnswer("What IP would you like to locate")
     if netaddr.valid_ipv4(user_input):
         print "{0} is a valid IP!".format(user_input)
+        stdout.write("Checking Database ")
         for device in list_dict:
-            print "Checking {0}...".format(device['ip'])
+            stdout.write(".")
             if 'inet_intf' in device:
                 for my_intf in device['inet_intf']:
                     if IPAddress(user_input) in IPNetwork(my_intf['ipaddr'] + '/' + my_intf['ipmask']):
-                        print "\tFound possible match!"
-                        print "\tIP:{0}".format(user_input)
-                        print "\tNetwork:{0}".format(my_intf['ipaddr'] + '/' + my_intf['ipmask'])
+                        print "\n\tChecking Device:....{0}".format(device['ip'])
+                        print "\tQueried IP:.........{0}".format(user_input)
+                        print "\tMatched Network:....{0}".format(my_intf['ipaddr'] + '/' + my_intf['ipmask'])
                         # Connect to device
                         dev = Device(host=device['ip'], passwd=mypwd, user=myuser)
                         try:
@@ -152,11 +153,19 @@ def ip_search_menu(list_dict):
                         except Exception as err:
                             print "Error connecting using PyEZ: {0}".format(err)
                         else:
-                            print "Connection Opened to {0}".format(device['ip'])
+                            print "\tConnection Established!"
                             #response = jxmlease.parse_etree(dev.cli('show arp', format='xml'))
                             response = jxmlease.parse_etree(dev.rpc.get_arp_table_information())
-                            print(response)
-                            exit()
+                            match = False
+                            for myarp in response['arp-table-information']['arp-table-entry']:
+                                if myarp['ip-address'].encode('utf-8') == user_input:
+                                    match = True
+                                    print "\tExact Match!"
+                                    print "\t\tIP:  {0}".format(myarp['ip-address'].encode('utf-8'))
+                                    print "\t\tMAC: {0}".format(myarp['mac-address'].encode('utf-8'))
+                                    print "\t\tINT: {0}".format(myarp['interface-name'].encode('utf-8'))
+                            if not match:
+                                print "\tNo Exact Matches in this Device!"
     else:
         print "{0} is an invalid IP!".format(user_input)
 
