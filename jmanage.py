@@ -134,6 +134,8 @@ def ip_search_menu(list_dict):
         Purpose: Identifies exact location of a single IP address
         Returns: Nothing
     """
+    #lldp_response = jxmlease.parse_etree(dev.rpc.get_lldp_neighbors_information())
+
     user_input = getInputAnswer("What IP would you like to locate")
     if netaddr.valid_ipv4(user_input):
         print "{0} is a valid IP!".format(user_input)
@@ -155,20 +157,61 @@ def ip_search_menu(list_dict):
                         else:
                             print "\tConnection Established!"
                             #response = jxmlease.parse_etree(dev.cli('show arp', format='xml'))
-                            response = jxmlease.parse_etree(dev.rpc.get_arp_table_information())
+                            # Collect ARP information from the route-point for target IP
+                            arp_response = jxmlease.parse_etree(dev.rpc.get_arp_table_information())
                             match = False
-                            for myarp in response['arp-table-information']['arp-table-entry']:
+                            for myarp in arp_response['arp-table-information']['arp-table-entry']:
+                                # Loop over ARP entries and check for target IP
                                 if myarp['ip-address'].encode('utf-8') == user_input:
                                     match = True
+                                    intf_name = myarp['interface-name'].encode('utf-8')
                                     print "\tExact Match!"
                                     print "\t\tIP:  {0}".format(myarp['ip-address'].encode('utf-8'))
                                     print "\t\tMAC: {0}".format(myarp['mac-address'].encode('utf-8'))
-                                    print "\t\tINT: {0}".format(myarp['interface-name'].encode('utf-8'))
+                                    print "\t\tINT: {0}".format(intf_name)
+                                    # If the interface is a VLAN or IRB, ie. vlan.XXX, then user port is on a different switch
+                                    if 'vlan' in intf_name or 'irb' in intf_name:
+                                        intf_list = []
+                                        vlan_tag = intf_name.rsplit('.',1)[1]
+                                        print "VLAN Tag: {0}".format(vlan_tag)
+                                        vlan_response = jxmlease.parse_etree(dev.rpc.get_vlan_information())
+                                        # If the device is a NON-ELS switch (EX4550,EX4200,EX6200)
+                                        if 'vlan' in intf_name:
+                                            for myvlan in vlan_response['vlan-information']['vlan']:
+                                                if myvlan['vlan-tag'] == vlan_tag:
+                                                    for vlan_intf in myvlan['vlan-detail']['vlan-member-list']['vlan-member']:
+                                                        if "*" in vlan_intf['vlan-member-interface']:
+                                                            myintf = vlan_intf['vlan-member-interface'].encode('utf-8').rsplit('*',1)[0]
+                                                            print "VLAN INTERFACE: {0}".format(myintf)
+                                                            intf_list.append(myintf)
+                                        # If the device is an ELS switch (EX4300)
+                                        else:
+                                            for myvlan in vlan_response['l2ng-l2ald-vlan-instance-information']['l2ng-l2ald-vlan-instance-group']:
+                                                print "EX4300"
+                                        # Use LLDP info to get possible hosts
+                                        lldp_response = jxmlease.parse_etree(dev.rpc.get_lldp_neighbors_information())
+                                        poss_hosts = []
+                                        for mylldp in lldp_response['lldp-neighbors-information']['lldp-neighbor-information']:
+                                            for myintf in intf_list:
+                                                if myintf == mylldp['lldp-local-interface'].encode('utf-8') or myintf == mylldp['lldp-local-parent-interface-name'].encode('utf-8'):
+                                                    host_name = mylldp['lldp-remote-system-name'].encode('utf-8')
+                                                    if host_name not in poss_hosts:
+                                                        poss_hosts.append(host_name)
+                                                        break
+                                        print "Possible Host: {0}".format(poss_hosts)
+                                        for host_dev in list_dict:
+                                            for host_name in poss_hosts:
+                                                if host_dev['hostname'] == host_name:
+                                                    ethsw_response = jxmlease.parse_etree(dev.rpc.get_ethernet_switching_table_information())
+                                    else:
+                                        pass
                             if not match:
                                 print "\tNo Exact Matches in this Device!"
     else:
         print "{0} is an invalid IP!".format(user_input)
-
+        # response = jxmlease.parse_etree(dev.rpc.get_lldp_neighbors_information())
+        # Check lldp information for
+        # for lldpneigh in response['lldp-neighbors-information']['lldp-neighbor-information']:
 
 def show_devices(list_dict):
     """ 
