@@ -338,7 +338,7 @@ def get_record(listDict, ip='', hostname='', sn='', code=''):
         :param hostname:    -   String of the device hostname
         :parma sn:          -   String of the device chassis serial number
         :param code:        -   String of the JunOS code version
-        :return:            -   True/False
+        :returns:           -   Dictionary of device attributes
     """
     has_record = False
     # Make sure listDict has contents
