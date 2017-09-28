@@ -256,10 +256,10 @@ def ip_search_menu(list_dict):
                                         print "Connected to {0}".format(host_record['ip'])
                                         interface = find_mac_return_intf(host_dev, mac_addr)
                                         if interface:
-                                                        break
+                                            pass
                             # Otherwise, the interface is local, let's get the local interface
                             else:
-
+                                pass
                         # If no exact match is found...
                         else:
                             print "\tNo Exact Matches in this Device!"
