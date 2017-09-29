@@ -134,22 +134,24 @@ def pyez_connect(ip):
     try:
         dev.open()
     except Exception as err:
-        print "Error connecting using PyEZ: {0}".format(err)
+        stdout.write("Error connecting using PyEZ: {0}".format(err))
         return False
     else:
         return dev
 
 # Returns an interface name if MAC is found, empty string if not
-def find_mac_return_intf(dev, mymac):
+def find_mac_return_intf(dev, mac_addr, vlan_tag):
     interface = ""
-    ethsw_response = jxmlease.parse_etree(host_dev.rpc.get_ethernet_switching_table_information())
+    ethsw_response = jxmlease.parse_etree(dev.rpc.get_ethernet_switching_table_information())
     for myethtable in ethsw_response['l2ng-l2ald-rtb-macdb']['l2ng-l2ald-mac-entry-vlan']:
-        #if myethtable['l2ng-l2-vlan-id'].encode('utf-8') == vlan_tag:
-        for mymacentry in myethtable['l2ng-mac-entry']:
-            if mymacentry['l2ng-l2-mac-address'].encode('utf-8') == mac_addr:
-                print "\t\tMAC: {0}".format(mymacentry['l2ng-l2-mac-address'].encode('utf-8'))
-                print "\t\tINTF: {0}".format(mymacentry['l2ng-l2-mac-logical-interface'].encode('utf-8'))
-                return mymacentry['l2ng-l2-mac-logical-interface'].encode('utf-8')
+        if myethtable['l2ng-l2-vlan-id'].encode('utf-8') == vlan_tag:
+            for mymacentry in myethtable['l2ng-mac-entry']:
+                #print "mymacentry:{0}".format(mymacentry['l2ng-l2-mac-address'].encode('utf-8'))
+                #print "MAC:{0}".format(mac_addr)
+                if mymacentry['l2ng-l2-mac-address'].encode('utf-8') == mac_addr:
+                    #print "\t\tMAC: {0}".format(mymacentry['l2ng-l2-mac-address'].encode('utf-8'))
+                    #print "\t\tINTF: {0}".format(mymacentry['l2ng-l2-mac-logical-interface'].encode('utf-8'))
+                    return mymacentry['l2ng-l2-mac-logical-interface'].encode('utf-8')
     return interface
 
 def ip_search_menu(list_dict):
@@ -161,18 +163,21 @@ def ip_search_menu(list_dict):
 
     user_input = getInputAnswer("What IP would you like to locate")
     if netaddr.valid_ipv4(user_input):
-        print "{0} is a valid IP!".format(user_input)
-        stdout.write("Checking Database ")
+        #print "{0} is a valid IP!".format(user_input)
+        #stdout.write("Checking Database For Network...")
+        match_found = False
+        print "Looking for ... {0}".format(user_input)
         for device in list_dict:
-            stdout.write(".")
             is_target = False
+            #stdout.write("_")
             if 'inet_intf' in device:
                 # Loop over route points on this device, checking for matching network
                 for my_intf in device['inet_intf']:
                     if IPAddress(user_input) in IPNetwork(my_intf['ipaddr'] + '/' + my_intf['ipmask']):
-                        print "\n\tChecking Device:....{0}".format(device['ip'])
-                        print "\tQuery IP:.........{0}".format(user_input)
-                        print "\tMatched Network:....{0}".format(my_intf['ipaddr'] + '/' + my_intf['ipmask'])
+                        print "\nFound Possible Match:"
+                        print "\tDevice: ............ {0} ({1})".format(device['hostname'], device['ip'])
+                        print "\tTarget IP: ......... {0}".format(user_input)
+                        print "\tMatched IP: ........ {0}".format(my_intf['ipaddr'] + '/' + my_intf['ipmask'])
                         is_target = True
                         # Break out of this loop
                         break
@@ -182,6 +187,7 @@ def ip_search_menu(list_dict):
                     dev = pyez_connect(device['ip'])
                     # If I can connect to the device...
                     if dev:
+
                         # Device Variables
                         mac_addr = ''
                         intf_name = ''
@@ -195,10 +201,10 @@ def ip_search_menu(list_dict):
                             if myarp['ip-address'].encode('utf-8') == user_input:
                                 intf_name = myarp['interface-name'].encode('utf-8')
                                 mac_addr = myarp['mac-address'].encode('utf-8')
-                                print "\tExact Match!"
-                                print "\t\tIP:  {0}".format(myarp['ip-address'].encode('utf-8'))
-                                print "\t\tMAC: {0}".format(mac_addr)
-                                print "\t\tINT: {0}".format(intf_name)
+                                print "\n\tExact ARP Record Found!"
+                                print "\t\tARP IP: ........... {0}".format(myarp['ip-address'].encode('utf-8'))
+                                print "\t\tARP Mac Address: .. {0}".format(mac_addr)
+                                print "\t\tARP Interface: .... {0}".format(intf_name)
                                 is_match = True
                                 # Get out of loop after we find an exact match
                                 break
@@ -206,9 +212,10 @@ def ip_search_menu(list_dict):
                         if is_match:
                             # If the interface is a VLAN or IRB, ie. vlan.XXX, then user port is on a different switch
                             if 'vlan' in intf_name or 'irb' in intf_name:
+                                print "\n\tPhysical Interface is on a downstream switch."
                                 intf_list = []
                                 vlan_tag = intf_name.rsplit('.',1)[1]
-                                print "VLAN Tag: {0}".format(vlan_tag)
+                                #print "VLAN Tag: {0}".format(vlan_tag)
 
                                 # Get VLAN information to determine the possible interfaces this IP could exist on
                                 vlan_response = jxmlease.parse_etree(dev.rpc.get_vlan_information())
@@ -219,7 +226,7 @@ def ip_search_menu(list_dict):
                                             for vlan_intf in myvlan['vlan-detail']['vlan-member-list']['vlan-member']:
                                                 if "*" in vlan_intf['vlan-member-interface']:
                                                     myintf = vlan_intf['vlan-member-interface'].encode('utf-8').rsplit('*',1)[0]
-                                                    print "VLAN INTERFACE: {0}".format(myintf)
+                                                    #print "VLAN INTERFACE: {0}".format(myintf)
                                                     intf_list.append(myintf)
                                 # If the device is an ELS switch (EX4300)
                                 else:
@@ -228,7 +235,7 @@ def ip_search_menu(list_dict):
                                             for vlan_intf in myvlan['l2ng-l2rtb-vlan-member']:
                                                 if "*" in vlan_intf['l2ng-l2rtb-vlan-member-interface']:
                                                     myintf = vlan_intf['l2ng-l2rtb-vlan-member-interface'].encode('utf-8').rsplit('*',1)[0]
-                                                    print "VLAN INTEFACE: {0}".format(myintf)
+                                                    #print "VLAN INTEFACE: {0}".format(myintf)
                                                     intf_list.append(myintf)
 
                                 # Use LLDP info to get possible hosts
@@ -245,29 +252,50 @@ def ip_search_menu(list_dict):
                                             if host_name not in poss_hosts:
                                                 poss_hosts.append(host_name)
                                                 break
-                                        print "Possible Host: {0}".format(poss_hosts)
+                                print "\tPossible Switches: {0}".format(poss_hosts)
 
                                 # Search downstream devices for MAC
                                 for host_name in poss_hosts:
                                     host_record = get_record(list_dict, hostname=host_name)
-                                    print "Attempt to connect to {0}".format(host_record['ip'])
+                                    stdout.write("\n\tConnecting to {0}({1}) -> ".format(host_name, host_record['ip']))
                                     host_dev = pyez_connect(host_record['ip'])
                                     if host_dev:
-                                        print "Connected to {0}".format(host_record['ip'])
-                                        interface = find_mac_return_intf(host_dev, mac_addr)
+                                        stdout.write("Connected! -> ")
+                                        interface = find_mac_return_intf(host_dev, mac_addr, vlan_tag)
                                         if interface:
-                                            pass
+                                            print "Interface Located!"
+                                            print "\n***** Location Of {0} *****".format(user_input)
+                                            print "Device: ........ {0}({1})".format(host_name, host_record['ip'])
+                                            print "MAC Address: ... {0}".format(mac_addr)
+                                            print "Interface: ..... {0}".format(interface)
+                                            print "VLAN: .......... {0}".format(vlan_tag)
+                                            match_found = True
+                                            break
+                                        else:
+                                            stdout.write("Not Here.")
                             # Otherwise, the interface is local, let's get the local interface
                             else:
+                                print "\n\tPhysical Interface is on this switch."
                                 pass
                         # If no exact match is found...
                         else:
                             print "\tNo Exact Matches in this Device!"
+                    # Unable to connect to device
+                    else:
+                        #print "\tUnable to connect!"
+                        #stdout.write("C")
+                        pass
+                # Device without a network match
                 else:
-                    print "\tUnable to connect!"
+                    print "\nNo device found in the database with IP {0}.".format(user_input)
+                    break
             # If 'inet_intf' info isn't in this device
             else:
-                print "Incomplete information - Skipping Device"
+                #print "Incomplete information - Skipping Device"
+                #stdout.write("I")
+                pass
+            if match_found:
+                break
     else:
         print "{0} is an invalid IP!".format(user_input)
         # response = jxmlease.parse_etree(dev.rpc.get_lldp_neighbors_information())
