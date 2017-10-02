@@ -169,7 +169,7 @@ def ip_search_menu(list_dict):
         print "Looking for ... {0}".format(user_input)
         for device in list_dict:
             is_target = False
-            #stdout.write("_")
+            stdout.write(".")
             if 'inet_intf' in device:
                 # Loop over route points on this device, checking for matching network
                 for my_intf in device['inet_intf']:
@@ -283,19 +283,22 @@ def ip_search_menu(list_dict):
                     # Unable to connect to device
                     else:
                         #print "\tUnable to connect!"
-                        #stdout.write("C")
+                        stdout.write("C")
                         pass
                 # Device without a network match
                 else:
-                    print "\nNo device found in the database with IP {0}.".format(user_input)
-                    break
+                    stdout.write("_")
+                    pass
             # If 'inet_intf' info isn't in this device
             else:
                 #print "Incomplete information - Skipping Device"
-                #stdout.write("I")
+                stdout.write("I")
                 pass
             if match_found:
                 break
+        # If we didn't find any matches...
+        if not match_found:
+            print "\nNo device found in the database with IP {0}.".format(user_input)
     else:
         print "{0} is an invalid IP!".format(user_input)
         # response = jxmlease.parse_etree(dev.rpc.get_lldp_neighbors_information())
