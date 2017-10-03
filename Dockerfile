@@ -27,9 +27,11 @@ RUN apk update \
     && apk del -r --purge gcc make g++ \
     && python setup.py install \
     && rm -rf /source/* \
-    && rm -rf /var/cache/apk/* \
-    && python jmanage.py
+    && rm -rf /var/cache/apk/*
 
 WORKDIR /scripts
 
 VOLUME /scripts
+
+## Run the jmanage script
+CMD ["python", "jmanage.py"]
