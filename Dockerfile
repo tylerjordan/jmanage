@@ -10,20 +10,25 @@ WORKDIR /source
 ## Copy project inside the container
 ADD setup.py setup.py
 ADD requirements.txt requirements.txt
+ADD jmanage.py jmanage.py
+ADD utility.py utility.py
 ADD lib lib
+ADD data data
+
 
 ## Install dependancies and Pyez
 RUN apk update \
     && apk upgrade \
     && apk add build-base gcc g++ make python-dev py-pip py-lxml \
     libxslt-dev libxml2-dev libffi-dev openssl-dev curl \
-    ca-certificates openssl wget \
+    ca-certificates openssl wget prettytable jxmlease ipaddress \
     && update-ca-certificates \
     && pip install -r requirements.txt \
     && apk del -r --purge gcc make g++ \
     && python setup.py install \
     && rm -rf /source/* \
-    && rm -rf /var/cache/apk/*
+    && rm -rf /var/cache/apk/* \
+    && python jmanage.py
 
 WORKDIR /scripts
 
