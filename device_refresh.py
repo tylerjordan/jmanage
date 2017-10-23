@@ -605,24 +605,28 @@ def fail_check(ip, indbase, contentList):
     :param ip:          -   The IP address of the device in question
     :param indbase:     -   Boolean on if the device is in the database or not.
     :param contentList: -   Content for the log entry.
-    :return:            -   None
+    :return days_exp:   -   Number of days expired for this device
     """
     # Number of days to keep IP after first fail attempt
     attempt_limit = 10
     matched = False
     days_exp = "0"
 
+    # If the device is in the database...
     if indbase:
-        myListDict = csv_to_listdict(failing_devices_csv)
+        oldListDict = csv_to_listdict(failing_devices_csv)
         myDelimiter = ","
-        # Go through failed devices log, find a specific ip
-        if myListDict:
-            for myDict in myListDict:
-                # If we find the IP in Failed Devices Log
+        newListDict = []
+
+        # If the CSV exists...
+        if oldListDict:
+            # Loop over records in the CSV...
+            for myDict in oldListDict:
+                # If we find the subject IP in the CSV...
                 if myDict['ip'] == ip:
                     matched = True
                     # Remove the previous record from the Fail Devices list dict
-                    myListDict.remove(myDict)
+                    oldListDict.remove(myDict)
                     # Determine calculate how long device has been unreachable
                     past_time = datetime.datetime.strptime(myDict['date_added'], "%Y-%m-%d_%H%M")
                     now_time = datetime.datetime.now()
@@ -643,39 +647,49 @@ def fail_check(ip, indbase, contentList):
                         myDict.update({'last_attempt': get_now_time()})
                         myDict.update({'consec_days': days_exp})
                         # Add the record to the list dictionary
-                        myListDict.append(myDict)
+                        newListDict = oldListDict
+                        newListDict.append(myDict)
                     # Update the Failed Devices CSV
                     attribOrderFail = ['ip', 'consec_days', 'last_attempt', 'date_added']
-                    listdict_to_csv(myListDict, failing_devices_csv, myDelimiter, attribOrderFail)
+                    listdict_to_csv(newListDict, failing_devices_csv, myDelimiter, attribOrderFail)
                     # Add the error to the appropriate list
                     access_error_list.append(dict(zip(error_key_list, contentList)))
                     return days_exp
-        # If the IP is not in Failed Devices Log
-        if not matched:
+            # If IP is not in the CSV...
+            if not matched:
+                # Create new record
+                myDict = {
+                    'ip': ip,
+                    'consec_days': "1",
+                    'last_attempt': get_now_time(),
+                    'date_added': get_now_time(),
+                }
+                # Preserve the existing records and add this dictionary to the end
+                newListDict = oldListDict
+                newListDict.append(myDict)
+        # Otherwise, if the CSV doesn't exist...
+        else:
             # Create new record
-            mylist = []
-            mydicts = {
+            myDict = {
                 'ip': ip,
                 'consec_days': "1",
                 'last_attempt': get_now_time(),
                 'date_added': get_now_time(),
             }
-            # Check if the Failing Devices Logs exists
-            if not os.path.exists(failing_devices_csv):
-                # If it doesn't, just send this dictionary
-                mylist.append(mydicts)
-            else:
-                # If it does, preserve the existing records and add this dictionary to the end
-                mylist = myListDict
-                mylist.append(mydicts)
+            # Add this record to the new listDict
+            newListDict.append(myDict)
 
-            stdout.write(" Added to Failed Devices |")
-            days_exp = "1"
-            # Add record to failing CSV
-            attribOrderFail = ['ip', 'consec_days', 'last_attempt', 'date_added']
-            listdict_to_csv(mylist, failing_devices_csv, myDelimiter, attribOrderFail)
-            # This applies to devices that are in the database already. Add to access error log.
-            access_error_list.append(dict(zip(error_key_list, contentList)))
+        stdout.write(" Adding to Failed Devices |")
+        days_exp = "1"
+        # Add record to failing CSV
+        attribOrderFail = ['ip', 'consec_days', 'last_attempt', 'date_added']
+        if listdict_to_csv(newListDict, failing_devices_csv, myDelimiter, attribOrderFail):
+            stdout.write(" Adding Successful |")
+        else:
+            stdout.write(" Adding Failed |")
+        # This applies to devices that are in the database already. Add to access error log.
+        access_error_list.append(dict(zip(error_key_list, contentList)))
+    # If the device is not in the database...
     else:
         # This applies to new devices that had a connection issue. Add to new devices log.
         del contentList[2]
