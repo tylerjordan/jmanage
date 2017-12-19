@@ -1337,7 +1337,12 @@ def fetch_config(dev, ver):
     """
     myconfig = ""
     # Get the interger representation of the major version
-    maj_ver = int(ver[:2])
+    try:
+        maj_ver = int(ver[:2])
+    except ValueError as err:
+        print "\n\t\tERROR: {0}".format(err)
+        print "\t\tREASON: Unable to pull major version from {0}".format(ver)
+        maj_ver = 14
     # Attempts to use cli hack if version is earlier than 15
     if maj_ver < 15:
         rawconfig = dev.cli('show config | display set', warning=False)
