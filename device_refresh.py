@@ -948,7 +948,7 @@ def check_params(record, dev):
     results.append(returncode)
     return results
 
-def param_check(record, param_chg_log, dev):
+def param_check(record, chg_log, dev):
     """ Purpose: Runs functions for checking parameters. Creates log entries.
 
     :param record: A dictionary containing the device information from main_db
@@ -961,20 +961,20 @@ def param_check(record, param_chg_log, dev):
     # Param Results: 0 = Error, 1 = No Changes, 2 = Changes
     # Scan param results
     if param_results[-1] == 2:  # If changes are detected
-        print_log("Report: Parameter Check\n", param_chg_log)
-        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), param_chg_log)
-        print_log("User: {0}\n".format(myuser), param_chg_log)
-        print_log("Checked: {0}\n".format(get_now_time()), param_chg_log)
+        print_log("Report: Parameter Check\n", chg_log)
+        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), chg_log)
+        print_log("User: {0}\n".format(myuser), chg_log)
+        print_log("Checked: {0}\n".format(get_now_time()), chg_log)
         # The "run_change_log" format is "IP,HOSTNAME,DATE"
         contentList = [record['ip'], record['hostname'], get_now_time()]
         run_change_list.append(dict(zip(standard_key_list, contentList)))
 
     # If param results detect changes
     if param_results[-1] == 2:
-        print_log("Parameter Check:\n", param_chg_log)
+        print_log("Parameter Check:\n", chg_log)
         for result in param_results[:-1]:
-            print_log("\t> {0}\n".format(result), param_chg_log)
-        print_log("\n", param_chg_log)
+            print_log("\t> {0}\n".format(result), chg_log)
+        print_log("\n", chg_log)
         param_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
     # If param results are errors
@@ -1070,7 +1070,7 @@ def check_inet(record, dev):
     results.append(returncode)
     return results
 
-def inet_check(record, inet_chg_log, dev):
+def inet_check(record, chg_log, dev):
     """ Purpose: Runs functions for checking configurations. Creates log entries.
 
     :param record: A dictionary containing the device information from main_db
@@ -1082,20 +1082,20 @@ def inet_check(record, inet_chg_log, dev):
     # Inet Results: 0 = Error, 1 = No Changes, 2 = Changes Detected
     # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
     if inet_results[-1] == 2:  # If changes are detected
-        print_log("Report: Inet Interfaces\n", inet_chg_log)
-        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), inet_chg_log)
-        print_log("User: {0}\n".format(myuser), inet_chg_log)
-        print_log("Checked: {0}\n".format(get_now_time()), inet_chg_log)
+        print_log("Report: Inet Interfaces\n", chg_log)
+        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), chg_log)
+        print_log("User: {0}\n".format(myuser), chg_log)
+        print_log("Checked: {0}\n".format(get_now_time()), chg_log)
         # The "run_change_log" format is "IP,HOSTNAME,DATE"
         contentList = [record['ip'], record['hostname'], get_now_time()]
         run_change_list.append(dict(zip(standard_key_list, contentList)))
 
     # If inet results detect changes
     if inet_results[-1] == 2:
-        print_log("Inet Check:\n", inet_chg_log)
+        print_log("Inet Check:\n", chg_log)
         for result in inet_results[:-1]:
-            print_log("\t> {0}\n".format(result), inet_chg_log)
-        print_log("\n", inet_chg_log)
+            print_log("\t> {0}\n".format(result), chg_log)
+        print_log("\n", chg_log)
         inet_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
 
     # If inet results are errors
@@ -1287,7 +1287,7 @@ def config_compare(record, dev):
     results.append(returncode)
     return results
 
-def config_check(record, conf_chg_log, dev):
+def config_check(record, chg_log, dev):
     """ Purpose: Runs functions for checking configurations. Creates log entries.
 
     :param record: A dictionary containing the device information from main_db
@@ -1298,20 +1298,20 @@ def config_check(record, conf_chg_log, dev):
     compare_results = config_compare(record, dev)
     # Compare Results: 0 = Saving Error, 1 = No Changes, 2 = Changes Detected 3 = Update Error
     if compare_results[-1] == 2:  # If changes are detected
-        print_log("Report: Config Check\n", conf_chg_log)
-        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), conf_chg_log)
-        print_log("User: {0}\n".format(myuser), conf_chg_log)
-        print_log("Checked: {0}\n".format(get_now_time()), conf_chg_log)
+        print_log("Report: Config Check\n", chg_log)
+        print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), chg_log)
+        print_log("User: {0}\n".format(myuser), chg_log)
+        print_log("Checked: {0}\n".format(get_now_time()), chg_log)
         # The "run_change_log" format is "IP,HOSTNAME,DATE"
         contentList = [record['ip'], record['hostname'], get_now_time()]
         run_change_list.append(dict(zip(standard_key_list, contentList)))
 
     # If compare results detect differences
     if compare_results[-1] == 2:
-        print_log("Config Check:\n", conf_chg_log)
+        print_log("Config Check:\n", chg_log)
         for result in compare_results[:-1]:
-            print_log("\t> {0}".format(result), conf_chg_log)
-        print_log("\n", conf_chg_log)
+            print_log("\t> {0}".format(result), chg_log)
+        print_log("\n", chg_log)
         config_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
     # If compare results are save errors
     elif compare_results[-1] == 0:
@@ -1831,9 +1831,11 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
     :param curr_num: The number of the current device.
     :return: None
     """
+    # Make sure that a folder exists for this site
     directory_check(record)
     device_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
 
+    # Create the template deviation log
     now = get_now_time()
     if addl_opt == "template" or addl_opt == "all":
         temp_dev_name = "Template_Deviation_" + now + ".log"
@@ -1848,11 +1850,11 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
         stdout.write("Checking: ")
         if addl_opt == "all":
             stdout.write("Config|Param|Inet|Template | ")
-            result = config_check(record, chg_log, dev)
-            result = param_check(record, chg_log, dev)
-            result = inet_check(record, chg_log, dev)
+            config_check(record, chg_log, dev)
+            param_check(record, chg_log, dev)
+            inet_check(record, chg_log, dev)
             #dev.close()
-            result = template_check(record, temp_dev_log)
+            template_check(record, temp_dev_log)
         else:
             # Running Config Check
             if addl_opt == "config":
