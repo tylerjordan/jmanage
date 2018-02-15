@@ -1243,12 +1243,14 @@ def config_compare(record, dev):
 
     # Check if the appropriate site directory is created. If not, then create it.
     loaded_config = get_config_str(record['ip'], newest=True)
+    print "Loaded Config: " + loaded_config
 
     # Update check date
     record.update({'last_config_check': get_now_time()})
     if not loaded_config:
         record.update({'last_config_change': get_now_time()})
         if save_config_file(fetch_config(dev, record['version']), record):
+            stdout.write("\n\t\tNo existing config, config saved")
             results.append("No Existing Config, Configuration Saved")
         else:
             message = "No Existing Config, Configuration Save Failed"
