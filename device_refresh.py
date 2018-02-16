@@ -901,11 +901,13 @@ def check_params(record, dev):
                 #print "Check Item: {0}".format(item)
                 #print "Remote Item: {0}".format(remoteDict[item])
                 #print "Record Item: {0}".format(record[item])
+                # This captures any undefined parameters and processes and error message
                 if remoteDict[item] == "UNDEFINED":
                     message = "Unable to collect " + item.upper() + " from device."
                     stdout.write("\n\t\tParameter Check: ERROR: " + message)
                     results.append(message)
                     returncode = 0
+                # This will check any properly formatted attributes, to see if they changed
                 else:
                     if not record[item].upper() == remoteDict[item].upper():
                         message = item.upper() + " changed from " + record[item] + " to " + remoteDict[item]
