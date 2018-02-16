@@ -178,6 +178,7 @@ def get_config_str(hostname, newest):
         :return:            -   A string containing the configuration   
     """
     my_file = get_config_filename(hostname, hostname, newest)
+    #print "File: {0}".format(my_file)
     if my_file:
         try:
             file_string = open(my_file, 'r').read()
@@ -1242,15 +1243,15 @@ def config_compare(record, dev):
     returncode = 1
 
     # Check if the appropriate site directory is created. If not, then create it.
-    loaded_config = get_config_str(record['ip'], newest=True)
-    print "Loaded Config: " + loaded_config
+    loaded_config = get_config_str(record['hostname'], newest=True)
+    #print "Loaded Config: " + loaded_config
 
     # Update check date
     record.update({'last_config_check': get_now_time()})
     if not loaded_config:
         record.update({'last_config_change': get_now_time()})
         if save_config_file(fetch_config(dev, record['version']), record):
-            stdout.write("\n\t\tNo existing config, config saved")
+            #stdout.write("\n\t\tNo existing config, config saved")
             results.append("No Existing Config, Configuration Saved")
         else:
             message = "No Existing Config, Configuration Save Failed"
