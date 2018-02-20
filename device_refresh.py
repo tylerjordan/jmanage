@@ -15,6 +15,7 @@ __email__ = "tjordan@juniper.net"
 # version ............ Juniper Code Version (ie 13.2X51-D35.3)
 # serialnumber ....... Serial Number of Chassis
 # model .............. Juniper Model Number (ie. EX4300-48P)
+# vc ................. VC Status (True = VC, False = standalone chassis)
 # last_access......... Last time device was accessed by script
 # last_config_check .. Last time device config was checked by script
 # last_config_change . Last time device config was changed by script
@@ -116,7 +117,7 @@ inet_change_ips = []
 dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
                 'last_config_change', 'last_param_check', 'last_param_change', 'last_inet_check', 'last_inet_change',
                 'last_temp_check', 'add_date']
-facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
+facts_list = [ 'hostname', 'serialnumber', 'model', 'version', 'vc' ]
 
 def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
@@ -422,7 +423,6 @@ def sort_and_save_json(db_list_dict, db_file):
     :return: None
     """
     if db_list_dict:
-        # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
         stdout.write("Saving -> " + db_file + ": ")
         if write_to_json(db_list_dict, db_file):
             print "Successful!"
@@ -433,81 +433,39 @@ def sort_and_save_json(db_list_dict, db_file):
 
 def sort_and_save():
     """ Purpose: Saves main database and sorts and saves the logs.
-
     :param: None
     :return: None
     """
     # Main Database
     sort_and_save_json(listDict, main_list_dict)
-    '''
-    if listDict:
-        # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
-        stdout.write("Save -> Main Database (" + main_list_dict + "): ")
-        if write_to_json(listDict, main_list_dict):
-            print "Successful!"
-        else:
-            print "Failed!"
-    '''
+
     # Access Error Log
     sort_and_save_csv(access_error_log, access_error_list, error_key_list, 3)
-    '''
-    if access_error_list:
-        stdout.write("Save -> Access Error Log (" + access_error_log + "): ")
-        if csv_write_sort(access_error_list, access_error_log, sort_column=3, reverse_sort=True,
-                          column_names=error_key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "No changes to Access Error Log"
-    '''
+
     # Operations Error Log
     sort_and_save_csv(ops_error_log, ops_error_list, error_key_list, 3)
-    '''
-    if ops_error_list:
-        stdout.write("Save -> Ops Error Log (" + ops_error_log + "): ")
-        if csv_write_sort(ops_error_list, ops_error_log, sort_column=3, reverse_sort=True,
-                          column_names=error_key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "No changes to Ops Error Log"
-    '''
+
     # New Devices Log
     sort_and_save_csv(new_devices_log, new_devices_list, standard_key_list, 2)
-    '''
-    if new_devices_list:
-        stdout.write("Save -> New Devices Log (" + new_devices_log + "): ")
-        if csv_write_sort(new_devices_list, new_devices_log, sort_column=2, reverse_sort=True,
-                          column_names=standard_key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "No changes to New Devices Log"
-    '''
+
     # Running Changes Log
     sort_and_save_csv(run_change_log, run_change_list, standard_key_list, 2)
-    '''
-    if run_change_list:
-        stdout.write("Save -> Run Change Log (" + run_change_log + "): ")
-        if csv_write_sort(run_change_list, run_change_log, sort_column=2, reverse_sort=True,
-                          column_names=standard_key_list, my_delimiter=delimiter):
-            print "Successful!"
-        else:
-            print "Failed!"
-    else:
-        print "No changes to Run Change Log"
-    '''
 
 def get_vc_fact(dev):
-    # Return T/F if this is a virutal chassis
-    junos_info = 'False'
+    #
+    # 'UNDEFINED' ... Not able to determine VC status
+    # 'YES'.......... This chassis is a VC
+    # 'NO'........... This chassis is not a VC
+    #
+    # Return appropriate value for virutal chassis status
+    junos_info = 'UNDEFINED'
     capt_info = str(dev.facts['junos_info'])
     #print "JUNOS_INFO: {0}".format(capt_info)
     if capt_info.count('fpc') > 1:
-            junos_info = 'True'
+        junos_info = 'YES'
+    elif capt_info.count('fpc') == 1:
+        junos_info = 'NO'
+    # Provide response to caller
     return junos_info
 
 # -----------------------------------------------------------------
@@ -879,15 +837,17 @@ def check_params(record, dev):
     #stdout.write("\n\t\tParameter Check: ")
     # Try to collect current chassis info
     for key in facts_list:
-        if key in dev.facts and dev.facts[key]:
-            #print "Matched Key!"
-            remoteDict[key] = dev.facts[key]
+        # Check VC with special function, not in facts
+        if key == 'vc':
+            # Provide returned value (YES, NO, UNDEFINED)
+            remoteDict['vc'] = get_vc_fact(dev)
+        # Check the rest of the keys that are in the 'facts'
         else:
-            #print "No Key Match!"
-            remoteDict[key] = "UNDEFINED"
-    # Try to collect this VC info
-    remoteDict['vc'] = get_vc_fact(dev)
-    #print "RemoteDict VC Value: {0}".format(remoteDict['vc'])
+            if key in dev.facts and dev.facts[key]:
+                remoteDict[key] = dev.facts[key]
+            else:
+                #print "No Key Match!"
+                remoteDict[key] = "UNDEFINED"
 
     # If info was collected...
     if remoteDict:
@@ -916,22 +876,15 @@ def check_params(record, dev):
                         change_record(record['ip'], remoteDict[item].upper(), key=item)
                         returncode = 2
                         # print "Changed!"
-            # Check if VC has changed
-            if 'vc' in remoteDict:
-                if 'vc' in record:
+                    # Check for VC specifically
+                    '''
                     if not record['vc'].upper() == remoteDict['vc'].upper():
                         message = "VC changed from " + record['vc'] + " to " + remoteDict['vc']
                         stdout.write("\n\t\tParameter Check: " + message)
                         results.append(message)
                         change_record(record['ip'], remoteDict['vc'].upper(), key='vc')
                         returncode = 2
-                else:
-                    message = "VC changed from NONE to " + remoteDict['vc'].upper()
-                    stdout.write("\n\t\tParameter Check: " + message)
-                    results.append(message)
-                    change_record(record['ip'], remoteDict['vc'].upper(), key='vc')
-                    returncode = 2
-
+                    '''
         else:
             message = "Unable to collect parameters from database."
             stdout.write("\n\t\tParameter Check: ERROR: " + message)
@@ -1440,8 +1393,8 @@ def template_scan(regtmpl_list, record):
             # The template file is current for the latest config file available, skip template function
             else:
                 record.update({'last_temp_check': get_now_time()})
-                message = "Template Check: Latest Template Already Created"
-                stdout.write(message)
+                message = "Latest Template Already Created"
+                stdout.write("\n\t\tTemplate Check: " + message)
                 results.append(message)
                 returncode = 3
         # There is no template file, but there is a config file, try to compare and create a template
@@ -1452,8 +1405,8 @@ def template_scan(regtmpl_list, record):
     # No config file, skip template function
     else:
         record.update({'last_temp_check': get_now_time()})
-        message = "Template Check: ERROR: No valid configuration available"
-        stdout.write(message)
+        message = "No valid configuration available"
+        stdout.write("\n\t\tTemplate Check: " + message)
         results.append(message)
         returncode = 0
 
@@ -1607,15 +1560,18 @@ def add_record(ip, dev):
     try:
         # Try to capture general device parameters
         for key in facts_list:
-            temp = dev.facts[key]
-            if temp is None:
-                message = "Add Failed - Unable to get critical parameter [" + key + "]"
-                contentList = [ip, message, get_now_time()]
-                new_devices_list.append(dict(zip(standard_key_list, contentList)))
-                return False
-                #mydict[key]
+            if key == 'vc':
+                mydict[key] = get_vc_fact(dev)
             else:
-                mydict[key] = temp.upper()
+                fact = dev.facts[key]
+                if fact is None:
+                    message = "Add Failed - Unable to get critical parameter [" + key + "]"
+                    contentList = [ip, message, get_now_time()]
+                    new_devices_list.append(dict(zip(standard_key_list, contentList)))
+                    return False
+                    #mydict[key]
+                else:
+                    mydict[key] = fact.upper()
     except Exception as err:
         message = "Add Failed - Error accessing facts on device. ERROR:{0}".format(err)
         contentList = [ip, message, get_now_time()]
@@ -1638,9 +1594,6 @@ def add_record(ip, dev):
         else:
             mydict['ip'] = ip
             mydict['last_inet_change'] = "UNDEFINED"
-
-        # Get VC status
-        mydict['vc'] = get_vc_fact(dev).upper()
 
         # Set other timestamp params
         mydict['last_config_check'] = "UNDEFINED"
@@ -1818,10 +1771,12 @@ def check_loop(subsetlist):
         total_num = len(listDict)
         for record in listDict:
             # Check if record has "VC", if it doesn't, add it.
+            '''
             if record['vc'] != 'TRUE' or record['vc'] != 'FALSE':
                 stdout.write("\nVC not Upper -> ")
                 change_record(record['ip'], record['vc'].upper(), 'vc')
                 stdout.write("Record Changed!")
+            '''
             curr_num += 1
             check_main(record, chg_log, total_num, curr_num)
     # End of processing
