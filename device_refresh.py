@@ -359,15 +359,16 @@ def save_config_file(myconfig, record):
                     message = "Unable to remove config file: " + del_file + "."
                     contentList = [record['ip'], message, str(err), get_now_time()]
                     ops_error_list.append(dict(zip(error_key_list, contentList)))
-                    #print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
+                    print "ERROR: Unable to remove old file: {0} | File: {1}".format(err, del_file)
             try:
                 # Write the new configuration to the new file
-                newfile.write(myconfig)
+                newfile.write(myconfig.encode("utf-8"))
             except Exception as err:
                 #print "ERROR: Unable to write config to file: {0}".format(err)
                 message = "Unable to write config to file: " + fileandpath + "."
                 contentList = [ record['ip'], message, str(err), get_now_time() ]
                 ops_error_list.append(dict(zip(error_key_list, contentList)))
+                print "ERROR: Unable to write config to file: {0} | File: {1}".format(err, del_file)
                 return False
             else:
                 # Close the file
@@ -1313,7 +1314,7 @@ def fetch_config(dev, ver):
     else:
         rawconfig = dev.rpc.get_config(options={'format': 'set'})
         myconfig = re.sub('<.+>', '', etree.tostring(rawconfig))
-
+    # Returns a text version of the configuration in "set" format
     return myconfig
 
 #-----------------------------------------------------------------
