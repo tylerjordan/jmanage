@@ -27,6 +27,7 @@ config_dir = ''
 log_dir = ''
 template_dir = ''
 dir_path = ''
+csvs_dir = ''
 
 # Files
 main_list_dict = ''
@@ -55,6 +56,7 @@ def detect_env():
     global config_dir
     global template_dir
     global log_dir
+    global csvs_dir
     global dir_path
     global template_file
     global template_csv
@@ -69,6 +71,7 @@ def detect_env():
         config_dir = os.path.join(dir_path, "data\\configs")
         template_dir = os.path.join(dir_path, "data\\templates")
         log_dir = os.path.join(dir_path, "data\\logs")
+        csvs_dir = os.path.join(dir_path, "data\\templates\\csvs")
 
     else:
         #print "Environment Linux/MAC!"
@@ -76,6 +79,7 @@ def detect_env():
         config_dir = os.path.join(dir_path, "data/configs")
         template_dir = os.path.join(dir_path, "data/templates")
         log_dir = os.path.join(dir_path, "data/logs")
+        csvs_dir = os.path.join(dir_path, "data/templates/csvs")
 
     # Statically defined files and logs
     main_list_dict = os.path.join(dir_path, "main_db.json")
@@ -153,6 +157,45 @@ def find_mac_return_intf(dev, mac_addr, vlan_tag):
                     #print "\t\tINTF: {0}".format(mymacentry['l2ng-l2-mac-logical-interface'].encode('utf-8'))
                     return mymacentry['l2ng-l2-mac-logical-interface'].encode('utf-8')
     return interface
+
+# Creates an IP list of the devices found
+def deviation_search(list_dict):
+    tmp_lines = []
+    hosts = []
+    deviations = ['ntp', 'snmp', 'login', 'tacplus']
+    user_input = getOptionAnswer("Choose a deviation to search for", deviations)
+    fullpath = os.path.join(template_dir, user_input + '.conf')
+    tmp_lines = txt_to_list(fullpath)
+    print "Searching for template files with content..."
+    # Search configs directory recursively for content
+    for folder,dirs,files in os.walk(config_dir):
+        for file in files:
+            if file.startswith('Template_Deviation'):
+                fullpath = os.path.join(folder, file)
+                with open(fullpath, 'r') as f:
+                    for line in f:
+                        for t_line in tmp_lines:
+                            if t_line in line:
+                                topdir = os.path.split(folder)[1]
+                                if topdir not in hosts:
+                                    hosts.append(topdir)
+                                    print "Appending: {0} to file".format(topdir)
+                                    break
+
+    # Create a dictionary with the IP and Hostname
+    combined = []
+    for host in hosts:
+        for device in list_dict:
+            if device['hostname'] == host:
+                combined.append({'hostname': host, 'ip': device['ip']})
+    # Add dictionary contents to a CSV file
+    now = get_now_time()
+    csvpath = os.path.join(csvs_dir, user_input + "_" + now + ".csv")
+    if listdict_to_csv(combined, csvpath, myDelimiter=",", columnNames=['hostname', 'ip']):
+        print "Successfully convered list dictionary to CSV: {0}".format(csvpath)
+    else:
+        print "Failed converting list dictionary to CSV: {0}".format(csvpath)
+    print combined
 
 def ip_search_menu(list_dict):
     """ 
@@ -451,7 +494,7 @@ if __name__ == '__main__':
         listDict = json_to_listdict(main_list_dict)
 
         # Main Program Loop
-        my_options = ['Display Database', 'Search Database', 'Display Device', 'IP Search', 'Delete Record', 'Quit']
+        my_options = ['Display Database', 'Search Database', 'Display Device', 'IP Search', 'Delete Record', 'Deviation Search', 'Quit']
         while True:
             print "\n" + "*" * 25
             print "Total Records: {0}".format(len(listDict))
@@ -482,6 +525,9 @@ if __name__ == '__main__':
                 print "Run -> Delete Record"
                 delete_menu()
             elif answer == "6":
+                print "Run -> Deviation Search"
+                deviation_search(listDict)
+            elif answer == "7":
                 print "Goodbye!"
                 quit()
             else:

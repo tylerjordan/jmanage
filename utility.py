@@ -463,6 +463,18 @@ def list_dict_custom_sort(list_dict, sort_attrib, sort_list, exclusion_attrib, e
                 #    print "Excluded {0} due to {1}".format(sort_val, intf_rec[exclusion_attrib])
     return mylist
 
+# Creates list from a text file
+def txt_to_list(txt_file):
+    command_list = []
+    try:
+        with open(txt_file) as f:
+            command_list = f.read().splitlines()
+    except Exception as err:
+        print "Error turning file into list. ERROR: {0}".format(err)
+        return False
+    else:
+        return command_list
+
 # Accetps a masked or unmasked IP and returns the IP and mask in a list
 def get_ip_mask(masked_ip):
 
