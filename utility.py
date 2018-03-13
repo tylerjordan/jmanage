@@ -12,7 +12,7 @@ import json
 import operator
 import os
 from os import listdir
-from os.path import isfile, join
+from os.path import isfile, join, exists
 from sys import stdout
 
 #--------------------------------------
@@ -145,16 +145,26 @@ def createLogFile(path_and_file, columns, delimiter=","):
     else:
         return True
 
-# Return list of files from a directory
-def getFileList(mypath):
+# Return list of files from a directory with an optional extension filter
+def getFileList(mypath, ext_filter=False):
+    tmpList = []
     fileList = []
-    try:
-        for afile in listdir(mypath):
-            if isfile(join(mypath,afile)):
-                fileList.append(afile)
-    except:
-        print "Error accessing directory: " + mypath
-
+    if exists(mypath):
+        if ext_filter:
+            ext_file = '*.' + ext_filter
+            pattern = os.path.join(mypath, ext_file)
+            # Sorts the files by modification time
+            tmpList = sorted([x for x in glob.glob(pattern)], key=os.path.getmtime, reverse=True)
+        else:
+            wild_file = '*'
+            pattern = os.path.join(mypath, wild_file)
+            tmpList = sorted([x for x in glob.glob(pattern)], key=os.path.getmtime, reverse=True)
+        #except Exception as err:
+        #    print "Error accessing files {0} - ERROR: {1}".format(mypath, err)
+        for file in tmpList:
+            fileList.append(os.path.split(file)[1])
+    else:
+        print "Path: {0} does not exist!".format(mypath)
     return fileList
 
 # Method for requesting IP address target
@@ -543,12 +553,13 @@ def compare_configs(config1, config2):
         #print '-'*50
         #print "Lines different in config1 from config2:"
         for line in diffList:
+            print ""
             if line[0] == '-':
                 change_list.append(line)
-                print line,
+                print "\t" + line
             elif line[0] == '+':
                 change_list.append(line)
-                print line,
+                print "\t" + line
         #print '-'*50
     else:
         print "ERROR with compare configs, check configs."

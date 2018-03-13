@@ -1305,7 +1305,7 @@ def fetch_config(dev, ver):
     # Attempts to use cli hack if version is earlier than 15
     if maj_ver < 15:
         rawconfig = dev.cli('show config | display set', warning=False)
-        myconfig = rawconfig.strip(' \t\n\r')
+        myconfig = rawconfig.strip(' \t\n\r').encode("utf-8")
         if not re.match('^set\s', myconfig):
             err = re.search('^.*', myconfig)
             print "Config Error: {0}".format(err.group(0))

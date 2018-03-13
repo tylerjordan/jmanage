@@ -26,6 +26,7 @@ iplist_dir = ''
 config_dir = ''
 log_dir = ''
 template_dir = ''
+temps_dir = ''
 dir_path = ''
 csvs_dir = ''
 
@@ -55,6 +56,7 @@ def detect_env():
     global iplist_dir
     global config_dir
     global template_dir
+    global temps_dir
     global log_dir
     global csvs_dir
     global dir_path
@@ -70,6 +72,7 @@ def detect_env():
         iplist_dir = os.path.join(dir_path, "data\\iplists")
         config_dir = os.path.join(dir_path, "data\\configs")
         template_dir = os.path.join(dir_path, "data\\templates")
+        temps_dir = os.path.join(dir_path, "data\\templates\\temps")
         log_dir = os.path.join(dir_path, "data\\logs")
         csvs_dir = os.path.join(dir_path, "data\\templates\\csvs")
 
@@ -78,6 +81,7 @@ def detect_env():
         iplist_dir = os.path.join(dir_path, "data/iplists")
         config_dir = os.path.join(dir_path, "data/configs")
         template_dir = os.path.join(dir_path, "data/templates")
+        temps_dir = os.path.join(dir_path, "data/templates/temps")
         log_dir = os.path.join(dir_path, "data/logs")
         csvs_dir = os.path.join(dir_path, "data/templates/csvs")
 
@@ -162,9 +166,10 @@ def find_mac_return_intf(dev, mac_addr, vlan_tag):
 def deviation_search(list_dict):
     tmp_lines = []
     hosts = []
-    deviations = ['ntp', 'snmp', 'login', 'tacplus']
-    user_input = getOptionAnswer("Choose a deviation to search for", deviations)
-    fullpath = os.path.join(template_dir, user_input + '.conf')
+    #print "Temps Dir: {0}".format(temps_dir)
+    file_list = getFileList(temps_dir, ext_filter='conf')
+    user_input = getOptionAnswer("Choose a deviation to search for", file_list)
+    fullpath = os.path.join(temps_dir, user_input)
     tmp_lines = txt_to_list(fullpath)
     print "Searching for template files with content..."
     # Search configs directory recursively for content
@@ -185,12 +190,16 @@ def deviation_search(list_dict):
     # Create a dictionary with the IP and Hostname
     combined = []
     for host in hosts:
+        found = False
         for device in list_dict:
             if device['hostname'] == host:
                 combined.append({'hostname': host, 'ip': device['ip']})
+                found = True
+        if not found:
+            print "Unable to find {0} in jmanage database!".format(host)
     # Add dictionary contents to a CSV file
     now = get_now_time()
-    csvpath = os.path.join(csvs_dir, user_input + "_" + now + ".csv")
+    csvpath = os.path.join(csvs_dir, user_input.rsplit('.')[0] + "_" + now + ".csv")
     if listdict_to_csv(combined, csvpath, myDelimiter=",", columnNames=['hostname', 'ip']):
         print "Successfully convered list dictionary to CSV: {0}".format(csvpath)
     else:
