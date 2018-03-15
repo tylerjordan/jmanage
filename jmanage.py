@@ -169,15 +169,34 @@ def deviation_search(list_dict):
     #print "Temps Dir: {0}".format(temps_dir)
     file_list = getFileList(temps_dir, ext_filter='conf')
     user_input = getOptionAnswer("Choose a deviation to search for", file_list)
-    fullpath = os.path.join(temps_dir, user_input)
-    tmp_lines = txt_to_list(fullpath)
+    tmppath = os.path.join(temps_dir, user_input)
+    tmp_lines = txt_to_list(tmppath)
     print "Searching for template files with content..."
     # Search configs directory recursively for content
     for folder,dirs,files in os.walk(config_dir):
         for file in files:
             if file.startswith('Template_Deviation'):
                 fullpath = os.path.join(folder, file)
+                hostname = os.path.split(folder)[1]
+                num_matches = 0
                 with open(fullpath, 'r') as f:
+
+
+                    ### NEW CONTENT ###
+                    for line in f:
+                        subline = line.split('> ', 1)[-1].rstrip()
+                        if subline in tmp_lines:
+                            #print "Matched Subline: {0}".format(subline)
+                            num_matches += 1
+                if num_matches > 0:
+                    if hostname not in hosts:
+                        hosts.append(hostname)
+                        print "Found {0} lines ... appending: {1} to file".format(num_matches, hostname)
+                    else:
+                        print "Hostname {0} already listed?".format(hostname)
+                    ### NEW CONTENT ###
+
+                    '''
                     for line in f:
                         for t_line in tmp_lines:
                             if t_line in line:
@@ -186,7 +205,7 @@ def deviation_search(list_dict):
                                     hosts.append(topdir)
                                     print "Appending: {0} to file".format(topdir)
                                     break
-
+                    '''
     # Create a dictionary with the IP and Hostname
     combined = []
     for host in hosts:
@@ -195,16 +214,16 @@ def deviation_search(list_dict):
             if device['hostname'] == host:
                 combined.append({'hostname': host, 'ip': device['ip']})
                 found = True
+        # If they are not found in the database, they are likely no longer valid hosts
         if not found:
             print "Unable to find {0} in jmanage database!".format(host)
     # Add dictionary contents to a CSV file
     now = get_now_time()
     csvpath = os.path.join(csvs_dir, user_input.rsplit('.')[0] + "_" + now + ".csv")
     if listdict_to_csv(combined, csvpath, myDelimiter=",", columnNames=['hostname', 'ip']):
-        print "Successfully convered list dictionary to CSV: {0}".format(csvpath)
+        print "Successfully converted list dictionary to CSV: {0}".format(csvpath)
     else:
         print "Failed converting list dictionary to CSV: {0}".format(csvpath)
-    print combined
 
 def ip_search_menu(list_dict):
     """ 

@@ -1773,10 +1773,10 @@ def check_loop(subsetlist):
         for record in listDict:
             # Check if record has "VC", if it doesn't, add it.
             '''
-            if record['vc'] != 'TRUE' or record['vc'] != 'FALSE':
-                stdout.write("\nVC not Upper -> ")
-                change_record(record['ip'], record['vc'].upper(), 'vc')
-                stdout.write("Record Changed!")
+            if record['vc']:
+                if record['vc'] == "TRUE":
+                    change_record(record['ip'], "YES", 'vc')
+                    stdout.write("Record Changed!")
             '''
             curr_num += 1
             check_main(record, chg_log, total_num, curr_num)
