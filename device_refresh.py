@@ -44,6 +44,7 @@ import getopt
 import platform
 import re
 import jxmlease
+import difflib
 
 from operator import itemgetter
 from lxml import etree
@@ -1187,6 +1188,33 @@ def get_inet_interfaces(ip, dev):
 #-----------------------------------------------------------------
 # CONFIG STUFF
 #-----------------------------------------------------------------
+# Compare two configurations and provide a list of the differences
+def compare_configs(config1, config2):
+    """ Purpose: To compare two configs and get the changes.
+        Returns: True means there are differences, false means they are the same.
+    """
+    change_list = []
+    if config1 and config2:
+        config1_lines = config1.splitlines(1)
+        config2_lines = config2.splitlines(1)
+
+        diffInstance = difflib.Differ()
+        diffList = list(diffInstance.compare(config1_lines, config2_lines))
+
+        #print '-'*50
+        #print "Lines different in config1 from config2:"
+        for line in diffList:
+            if line[0] == '-':
+                change_list.append(line)
+                print "\t" + line
+            elif line[0] == '+':
+                change_list.append(line)
+                print "\t" + line
+        #print '-'*50
+    else:
+        print "ERROR with compare configs, check configs."
+    return change_list
+
 def config_compare(record, dev):
     """ Purpose: To compare two configs and get the differences, log them
 
@@ -1382,12 +1410,12 @@ def template_scan(regtmpl_list, record):
             #print "Template Time: {0}".format(template_time_obj.group(0))
             c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
             t_time = datetime.datetime.strptime(template_time_obj.group(0), "%Y-%m-%d_%H%M")
-            daysDiff = (t_time - c_time).days
-            minsDiff = daysDiff * 24 * 60
+            diff = t_time - c_time
+            diff_minutes = (diff.days * 24 * 60) + (diff.seconds/60)
             # The difference between the current configuration and current template warrants a new template
             # Checks if there is less than 2 mins between
-            #print "Difference: {0}".format(minsDiff)
-            if minsDiff < 2:
+            #print "Difference: {0}".format(diff_minutes)
+            if diff_minutes > 2:
                 remove_template_file(record['hostname'])
                 results = template_results(record, regtmpl_list)
                 return results
@@ -1467,8 +1495,8 @@ def template_results(record, regtmpl_list):
                 else:
                     results.append(nice_output)
 
-                    # If check is successful...
     record.update({'last_temp_check': get_now_time()})
+    # If check is successful..
     if nomatch:
         stdout.write("\n\t\tTemplate Check: No discrepancies detected")
         returncode = 1
