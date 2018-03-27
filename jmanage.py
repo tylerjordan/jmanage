@@ -212,7 +212,7 @@ def deviation_search(list_dict):
         found = False
         for device in list_dict:
             if device['hostname'] == host:
-                combined.append({'hostname': host, 'ip': device['ip']})
+                combined.append({'mgmt_ip': device['ip'], 'hostname': host})
                 found = True
         # If they are not found in the database, they are likely no longer valid hosts
         if not found:
@@ -220,7 +220,7 @@ def deviation_search(list_dict):
     # Add dictionary contents to a CSV file
     now = get_now_time()
     csvpath = os.path.join(csvs_dir, user_input.rsplit('.')[0] + "_" + now + ".csv")
-    if listdict_to_csv(combined, csvpath, myDelimiter=",", columnNames=['hostname', 'ip']):
+    if listdict_to_csv(combined, csvpath, myDelimiter=",", columnNames=['mgmt_ip', 'hostname']):
         print "Successfully converted list dictionary to CSV: {0}".format(csvpath)
     else:
         print "Failed converting list dictionary to CSV: {0}".format(csvpath)
