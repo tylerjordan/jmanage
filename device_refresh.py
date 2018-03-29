@@ -1,4 +1,4 @@
-__copyright__ = "Copyright 2017 Tyler Jordan"
+__copyright__ = "Copyright 2018 Tyler Jordan"
 __version__ = "0.2.0"
 __email__ = "tjordan@juniper.net"
 
@@ -22,6 +22,7 @@ __email__ = "tjordan@juniper.net"
 # last_param_check ... Last time device parameters were checked by script
 # last_param_change .. Last time device parameter was changed by script
 # last_temp_check .... Last time device template was checked by script
+# last_temp_refresh ... Last time device template was changed by script
 #
 # Interface Database Attributes:
 # hostname............ Hostname of device
@@ -117,7 +118,7 @@ inet_change_ips = []
 # Key Lists
 dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
                 'last_config_change', 'last_param_check', 'last_param_change', 'last_inet_check', 'last_inet_change',
-                'last_temp_check', 'add_date']
+                'last_temp_check', 'last_temp_refresh', 'add_date']
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version', 'vc' ]
 
 def detect_env():
@@ -1407,37 +1408,38 @@ def template_scan(regtmpl_list, record):
         #print "Template File: {0}".format(newest_template_file)
         if newest_template_file:
             template_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_template_file)
-            #print "Template Time: {0}".format(template_time_obj.group(0))
             c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
             t_time = datetime.datetime.strptime(template_time_obj.group(0), "%Y-%m-%d_%H%M")
-            diff = t_time - c_time
-            diff_minutes = (diff.days * 24 * 60) + (diff.seconds/60)
-            # The difference between the current configuration and current template warrants a new template
-            # Checks if there is less than 2 mins between
-            #print "Difference: {0}".format(diff_minutes)
-            if diff_minutes > 2:
+            diff = c_time - t_time
+            #print "\nTemplate Time: {0}".format(t_time)
+            #print "Config Time - Template Time = Difference"
+            #print "{0} - {1} = {2}".format(c_time, t_time, diff)
+            #diff_minutes = (diff.days * 24 * 60) + (diff.seconds/60)
+            # If latest config is newer than the template
+            if c_time > t_time:
                 remove_template_file(record['hostname'])
                 results = template_results(record, regtmpl_list)
+                record.update({'last_temp_refresh': get_now_time()})
                 return results
             # The template file is current for the latest config file available, skip template function
             else:
-                record.update({'last_temp_check': get_now_time()})
                 message = "Latest Template Already Created"
-                stdout.write("\n\t\tTemplate Check: " + message)
                 results.append(message)
                 returncode = 3
         # There is no template file, but there is a config file, try to compare and create a template
         else:
             remove_template_file(record['hostname'])
             results = template_results(record, regtmpl_list)
+            record.update({'last_temp_refresh': get_now_time()})
             return results
     # No config file, skip template function
     else:
-        record.update({'last_temp_check': get_now_time()})
         message = "No valid configuration available"
         stdout.write("\n\t\tTemplate Check: " + message)
         results.append(message)
         returncode = 0
+    # Update template check timestamp
+    record.update({'last_temp_check': get_now_time()})
 
     results.append(returncode)
     return results
@@ -1631,6 +1633,7 @@ def add_record(ip, dev):
         mydict['last_param_change'] = now
         mydict['last_param_check'] = now
         mydict['last_temp_check'] = "UNDEFINED"
+        mydict['last_temp_refresh'] = "UNDEFINED"
 
         # Add entire record to database
         mydict['add_date'] = now
@@ -1662,6 +1665,28 @@ def change_record(ip, value, key):
             # If the record change was successful...
             else:
                 myrecord.update({'last_param_change': get_now_time()})
+                return True
+
+def delete_record_key(ip, key):
+    """ Purpose: Delete an existing key/value pair, based on key value. Record is a dictionary.
+
+    :param ip:          -   IP of the device
+    :param key:         -   Key of the attribute
+    :return:            -   True/False
+    """
+    for myrecord in listDict:
+        # If we've found the correct record...
+        if myrecord['ip'] == ip:
+            try:
+                # Trying to update the record...
+                del myrecord[key]
+            except Exception as err:
+                # Error checking...
+                print "ERROR: Unable to delete key '{0}' : {1} | Device: {2}".format(key, err, ip)
+                return False
+            # If the record change was successful...
+            else:
+                print "Successfully deleted key '{0}'".format(key)
                 return True
 
 def check_host_sn(ip, dev):
@@ -1781,11 +1806,6 @@ def check_loop(subsetlist):
             # Loop through IPs in the provided list
             for ip in temp_list:
                 record = get_record(listDict, ip)
-                # Check if record has "VC", if it doesn't, add it.
-                if 'vc' not in record:
-                    stdout.write("\nVC not detected - ")
-                    change_record(record['ip'], 'False', 'vc')
-                    stdout.write("Record Changed!\n")
                 curr_num += 1
                 # Checks if the specified IP is NOT defined in the list of dictionaries.
                 if not any(ipaddr.get('ip', None) == ip for ipaddr in listDict):
@@ -1794,17 +1814,21 @@ def check_loop(subsetlist):
                     add_new_device(ip, total_num, curr_num)
                 # If the IP IS present, execute this...
                 else:
-                    check_main(record, chg_log, total_num, curr_num)
+                   check_main(record, chg_log, total_num, curr_num)
+
     # Check the entire database
     else:
         total_num = len(listDict)
         for record in listDict:
-            # Check if record has "VC", if it doesn't, add it.
+            # Check if record has "last_temp_refresh", if it doesn't, add it.
             '''
-            if record['vc']:
-                if record['vc'] == "TRUE":
-                    change_record(record['ip'], "YES", 'vc')
-                    stdout.write("Record Changed!")
+            if 'last_temp_refresh' not in record:
+                stdout.write("\nLast Temp Refresh var not detected - ")
+                change_record(record['ip'], 'UNDEFINED', 'last_temp_refresh')
+                stdout.write("Record Changed!\n")
+            # Checks if record has 'last_temp_change', if it does, delete it.
+            if 'last_temp_change' in record:
+                delete_record_key(record['ip'], 'last_temp_change')
             '''
             curr_num += 1
             check_main(record, chg_log, total_num, curr_num)
@@ -1925,12 +1949,16 @@ if __name__ == "__main__":
     main(sys.argv[1:])
 
     # Assign arguments
-    myfile = os.path.join(dir_path, credsCSV)
-    creds = csv_to_dict(myfile)
-    myuser = creds['username']
-    mypwd = creds['password']
-    alt_myuser = creds['alt_username']
-    alt_mypwd = creds['alt_password']
+    if credsCSV:
+        myfile = os.path.join(dir_path, credsCSV)
+        creds = csv_to_dict(myfile)
+        myuser = creds['username']
+        mypwd = creds['password']
+        alt_myuser = creds['alt_username']
+        alt_mypwd = creds['alt_password']
+    else:
+        print "Error: No CSV credentials file specified!"
+        exit()
 
     # Load records from existing CSV
     #print "Loading records..."
@@ -1998,3 +2026,4 @@ if __name__ == "__main__":
         # Close this section
         print "\n" + "-" * 80
         print "\nFinished with saves. We're done!"
+        exit()

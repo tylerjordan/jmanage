@@ -1,4 +1,4 @@
-__copyright__ = "Copyright 2016 Tyler Jordan"
+__copyright__ = "Copyright 2018 Tyler Jordan"
 __version__ = "0.1.1"
 __email__ = "tjordan@juniper.net"
 
@@ -45,7 +45,7 @@ port = 22
 # Key Lists
 dbase_order = [ 'hostname', 'ip', 'vc', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
                 'last_config_change', 'last_param_check', 'last_param_change', 'last_inet_check', 'last_inet_change',
-                'last_temp_check', 'add_date']
+                'last_temp_check', 'last_temp_refresh', 'add_date']
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
 
 def detect_env():
@@ -382,15 +382,17 @@ def show_devices(list_dict):
         Returns: Nothing
     """
     t = PrettyTable(['Management IP', 'Hostname', 'Model', 'VC', 'Current Code', 'Serial Number', 'Last Access',
-                     'Last Config Change', 'Last Parameter Change', 'Last Inet Change', 'Last Temp Check', 'Add Date'])
+                     'Last Config Change', 'Last Parameter Change', 'Last Inet Change', 'Last Temp Check',
+                     'Last Temp Refresh', 'Add Date'])
     for device in list_dict:
         #print device
-        if 'vc' not in device:
-            stdout.write("\nDevice: {0} -> ".format(device['ip']))
-        t.add_row([device['ip'], device['hostname'], device['model'], device['vc'], device['version'],
-                   device['serialnumber'], device['last_access'], device['last_config_change'],
-                   device['last_param_change'], device['last_inet_change'], device['last_temp_check'],
-                   device['add_date']])
+        if 'last_temp_refresh' not in device:
+            print "Device: {0} -> ".format(device['ip'])
+        else:
+            t.add_row([device['ip'], device['hostname'], device['model'], device['vc'], device['version'],
+                       device['serialnumber'], device['last_access'], device['last_config_change'],
+                       device['last_param_change'], device['last_inet_change'], device['last_temp_check'],
+                       device['last_temp_refresh'], device['add_date']])
     print t
     print "Device Total: {0}".format(len(list_dict))
 
@@ -467,6 +469,8 @@ def display_device_info(search_str):
         print "Last Param Check.....{0}".format(myrecord['last_param_check'])
         print "Last Inet Change.....{0}".format(myrecord['last_inet_change'])
         print "Last Inet Check......{0}".format(myrecord['last_inet_check'])
+        print "Last Temp Change.....{0}".format(myrecord['last_temp_refresh'])
+        print "Last Temp Check......{0}".format(myrecord['last_temp_check'])
         print "Add Date.............{0}".format(myrecord['add_date'])
 
         t = PrettyTable(['Interface', 'IP', 'Mask', 'Status', 'Last Updated'])
