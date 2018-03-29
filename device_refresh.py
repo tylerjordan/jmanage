@@ -1423,7 +1423,8 @@ def template_scan(regtmpl_list, record):
                 return results
             # The template file is current for the latest config file available, skip template function
             else:
-                message = "Latest Template Already Created"
+                message = "Latest Template Already Exists"
+                stdout.write("\n\t\tTemplate Check: " + message)
                 results.append(message)
                 returncode = 3
         # There is no template file, but there is a config file, try to compare and create a template
@@ -1434,7 +1435,7 @@ def template_scan(regtmpl_list, record):
             return results
     # No config file, skip template function
     else:
-        message = "No valid configuration available"
+        message = "No Valid Configuration Available"
         stdout.write("\n\t\tTemplate Check: " + message)
         results.append(message)
         returncode = 0
@@ -1473,7 +1474,6 @@ def template_results(record, regtmpl_list):
                             matched = True
                             break
                     else:
-                        record.update({'last_temp_check': get_now_time()})
                         stdout.write("\n\t\tTemplate Check: ERROR: Unexpected string format")
                         results.append(compline)
                         returncode = 0
@@ -1497,13 +1497,12 @@ def template_results(record, regtmpl_list):
                 else:
                     results.append(nice_output)
 
-    record.update({'last_temp_check': get_now_time()})
     # If check is successful..
     if nomatch:
-        stdout.write("\n\t\tTemplate Check: No discrepancies detected")
+        stdout.write("\n\t\tTemplate Check: No Discrepancies Detected")
         returncode = 1
     else:
-        stdout.write("\n\t\tTemplate Check: Descrepancies were detected")
+        stdout.write("\n\t\tTemplate Check: Descrepancies Were Detected")
         returncode = 2
 
     # Return the results
