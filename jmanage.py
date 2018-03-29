@@ -191,7 +191,11 @@ def deviation_search(list_dict):
                 if num_matches > 0:
                     if hostname not in hosts:
                         hosts.append(hostname)
-                        print "Found {0} lines ... appending: {1} to file".format(num_matches, hostname)
+                        ip = 'Unknown'
+                        for device in list_dict:
+                            if device['hostname'] == hostname:
+                                ip = device['ip']
+                        print "Found {0} lines ... appending: {1} ({2}) to file".format(num_matches, hostname, ip)
                     else:
                         print "Hostname {0} already listed?".format(hostname)
                     ### NEW CONTENT ###
