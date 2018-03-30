@@ -485,6 +485,7 @@ def connect(ip, indbase=False):
     # Try to open a connection to the device
     try:
         dev.open()
+        dev.timeout = 300
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
         message = "Host Reachable, but NETCONF not configured."
