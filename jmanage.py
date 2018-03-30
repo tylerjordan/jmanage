@@ -518,19 +518,21 @@ if __name__ == '__main__':
     except Exception as err:
         print "Problem detecting OS type..."
         quit()
-    else:
-        # Credentials
-        myfile = os.path.join(dir_path, 'pass.csv')
-        creds = csv_to_dict(myfile)
-        myuser = creds['username']
-        mypwd = creds['password']
-        print "User: {0} | Pass: {1}".format(myuser, mypwd)
 
-        # Load Main Database
-        listDict = json_to_listdict(main_list_dict)
+    # Credentials
+    myfile = os.path.join(dir_path, 'pass.csv')
+    creds = csv_to_dict(myfile)
+    myuser = creds['username']
+    mypwd = creds['password']
+    print "User: {0} | Pass: {1}".format(myuser, mypwd)
 
-        # Main Program Loop
-        my_options = ['Display Database', 'Search Database', 'Display Device', 'IP Search', 'Delete Record', 'Deviation Search', 'Quit']
+    # Load Main Database
+    listDict = json_to_listdict(main_list_dict)
+
+    # Main Program Loop
+    my_options = ['Display Database', 'Search Database', 'Display Device', 'IP Search', 'Delete Record', 'Deviation Search', 'Quit']
+
+    try:
         while True:
             print "\n" + "*" * 25
             print "Total Records: {0}".format(len(listDict))
@@ -568,3 +570,9 @@ if __name__ == '__main__':
                 quit()
             else:
                 quit()
+    except KeyboardInterrupt:
+        print 'Exiting...'
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)

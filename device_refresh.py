@@ -1334,14 +1334,18 @@ def fetch_config(dev, ver):
     # Attempts to use cli hack if version is earlier than 15
     if maj_ver < 15:
         rawconfig = dev.cli('show config | display set', warning=False)
-        myconfig = rawconfig.strip(' \t\n\r').encode("utf-8")
+        # Following code removes any non-ascii characters from the configuration string.
+        rawconfig = rawconfig.encode('ascii', errors='ignore')
+        # Following code strips out any tabs, newlines, carriage returns
+        myconfig = rawconfig.strip(' \t\n\r')
+        # Following code catches any non set
         if not re.match('^set\s', myconfig):
             err = re.search('^.*', myconfig)
             print "Config Error: {0}".format(err.group(0))
             myconfig = ""
     # Otherwise use the "better" get_config rpc that is supported in JunOS 15.1 and later
     else:
-        rawconfig = dev.rpc.get_config(options={'format': 'set'})
+        rawconfig = dev.rpc.get_config(options={'format': 'set'}).encode("utf-8")
         myconfig = re.sub('<.+>', '', etree.tostring(rawconfig))
     # Returns a text version of the configuration in "set" format
     return myconfig
