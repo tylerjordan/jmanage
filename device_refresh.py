@@ -481,7 +481,7 @@ def connect(ip, indbase=False):
     :param indbase:     -   Boolean if this device is in the database or not, defaults to False if not specified
     :return dev:        -   Returns the device handle if its successfully opened.
     """
-    dev = Device(host=ip, user=myuser, passwd=mypwd, auto_probe=True)
+    dev = Device(host=ip, user=myuser, passwd=mypwd)
     # Try to open a connection to the device
     try:
         dev.open()
@@ -1196,13 +1196,16 @@ def compare_configs(config1, config2):
         Returns: True means there are differences, false means they are the same.
     """
     change_list = []
-    if config1 and config2:
-        config1_lines = config1.splitlines(1)
-        config2_lines = config2.splitlines(1)
+    config1_lines = config1.splitlines(1)
+    config2_lines = config2.splitlines(1)
 
-        diffInstance = difflib.Differ()
+    diffInstance = difflib.Differ()
+    try:
         diffList = list(diffInstance.compare(config1_lines, config2_lines))
-
+    except Exception as err:
+        print "ERROR: Config comparison failed."
+        return False
+    else:
         #print '-'*50
         #print "Lines different in config1 from config2:"
         for line in diffList:
@@ -1213,9 +1216,7 @@ def compare_configs(config1, config2):
                 change_list.append(line)
                 print "\t" + line
         #print '-'*50
-    else:
-        print "ERROR with compare configs, check configs."
-    return change_list
+        return change_list
 
 def config_compare(record, dev):
     """ Purpose: To compare two configs and get the differences, log them
@@ -1228,28 +1229,34 @@ def config_compare(record, dev):
     # 0 = Save Failed, 1 = No Changes, 2 = Changes Detected, 3 = Update Failed
     returncode = 1
 
-    # Check if the appropriate site directory is created. If not, then create it.
+    # Loads the existing (latest) configuration file into a string.
     loaded_config = get_config_str(record['hostname'], newest=True)
     #print "Loaded Config: " + loaded_config
 
     # Update check date
     record.update({'last_config_check': get_now_time()})
+    # If loaded_config has nothing, then no configuration exists
     if not loaded_config:
-        record.update({'last_config_change': get_now_time()})
+        # Try to save the configuration of this device
         if save_config_file(fetch_config(dev, record['version']), record):
             #stdout.write("\n\t\tNo existing config, config saved")
             results.append("No Existing Config, Configuration Saved")
+            record.update({'last_config_change': get_now_time()})
+        # If the save fails, print the error
         else:
             message = "No Existing Config, Configuration Save Failed"
             stdout.write("\n\t\tConfig Check: ERROR: " + message)
             results.append(message)
             returncode = 0
+    # If loaded_config returns a configuration...
     else:
+        # Try to get the current configuration
         current_config = fetch_config(dev, record['version'])
+        # If the current configuration is returned...
         if current_config:
             # Compare configurations
             change_list = compare_configs(loaded_config, current_config)
-            # Update config check date in record
+            # If change_list returns with values, the configs are different
             if change_list:
                 record.update({'last_config_change': get_now_time()})
                 stdout.write("\n\t\tConfig Check: Configuration was changed")
@@ -1265,6 +1272,18 @@ def config_compare(record, dev):
                     stdout.write(" | ERROR: " + message)
                     results.append(message)
                     returncode = 3
+            # If change_list length is 0, there are no differences in config
+            elif len(change_list) == 0:
+                message = "No configuration changes"
+                stdout.write("\n\t\tConfig Check: " + message)
+                results.append(message)
+                returncode = 1
+            # False means the compare_configs process failed
+            else:
+                message = "Error during configuration comparison, check configs"
+                stdout.write("\n\t\tConfig Check: ERROR: " + message)
+                results.append(message)
+                returncode = 0
         else:
             message = "Unable to retrieve configuration"
             stdout.write("\n\t\tConfig Check: ERROR: " + message)
