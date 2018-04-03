@@ -1237,14 +1237,24 @@ def config_compare(record, dev):
     record.update({'last_config_check': get_now_time()})
     # If loaded_config has nothing, then no configuration exists
     if not loaded_config:
-        # Try to save the configuration of this device
-        if save_config_file(fetch_config(dev, record['version']), record):
-            #stdout.write("\n\t\tNo existing config, config saved")
-            results.append("No Existing Config, Configuration Saved")
-            record.update({'last_config_change': get_now_time()})
-        # If the save fails, print the error
+        # Try to collect the config
+        myconfig = fetch_config(dev, record['version'])
+        # If the config was collected, try to save it as well
+        if myconfig:
+            # If the configuration save works
+            if save_config_file(myconfig, record):
+                #stdout.write("\n\t\tNo existing config, config saved")
+                results.append("No Existing Config, Configuration Saved")
+                record.update({'last_config_change': get_now_time()})
+            # If the configuration save doesn't work
+            else:
+                message = "Unable to save configuration."
+                stdout.write("\n\t\tConfig Check: ERROR: " + message)
+                results.append(message)
+                returncode = 0
+        # If the config was not collected, print a fetch error
         else:
-            message = "No Existing Config, Configuration Save Failed"
+            message = "Unable to fetch configuration from device - unable to save configuration."
             stdout.write("\n\t\tConfig Check: ERROR: " + message)
             results.append(message)
             returncode = 0
