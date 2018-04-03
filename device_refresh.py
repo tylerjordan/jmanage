@@ -1262,6 +1262,7 @@ def config_compare(record, dev):
     else:
         # Try to get the current configuration
         current_config = fetch_config(dev, record['version'])
+
         # If the current configuration is returned...
         if current_config:
             # Compare configurations
@@ -1284,10 +1285,31 @@ def config_compare(record, dev):
                     returncode = 3
             # If change_list length is 0, there are no differences in config
             elif len(change_list) == 0:
-                message = "No configuration changes"
-                stdout.write("\n\t\tConfig Check: " + message)
-                results.append(message)
-                returncode = 1
+                # Calculate how old the newest configuration file is
+                newest_config_file = get_config_filename(record['hostname'], record['hostname'], newest=True)
+                config_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_config_file)
+                c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
+                now_time = datetime.datetime.now()
+                diff = now_time - c_time
+                #print "\nDiff Days: {0}".format(diff.days)
+                # If the latest configuration is over a week old, create a new one
+                if diff.days > 7:
+                    try:
+                        save_config_file(current_config, record)
+                        message = "Refreshed latest configuration"
+                        stdout.write("\n\t\tConfig Check: " + message)
+                        results.append(message)
+                        returncode = 1
+                    except Exception as err:
+                        message = "Unable to save new config"
+                        stdout.write("\n\t\tConfig Check: ERROR: " + message)
+                        results.append(message)
+                        returncode = 3
+                else:
+                    message = "No configuration changes"
+                    stdout.write("\n\t\tConfig Check: " + message)
+                    results.append(message)
+                    returncode = 1
             # False means the compare_configs process failed
             else:
                 message = "Error during configuration comparison, check configs"
