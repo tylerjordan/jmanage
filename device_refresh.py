@@ -1211,10 +1211,10 @@ def compare_configs(config1, config2):
         for line in diffList:
             if line[0] == '-':
                 change_list.append(line)
-                print "\t" + line
+                #print "\t" + line
             elif line[0] == '+':
                 change_list.append(line)
-                print "\t" + line
+                #print "\t" + line
         #print '-'*50
         return change_list
 
