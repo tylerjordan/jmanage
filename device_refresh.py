@@ -1293,7 +1293,7 @@ def config_compare(record, dev):
                 diff = now_time - c_time
                 #print "\nDiff Days: {0}".format(diff.days)
                 # If the latest configuration is over a week old, create a new one
-                if diff.days > 7:
+                if diff.days > 2:
                     try:
                         save_config_file(current_config, record)
                         message = "Refreshed latest configuration"
