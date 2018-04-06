@@ -43,9 +43,10 @@ myuser = ''
 port = 22
 
 # Key Lists
-dbase_order = [ 'hostname', 'ip', 'vc', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
-                'last_config_change', 'last_param_check', 'last_param_change', 'last_inet_check', 'last_inet_change',
-                'last_temp_check', 'last_temp_refresh', 'add_date']
+dbase_order = [ 'hostname', 'ip', 'vc', 'version', 'model', 'serialnumber', 'last_access_attempt',
+                'last_access_success', 'last_config_check', 'last_config_change', 'last_param_check',
+                'last_param_change', 'last_inet_check', 'last_inet_change', 'last_temp_check', 'last_temp_refresh',
+                'add_date']
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version' ]
 
 def detect_env():
@@ -385,18 +386,18 @@ def show_devices(list_dict):
         Purpose: Display a table showing devices with general facts.
         Returns: Nothing
     """
-    t = PrettyTable(['Management IP', 'Hostname', 'Model', 'VC', 'Current Code', 'Serial Number', 'Last Access',
-                     'Last Config Change', 'Last Parameter Change', 'Last Inet Change', 'Last Temp Check',
-                     'Last Temp Refresh', 'Add Date'])
+    t = PrettyTable(['Management IP', 'Hostname', 'Model', 'VC', 'Current Code', 'Serial Number', 'Last Access Attempt',
+                     'Last Access Success', 'Last Config Change', 'Last Parameter Change', 'Last Inet Change',
+                     'Last Temp Check', 'Last Temp Refresh', 'Add Date'])
     for device in list_dict:
         #print device
         if 'last_temp_refresh' not in device:
             print "Device: {0} -> ".format(device['ip'])
         else:
             t.add_row([device['ip'], device['hostname'], device['model'], device['vc'], device['version'],
-                       device['serialnumber'], device['last_access'], device['last_config_change'],
-                       device['last_param_change'], device['last_inet_change'], device['last_temp_check'],
-                       device['last_temp_refresh'], device['add_date']])
+                       device['serialnumber'], device['last_access_attempt'], device['last_access_success'],
+                       device['last_config_change'], device['last_param_change'], device['last_inet_change'],
+                       device['last_temp_check'], device['last_temp_refresh'], device['add_date']])
     print t
     print "Device Total: {0}".format(len(list_dict))
 
@@ -466,7 +467,8 @@ def display_device_info(search_str):
         print "VC...................{0}".format(myrecord['vc'])
         print "Version..............{0}".format(myrecord['version'])
         print "S/N..................{0}".format(myrecord['serialnumber'])
-        print "Last Access..........{0}".format(myrecord['last_access'])
+        print "Last Access Attempt..{0}".format(myrecord['last_access_attempt'])
+        print "Last Access Success..{0}".format(myrecord['last_access_success'])
         print "Last Config Change...{0}".format(myrecord['last_config_change'])
         print "Last Config Check....{0}".format(myrecord['last_config_check'])
         print "Last Param Change....{0}".format(myrecord['last_param_change'])

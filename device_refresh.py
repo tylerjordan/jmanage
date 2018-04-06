@@ -16,13 +16,14 @@ __email__ = "tjordan@juniper.net"
 # serialnumber ....... Serial Number of Chassis
 # model .............. Juniper Model Number (ie. EX4300-48P)
 # vc ................. VC Status (True = VC, False = standalone chassis)
-# last_access......... Last time device was accessed by script
-# last_config_check .. Last time device config was checked by script
-# last_config_change . Last time device config was changed by script
-# last_param_check ... Last time device parameters were checked by script
-# last_param_change .. Last time device parameter was changed by script
-# last_temp_check .... Last time device template was checked by script
-# last_temp_refresh ... Last time device template was changed by script
+# last_access_attempt..Last time device access was attempted
+# last_access_success..Last time device successfully was accessed
+# last_config_check .. Last time device config was checked
+# last_config_change . Last time device config was changed
+# last_param_check ... Last time device parameters were checked
+# last_param_change .. Last time device parameter was changed
+# last_temp_check .... Last time device template was checked
+# last_temp_refresh ... Last time device template was changed
 #
 # Interface Database Attributes:
 # hostname............ Hostname of device
@@ -116,9 +117,9 @@ templ_change_ips = []
 inet_change_ips = []
 
 # Key Lists
-dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access', 'last_config_check',
-                'last_config_change', 'last_param_check', 'last_param_change', 'last_inet_check', 'last_inet_change',
-                'last_temp_check', 'last_temp_refresh', 'add_date']
+dbase_order = [ 'hostname', 'ip', 'version', 'model', 'serialnumber', 'last_access_attempt', 'last_access_success',
+                'last_config_check', 'last_config_change', 'last_param_check', 'last_param_change', 'last_inet_check',
+                'last_inet_change', 'last_temp_check', 'last_temp_refresh', 'add_date']
 facts_list = [ 'hostname', 'serialnumber', 'model', 'version', 'vc' ]
 
 def detect_env():
@@ -1405,7 +1406,7 @@ def fetch_config(dev, ver):
 #-----------------------------------------------------------------
 # TEMPLATE STUFF
 #-----------------------------------------------------------------
-def template_check(record, temp_dev_log):
+def template_check(record):
     """ Purpose: Runs the template function and creates log entries.
 
     :param record: A dictionary containing the device information from main_db
@@ -1422,6 +1423,12 @@ def template_check(record, temp_dev_log):
     # Check to see if a template run was even needed.
     #print "Result Code: {0}".format(templ_results[-1])
     if templ_results[-1] != 3:
+        # Create the template deviation log
+        now = get_now_time()
+        device_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
+        temp_dev_name = "Template_Deviation_" + now + ".log"
+        temp_dev_log = os.path.join(device_dir, temp_dev_name)
+
         print_log("Report: Template Deviation Check\n", temp_dev_log)
         print_log("Device: {0} ({1})\n".format(record['hostname'], record['ip']), temp_dev_log)
         print_log("User: {0}\n".format(myuser), temp_dev_log)
@@ -1684,7 +1691,8 @@ def add_record(ip, dev):
         # Set other timestamp params
         mydict['last_config_check'] = "UNDEFINED"
         mydict['last_config_change'] = "UNDEFINED"
-        mydict['last_access'] = now
+        mydict['last_access_attempt'] = now
+        mydict['last_access_success'] = now
         mydict['last_param_change'] = now
         mydict['last_param_check'] = now
         mydict['last_temp_check'] = "UNDEFINED"
@@ -1875,15 +1883,21 @@ def check_loop(subsetlist):
     else:
         total_num = len(listDict)
         for record in listDict:
-            # Check if record has "last_temp_refresh", if it doesn't, add it.
             '''
-            if 'last_temp_refresh' not in record:
-                stdout.write("\nLast Temp Refresh var not detected - ")
-                change_record(record['ip'], 'UNDEFINED', 'last_temp_refresh')
+            # Check if record has "last_access_attempt", if it doesn't, add it.
+            if 'last_access_attempt' not in record:
+                stdout.write("\nLast Access Attempt var not detected - ")
+                change_record(record['ip'], 'UNDEFINED', 'last_access_attempt')
                 stdout.write("Record Changed!\n")
-            # Checks if record has 'last_temp_change', if it does, delete it.
-            if 'last_temp_change' in record:
-                delete_record_key(record['ip'], 'last_temp_change')
+            # Check if record has "last_access_success", if it doesn't, add it.
+            if 'last_access_success' not in record:
+                stdout.write("\nLast Access Success var not detected - ")
+                change_record(record['ip'], 'UNDEFINED', 'last_access_success')
+                stdout.write("Record Changed!\n")
+            # Checks if record has 'last_access', if it does, delete it.
+            if 'last_access' in record:
+                delete_record_key(record['ip'], 'last_access')
+                stdout.write("Record Changed!\n")
             '''
             curr_num += 1
             check_main(record, chg_log, total_num, curr_num)
@@ -1901,20 +1915,16 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
     """
     # Make sure that a folder exists for this site
     directory_check(record)
-    device_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
 
-    # Create the template deviation log
-    now = get_now_time()
-    if addl_opt == "template" or addl_opt == "all":
-        temp_dev_name = "Template_Deviation_" + now + ".log"
-        temp_dev_log = os.path.join(device_dir, temp_dev_name)
-
+    # Print out the device and count information
     stdout.write("\n" + "| " + str(curr_num) + " of " + str(total_num) + " | " + record['hostname'] + " (" + record['ip'] + ") | ")
-    # Try to connect to device and open a connection
-    record.update({'last_access': get_now_time()})
+    # Update the 'last_access_attempt'
+    record.update({'last_access_attempt': get_now_time()})
     # Try to connect to the device
     dev = connect(record['ip'], True)
+    # If the connection was successfull...
     if dev:
+        record.update({'last_access_success': get_now_time()})
         stdout.write("Checking: ")
         if addl_opt == "all":
             stdout.write("Config|Param|Inet|Template | ")
@@ -1922,7 +1932,7 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
             param_check(record, chg_log, dev)
             inet_check(record, chg_log, dev)
             #dev.close()
-            template_check(record, temp_dev_log)
+            template_check(record)
         else:
             # Running Config Check
             if addl_opt == "config":
@@ -1942,7 +1952,7 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
             # Running Template Check
             elif addl_opt == "template":
                 stdout.write("Template | ")
-                template_check(record, temp_dev_log)
+                template_check(record)
         try:
             dev.close()
         except:
