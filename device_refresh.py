@@ -878,6 +878,7 @@ def check_params(record, dev):
                         message = item.upper() + " changed from " + record[item] + " to " + remoteDict[item]
                         stdout.write("\n\t\tParameter Check: " + message)
                         results.append(message)
+                        print "Check Params function"
                         change_record(record['ip'], remoteDict[item].upper(), key=item)
                         returncode = 2
                         # print "Changed!"
@@ -1784,7 +1785,7 @@ def check_host_sn(ip, dev):
                 # Get preferred management ip address
                 man_ip = inet_intf[0]['ipaddr']
                 # Make changes
-                #print "Change attempt!"
+                print "Check Host SN function"
                 if change_record(record['ip'], inet_intf, 'inet_intf') and change_record(record['ip'], man_ip, 'ip'):
                     return True
                 else:
@@ -1922,7 +1923,7 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
     record.update({'last_access_attempt': get_now_time()})
     # Try to connect to the device
     dev = connect(record['ip'], True)
-    # If the connection was successfull...
+    # If the connection was successfull, start checking device
     if dev:
         record.update({'last_access_success': get_now_time()})
         stdout.write("Checking: ")
@@ -1931,24 +1932,20 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
             config_check(record, chg_log, dev)
             param_check(record, chg_log, dev)
             inet_check(record, chg_log, dev)
-            #dev.close()
             template_check(record)
         else:
             # Running Config Check
             if addl_opt == "config":
                 stdout.write("Config | ")
                 config_check(record, chg_log, dev)
-                #dev.close()
             # Running Param Check
             elif addl_opt == "param":
                 stdout.write("Param | ")
                 param_check(record, chg_log, dev)
-                #dev.close()
             # Running Inet Check
             elif addl_opt == "inet":
                 stdout.write("Inet | ")
                 inet_check(record, chg_log, dev)
-                #dev.close()
             # Running Template Check
             elif addl_opt == "template":
                 stdout.write("Template | ")
@@ -1958,6 +1955,48 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
         except:
             print "Caught dev.close() exception"
             pass
+    # If connection was not successful, check how long system has been unreachable to see if we need to remove this one
+    else:
+        tmp_chk = record['last_temp_check']
+        acc_suc = record['last_access_success']
+        #stdout.write("\nAccess_Success: {0} | Temp_Check: {1} | ".format(acc_suc, tmp_chk))
+        # If the last_success is not known, check another
+        if acc_suc == 'UNDEFINED':
+            # If last_temp_check is also not known, remove this record
+            if tmp_chk == 'UNDEFINED':
+                #print "Both timestamps are Undefined"
+                remove_record(listDict, 'ip', record['ip'])
+            else:
+                # Check if this device hasn't been reached for a month, using last_temp_check timestamp
+                day_diffs = day_difference(record['last_temp_check'])
+                if day_diffs > 30:
+                    #print "Access_Success is UNDEF, Temp_Check diff is GT 30: {0}".format(day_diffs)
+                    remove_record(listDict, 'ip', record['ip'])
+                    #print "Record Removed!"
+                #else:
+                #    print "Access_Success is UNDEF, Temp_Check diff is LT 30: {0}".format(day_diffs)
+        # If this record has a valid success
+        else:
+            # Check if this device hasn't been reached for a month, using last_access_success timestamp
+            day_diffs = day_difference(record['last_access_success'])
+            if day_diffs > 30:
+                #print "Access_Success diff is GT 30: {0}".format(day_diffs)
+                remove_record(listDict, 'ip', record['ip'])
+                #print "Record Removed!"
+            #else:
+            #    print "Access_Success diff is LT 30: {0}".format(day_diffs)
+
+# Takes a specifically formatted timestamp and returns the time difference by days
+def day_difference(timestamp):
+    # Create the appropriate format to compare times
+    c_time = datetime.datetime.strptime(timestamp, "%Y-%m-%d_%H%M")
+    # Get the current time
+    now_time = datetime.datetime.now()
+    #print "\nNow: {0}".format(now_time)
+    #print "Timestamp: {0}".format(c_time)
+    diff = now_time - c_time
+    # Return the value in days
+    return diff.days
 
 def main(argv):
     """ Purpose: Capture command line arguments and populate variables.
