@@ -1528,7 +1528,7 @@ def template_results(record, regtmpl_list):
         if regline != "":
             #print "\nRegLine: {0}".format(regline)
             for compline in config_list:
-                compline.replace('\n', '').replace('\r', '')
+                compline = compline.strip()
                 if compline != "":
                     if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
                         #print "CompLine: {0}".format(compline)
@@ -1557,8 +1557,10 @@ def template_results(record, regtmpl_list):
                         # print "NEW OUTPUT: {0}".format(nice_output)
                         first_pass = False
                 if first_pass:
+                    regline = clear_extra_escapes(regline)
                     results.append(regline)
                 else:
+                    nice_output = clear_extra_escapes(nice_output)
                     results.append(nice_output)
 
     # If check is successful..
@@ -1573,36 +1575,97 @@ def template_results(record, regtmpl_list):
     results.append(returncode)
     return results
 
+# Correctly formats a template string correctly
+def template_str_parse(str):
+    tline = ""
+    openbracket = False
+    closebracket = False
+    onvar = False
+    varstr = ""
+    textstr = ""
+
+    # Put the template regex into a dictionary
+    d = csv_to_dict_twoterm(template_csv, ";")
+
+    # Loop over each character in the string
+    for c in str:
+        # If this character is an open bracket
+        if c == "{":
+            if openbracket:
+                onvar = True
+                openbracket = False
+            else:
+                openbracket = True
+                # Add any standard text (escaped)
+                tline += re.escape(textstr)
+                # Clear the textstr
+                textstr = ""
+        # If this character is a close bracket
+        elif c == "}":
+            if closebracket:
+                onvar = False
+                closebracket = False
+            else:
+                closebracket = True
+                # Add the corresponding regex expression
+                tline += d[varstr]
+                # Clear the varstr
+                varstr = ""
+        # If this character if part of a regex variable
+        elif onvar:
+            # Append this character to the variable string
+            varstr += c
+        # If this character is a regular character
+        else:
+            # Append this character to the text string
+            textstr += c
+
+    # Add any remaining text, might happen if string ends on a close bracket
+    tline += re.escape(textstr)
+
+    return tline
+
 def template_regex():
     """ Purpose: Creates the template regex using the template file and regex mapping document.
-
     :param: None
     :return regtmpl_list: A list containing regexs for template scanner. 
     """
     # Regexs for template comparisons
     d = csv_to_dict_twoterm(template_csv, ";")
 
-    # Process for replacing placeholders with regexs
-    varindc = "{{"
     regtmpl_list = []
     templ_list = line_list(template_file)
+    # Loop over each line of the template
     if templ_list:
         #print "Printing TLINE"
         for tline in templ_list:
             if tline != "":
-                # Make sure this line of
-                #
-                if varindc in tline:
-                    str_out = ''
-                    for key in d:
-                        str_out = re.subn(key, d[key], tline)
-                        if str_out[1] > 0:
-                            tline = str_out[0]
-                    regtmpl_list.append(tline.strip('\n\t'))
-                else:
-                    regtmpl_list.append(tline.strip('\n\t'))
+                # Correctly format the string for matching
+                regtmpl_list.append(template_str_parse(tline).strip('\n\t'))
     # Return the regex infused template list
     return regtmpl_list
+
+# This function remove the escaping of the "re.escape" function on the provided string
+def clear_extra_escapes(escaped_str):
+    new_str = ''
+    index = 0
+    slash_match = False
+    # Fixes the "double slashes" and captures the index of "single slashes"
+    for character in escaped_str:
+        if character == "\\":
+            if slash_match:
+                slash_match = False
+                new_str += character
+            else:
+                slash_match = True
+                # Skip this character
+        elif slash_match:
+            slash_match = False
+            new_str += character
+        else:
+            new_str += character
+        index += 1
+    return new_str
 
 #-----------------------------------------------------------------
 # ADD/CHANGE/REMOVE DEVICES AND RECORDS

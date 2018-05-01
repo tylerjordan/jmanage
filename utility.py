@@ -392,6 +392,7 @@ def write_to_json(list_dict, main_list_dict):
     else:
         return True
 
+# Write JSON formtted file to a list dictionary
 def json_to_listdict(json_file):
     list_data = []
     if not os.path.exists(json_file):
@@ -536,7 +537,6 @@ def tabulateRebootResults(listDict):
         statusDict['total_devices'] += 1
 
     return statusDict
-
 
 # Print output to the screen and a log file (either a list or string)
 def print_sl(statement, file_list):
