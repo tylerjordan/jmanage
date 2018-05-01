@@ -1630,9 +1630,6 @@ def template_regex():
     :param: None
     :return regtmpl_list: A list containing regexs for template scanner. 
     """
-    # Regexs for template comparisons
-    d = csv_to_dict_twoterm(template_csv, ";")
-
     regtmpl_list = []
     templ_list = line_list(template_file)
     # Loop over each line of the template
