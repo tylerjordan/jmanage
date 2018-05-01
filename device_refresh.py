@@ -1575,7 +1575,6 @@ def template_results(record, regtmpl_list):
     results.append(returncode)
     return results
 
-# Correctly formats a template string correctly
 def template_str_parse(str):
     tline = ""
     openbracket = False
@@ -1642,7 +1641,6 @@ def template_regex():
     # Return the regex infused template list
     return regtmpl_list
 
-# This function remove the escaping of the "re.escape" function on the provided string
 def clear_extra_escapes(escaped_str):
     new_str = ''
     index = 0
