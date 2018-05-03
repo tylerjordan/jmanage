@@ -68,7 +68,10 @@ dir_path = ''
 main_list_dict = ''
 intf_list_dict = ''
 credsCSV = ''
-template_file = ''
+template_all = ''
+template_els = ''
+template_nonels = ''
+
 template_csv = ''
 iplistfile = ''
 access_error_log = ''
@@ -130,7 +133,9 @@ def detect_env():
     global template_dir
     global log_dir
     global dir_path
-    global template_file
+    global template_all
+    global template_els
+    global template_nonels
     global template_csv
     global access_error_log
     global ops_error_log
@@ -162,8 +167,10 @@ def detect_env():
     # Statically defined files and logs
     main_list_dict = os.path.join(dir_path, "main_db.json")
     intf_list_dict = os.path.join(dir_path, "intf_db.csv")
-    template_csv = os.path.join(dir_path, template_dir, "Template_Regex.csv")
-    template_file = os.path.join(dir_path, template_dir, "Template.conf")
+    template_csv = os.path.join(dir_path, template_dir, "template_regex.csv")
+    template_all = os.path.join(dir_path, template_dir, "template_all.conf")
+    template_els = os.path.join(dir_path, template_dir, "template_els.conf")
+    template_nonels = os.path.join(dir_path, template_dir, "template_nonels.conf")
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
     ops_error_log = os.path.join(log_dir, "Ops_Error_Log.csv")
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
@@ -1419,7 +1426,7 @@ def template_check(record):
     # Delete existing template file(s)
 
     # Run template check
-    templ_results = template_scan(template_regex(), record)
+    templ_results = template_scan(template_regex(record['model']), record)
 
     # Check to see if a template run was even needed.
     #print "Result Code: {0}".format(templ_results[-1])
@@ -1624,13 +1631,14 @@ def template_str_parse(str):
 
     return tline
 
-def template_regex():
+def template_regex(model):
     """ Purpose: Creates the template regex using the template file and regex mapping document.
     :param: None
     :return regtmpl_list: A list containing regexs for template scanner. 
     """
     regtmpl_list = []
-    templ_list = line_list(template_file)
+    templ_list = line_list(template_all)
+    # Generate generic template content
     # Loop over each line of the template
     if templ_list:
         #print "Printing TLINE"
@@ -1638,6 +1646,20 @@ def template_regex():
             if tline != "":
                 # Correctly format the string for matching
                 regtmpl_list.append(template_str_parse(tline).strip('\n\t'))
+
+    # Check for specific switch ELS type
+    addl_list = []
+    if "EX4300" in model:
+        addl_list = line_list(template_els)
+    # Otherwise, it is non-ELS
+    else:
+        addl_list = line_list(template_nonels)
+    # Loop over each line with appropriate
+    for tline in addl_list:
+        if tline != "":
+            # Correctly format the string for matching
+            regtmpl_list.append(template_str_parse(tline).strip('\n\t'))
+
     # Return the regex infused template list
     return regtmpl_list
 
