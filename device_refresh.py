@@ -1552,9 +1552,9 @@ def template_results(record, regtmpl_list):
                     if value in regline:
                         if first_pass:
                             nice_output = regline
-                        # print "Key: {0} | Value: {1}".format(key, value)
-                        nice_output = nice_output.replace(value, key)
-                        # print "NEW OUTPUT: {0}".format(nice_output)
+                        #print "Key: {0} | Value: {1}".format(key, value)
+                        nice_output = nice_output.replace(value, "{{" + key + "}}")
+                        #print "NEW OUTPUT: {0}".format(nice_output)
                         first_pass = False
                 if first_pass:
                     regline = clear_extra_escapes(regline)
