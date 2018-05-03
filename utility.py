@@ -749,3 +749,15 @@ def xml_to_set(xml_output):
 
         print "### SET LIST ###"
         print set_list
+
+# Takes a specifically formatted timestamp and returns the time difference by days
+def day_difference(timestamp):
+    # Create the appropriate format to compare times
+    c_time = datetime.datetime.strptime(timestamp, "%Y-%m-%d_%H%M")
+    # Get the current time
+    now_time = datetime.datetime.now()
+    #print "\nNow: {0}".format(now_time)
+    #print "Timestamp: {0}".format(c_time)
+    diff = now_time - c_time
+    # Return the value in days
+    return diff.days
