@@ -47,6 +47,7 @@ import platform
 import re
 import jxmlease
 import difflib
+import datetime
 
 from operator import itemgetter
 from lxml import etree
@@ -1479,30 +1480,35 @@ def template_scan(regtmpl_list, record):
         #print "Template File: {0}".format(newest_template_file)
         if newest_template_file:
             template_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_template_file)
-            c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
+            #c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
+            now = datetime.datetime.now()
             t_time = datetime.datetime.strptime(template_time_obj.group(0), "%Y-%m-%d_%H%M")
-            diff = c_time - t_time
+            diff = now - t_time
             #print "\nTemplate Time: {0}".format(t_time)
             #print "Config Time - Template Time = Difference"
-            #print "{0} - {1} = {2}".format(c_time, t_time, diff)
+            #print "{0} - {1} = {2}".format(now, t_time, diff)
             #diff_minutes = (diff.days * 24 * 60) + (diff.seconds/60)
             # If latest config is newer than the template
-            if c_time > t_time:
+            if (diff.days * 24) > 23:
                 remove_template_file(record['hostname'])
                 results = template_results(record, regtmpl_list)
                 record.update({'last_temp_refresh': get_now_time()})
+                message = "Successfully Refreshed Template"
+                stdout.write("\n\t\tTemplate Check: " + message + " Diff: " + str(diff))
                 return results
             # The template file is current for the latest config file available, skip template function
             else:
-                message = "Latest Template Already Exists"
-                stdout.write("\n\t\tTemplate Check: " + message)
+                message = "New Template Already Exists"
+                stdout.write("\n\t\tTemplate Check: " + message + " Diff: " + str(diff))
                 results.append(message)
                 returncode = 3
         # There is no template file, but there is a config file, try to compare and create a template
         else:
-            remove_template_file(record['hostname'])
+            #remove_template_file(record['hostname'])
             results = template_results(record, regtmpl_list)
             record.update({'last_temp_refresh': get_now_time()})
+            message = "No Existing Template"
+            stdout.write("\n\t\tTemplate Check: " + message)
             return results
     # No config file, skip template function
     else:
@@ -1628,6 +1634,7 @@ def template_str_parse(str):
 
     # Add any remaining text, might happen if string ends on a close bracket
     tline += re.escape(textstr)
+    #print "TLINE:{0}".format(tline)
 
     return tline
 
@@ -1936,29 +1943,26 @@ def check_loop(subsetlist):
     curr_num = 0
     print "\nDevice Processsing Begins: {0}".format(get_now_time())
     print "=" * 80
+    # Check if the subsetlist is defined
     if subsetlist:
-        ipv4_regex = r'^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])$'
-        if re.match(ipv4_regex, subsetlist):
-            total_num = len(subsetlist)
-            check_main(get_record(listDict, subsetlist), chg_log, total_num, curr_num)
-        else:
-            temp_list = []
-            for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
-                temp_list.append(ip_addr.strip())
-            # Total number of devices in this loop
-            total_num = len(temp_list)
-            # Loop through IPs in the provided list
-            for ip in temp_list:
-                record = get_record(listDict, ip)
-                curr_num += 1
-                # Checks if the specified IP is NOT defined in the list of dictionaries.
-                if not any(ipaddr.get('ip', None) == ip for ipaddr in listDict):
-                    #print "\n" + "-" * 80
-                    #print subHeading(ip, 15)
-                    add_new_device(ip, total_num, curr_num)
-                # If the IP IS present, execute this...
-                else:
-                   check_main(record, chg_log, total_num, curr_num)
+        temp_list = []
+        for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
+            temp_list.append(ip_addr.strip())
+        # Total number of devices in this loop
+        total_num = len(temp_list)
+        # Loop through IPs in the provided list
+        for ip in temp_list:
+            record = get_record(listDict, ip)
+            curr_num += 1
+            # Checks if the specified IP is NOT defined in the list of dictionaries.
+            if not record:
+                #print "\n" + "-" * 80
+                #print subHeading(ip, 15)
+                add_new_device(ip, total_num, curr_num)
+                check_main(record, chg_log, total_num, curr_num)
+            # If the IP IS present, execute this...
+            else:
+               check_main(record, chg_log, total_num, curr_num)
 
     # Check the entire database
     else:
