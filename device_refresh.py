@@ -1395,11 +1395,11 @@ def fetch_config(dev, ver):
         maj_ver = 14
     # Attempts to use cli hack if version is earlier than 15
     if maj_ver < 15:
-        rawconfig = dev.cli('show config | display set', warning=False)
+        rawconfig = dev.cli('show configuration | display set', warning=False)
         # Following code removes any non-ascii characters from the configuration string.
         rawconfig = rawconfig.encode('ascii', errors='ignore')
         # Following code strips out any tabs, newlines, carriage returns
-        myconfig = rawconfig.strip(' \t\n\r')
+        myconfig = rawconfig.strip('\t\n\r')
         # Following code catches any non set
         if not re.match('^set\s', myconfig):
             err = re.search('^.*', myconfig)
