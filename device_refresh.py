@@ -1704,6 +1704,7 @@ def add_new_device(ip, total_num, curr_num):
     """
     # Check if this IP exists in the database or if it belongs to a device already in the database
     stdout.write("\n| {0} of {1} | Adding... {2}  | ".format(curr_num, total_num, ip))
+    sys.stdout.flush()
     if not get_record(listDict, ip):
         # Try connecting to this device
         dev = connect(ip, False)
@@ -1728,6 +1729,7 @@ def add_new_device(ip, total_num, curr_num):
                 new_devices_list.append(dict(zip(standard_key_list, contentList)))
     else:
         print "Skipping device, already in database"
+    sys.stdout.flush()
 
 def add_record(ip, dev):
     """ Purpose: Adds a record to list of dictionaries.
@@ -1923,6 +1925,7 @@ def add_new_devices_loop(iplistfile):
             curr_num += 1
             add_new_device(myip, total_num, curr_num)
         stdout.write("\n\n")
+        sys.stdout.flush()
     else:
         print "IP List is empty!"
 
@@ -2003,6 +2006,7 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
 
     # Print out the device and count information
     stdout.write("\n" + "| " + str(curr_num) + " of " + str(total_num) + " | " + record['hostname'] + " (" + record['ip'] + ") | ")
+    sys.stdout.flush()
     # Update the 'last_access_attempt'
     record.update({'last_access_attempt': get_now_time()})
     # Try to connect to the device
@@ -2011,8 +2015,10 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
     if dev:
         record.update({'last_access_success': get_now_time()})
         stdout.write("Checking: ")
+        sys.stdout.flush()
         if addl_opt == "all":
             stdout.write("Config|Param|Inet|Template | ")
+            sys.stdout.flush()
             config_check(record, chg_log, dev)
             param_check(record, chg_log, dev)
             inet_check(record, chg_log, dev)
@@ -2021,18 +2027,22 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
             # Running Config Check
             if addl_opt == "config":
                 stdout.write("Config | ")
+                sys.stdout.flush()
                 config_check(record, chg_log, dev)
             # Running Param Check
             elif addl_opt == "param":
                 stdout.write("Param | ")
+                sys.stdout.flush()
                 param_check(record, chg_log, dev)
             # Running Inet Check
             elif addl_opt == "inet":
                 stdout.write("Inet | ")
+                sys.stdout.flush()
                 inet_check(record, chg_log, dev)
             # Running Template Check
             elif addl_opt == "template":
                 stdout.write("Template | ")
+                sys.stdout.flush()
                 template_check(record)
         try:
             dev.close()
