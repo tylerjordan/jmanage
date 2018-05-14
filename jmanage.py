@@ -386,18 +386,18 @@ def show_devices(list_dict):
         Purpose: Display a table showing devices with general facts.
         Returns: Nothing
     """
-    t = PrettyTable(['Management IP', 'Hostname', 'Model', 'VC', 'Current Code', 'Serial Number', 'Last Access Attempt',
-                     'Last Access Success', 'Last Config Change', 'Last Parameter Change', 'Last Inet Change',
-                     'Last Temp Check', 'Last Temp Refresh', 'Add Date'])
+    t = PrettyTable(['Management IP', 'Hostname', 'Model', 'VC', 'Current Code', 'Last Access Success',
+                     'Last Config Change', 'Last Parameter Change', 'Last Inet Change', 'Last Temp Check',
+                     'Last Temp Refresh', 'Add Date'])
     for device in list_dict:
         #print device
         if 'last_temp_refresh' not in device:
             print "Device: {0} -> ".format(device['ip'])
         else:
             t.add_row([device['ip'], device['hostname'], device['model'], device['vc'], device['version'],
-                       device['serialnumber'], device['last_access_attempt'], device['last_access_success'],
-                       device['last_config_change'], device['last_param_change'], device['last_inet_change'],
-                       device['last_temp_check'], device['last_temp_refresh'], device['add_date']])
+                       device['last_access_success'], device['last_config_change'], device['last_param_change'],
+                       device['last_inet_change'], device['last_temp_check'], device['last_temp_refresh'],
+                       device['add_date']])
     print t
     print "Device Total: {0}".format(len(list_dict))
 

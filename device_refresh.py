@@ -475,7 +475,7 @@ def get_vc_fact(dev):
     #print "JUNOS_INFO: {0}".format(capt_info)
     if capt_info.count('fpc') > 1:
         junos_info = 'YES'
-    elif capt_info.count('fpc') == 1:
+    else:
         junos_info = 'NO'
     # Provide response to caller
     return junos_info
@@ -886,7 +886,7 @@ def check_params(record, dev):
                         message = item.upper() + " changed from " + record[item] + " to " + remoteDict[item]
                         stdout.write("\n\t\tParameter Check: " + message)
                         results.append(message)
-                        print "Check Params function"
+                        #print "Check Params function"
                         change_record(record['ip'], remoteDict[item].upper(), key=item)
                         returncode = 2
                         # print "Changed!"
@@ -1493,6 +1493,7 @@ def template_scan(regtmpl_list, record):
                 remove_template_file(record['hostname'])
                 results = template_results(record, regtmpl_list)
                 record.update({'last_temp_refresh': get_now_time()})
+                record.update({'last_temp_check': get_now_time()})
                 message = "Successfully Refreshed Template"
                 stdout.write("\n\t\tTemplate Check: " + message + " Diff: " + str(diff))
                 return results
@@ -1507,7 +1508,8 @@ def template_scan(regtmpl_list, record):
             #remove_template_file(record['hostname'])
             results = template_results(record, regtmpl_list)
             record.update({'last_temp_refresh': get_now_time()})
-            message = "No Existing Template"
+            record.update({'last_temp_check': get_now_time()})
+            message = "No Existing Template ... Created It"
             stdout.write("\n\t\tTemplate Check: " + message)
             return results
     # No config file, skip template function
