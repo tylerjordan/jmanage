@@ -483,18 +483,18 @@ def get_vc_fact(dev):
 # -----------------------------------------------------------------
 # CONNECTIONS
 # -----------------------------------------------------------------
-def connect(ip, indbase=False):
+def connect(ip, indbase=False, probe=0, timeout=300):
     """ Purpose: Attempt to connect to the device
 
     :param ip:          -   IP of the device
     :param indbase:     -   Boolean if this device is in the database or not, defaults to False if not specified
     :return dev:        -   Returns the device handle if its successfully opened.
     """
-    dev = Device(host=ip, user=myuser, passwd=mypwd)
+    dev = Device(host=ip, user=myuser, passwd=mypwd, auto_probe=probe)
     # Try to open a connection to the device
     try:
         dev.open()
-        dev.timeout = 300
+        dev.timeout = timeout
     # If there is an error when opening the connection, display error and exit upgrade process
     except ConnectRefusedError as err:
         message = "Host Reachable, but NETCONF not configured."
@@ -1709,7 +1709,7 @@ def add_new_device(ip, total_num, curr_num):
     sys.stdout.flush()
     if not get_record(listDict, ip):
         # Try connecting to this device
-        dev = connect(ip, False)
+        dev = connect(ip, False, probe=15)
         # If we can connect...
         if dev:
             # Check for hostname/serial number match
