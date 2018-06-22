@@ -1709,7 +1709,7 @@ def add_new_device(ip, total_num, curr_num):
     sys.stdout.flush()
     if not get_record(listDict, ip):
         # Try connecting to this device
-        dev = connect(ip, False, probe=15)
+        dev = connect(ip, False, probe=10)
         # If we can connect...
         if dev:
             # Check for hostname/serial number match
