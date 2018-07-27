@@ -887,9 +887,22 @@ def check_params(record, dev):
                         stdout.write("\n\t\tParameter Check: " + message)
                         results.append(message)
                         #print "Check Params function"
+                        old_hostname = record[item]
                         change_record(record['ip'], remoteDict[item].upper(), key=item)
                         returncode = 2
                         # print "Changed!"
+                        # Check if HOSTNAME has changed, if yes, change the directory name
+                        if item.upper() == 'HOSTNAME' and returncode == 2:
+                            old_path = os.path.join(config_dir, getSiteCode(record[item]), old_hostname)
+                            new_path = os.path.join(config_dir, getSiteCode(record[item]), remoteDict[item])
+                            #print "Old Path: {0}".format(old_path)
+                            #print "New Path: {0}".format(new_path)
+                            try:
+                                os.rename(old_path, new_path)
+                            except Exception as err:
+                                stdout.write("\n\t\tParameter Check: ERROR: Unable to change path: {0}".format(err))
+                            else:
+                                stdout.write("\n\t\tParameter Check: Changed directory path from "  + old_path + " to " + new_path)
                     # Check for VC specifically
                     '''
                     if not record['vc'].upper() == remoteDict['vc'].upper():
@@ -1407,7 +1420,7 @@ def fetch_config(dev, ver):
             myconfig = ""
     # Otherwise use the "better" get_config rpc that is supported in JunOS 15.1 and later
     else:
-        rawconfig = dev.rpc.get_config(options={'format': 'set'}).encode("utf-8")
+        rawconfig = dev.rpc.get_config(options={'format': 'set'})
         myconfig = re.sub('<.+>', '', etree.tostring(rawconfig))
     # Returns a text version of the configuration in "set" format
     return myconfig
@@ -2019,10 +2032,11 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
         stdout.write("Checking: ")
         sys.stdout.flush()
         if addl_opt == "all":
-            stdout.write("Config|Param|Inet|Template | ")
+            stdout.write("Param|Config|Inet|Template | ")
             sys.stdout.flush()
-            config_check(record, chg_log, dev)
             param_check(record, chg_log, dev)
+            config_check(record, chg_log, dev)
+            #param_check(record, chg_log, dev)
             inet_check(record, chg_log, dev)
             template_check(record)
         else:
