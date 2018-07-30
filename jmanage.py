@@ -181,8 +181,6 @@ def deviation_search(list_dict):
                 hostname = os.path.split(folder)[1]
                 num_matches = 0
                 with open(fullpath, 'r') as f:
-
-
                     ### NEW CONTENT ###
                     for line in f:
                         subline = line.split('> ', 1)[-1].rstrip()
@@ -199,18 +197,6 @@ def deviation_search(list_dict):
                         print "Found {0} lines ... appending: {1} ({2}) to file".format(num_matches, hostname, ip)
                     else:
                         print "Hostname {0} already listed?".format(hostname)
-                    ### NEW CONTENT ###
-
-                    '''
-                    for line in f:
-                        for t_line in tmp_lines:
-                            if t_line in line:
-                                topdir = os.path.split(folder)[1]
-                                if topdir not in hosts:
-                                    hosts.append(topdir)
-                                    print "Appending: {0} to file".format(topdir)
-                                    break
-                    '''
     # Create a dictionary with the IP and Hostname
     combined = []
     for host in hosts:
