@@ -1962,48 +1962,37 @@ def check_loop(subsetlist):
     print "\nDevice Processsing Begins: {0}".format(get_now_time())
     print "=" * 80
     # Check if the subsetlist is defined
-    if subsetlist:
-        temp_list = []
-        for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
-            temp_list.append(ip_addr.strip())
-        # Total number of devices in this loop
-        total_num = len(temp_list)
-        # Loop through IPs in the provided list
-        for ip in temp_list:
-            record = get_record(listDict, ip)
-            curr_num += 1
-            # Checks if the specified IP is NOT defined in the list of dictionaries.
-            if not record:
-                #print "\n" + "-" * 80
-                #print subHeading(ip, 15)
-                add_new_device(ip, total_num, curr_num)
-                check_main(record, chg_log, total_num, curr_num)
-            # If the IP IS present, execute this...
-            else:
-               check_main(record, chg_log, total_num, curr_num)
+    try:
+        if subsetlist:
+            temp_list = []
+            for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
+                temp_list.append(ip_addr.strip())
+            # Total number of devices in this loop
+            total_num = len(temp_list)
+            # Loop through IPs in the provided list
+            for ip in temp_list:
+                record = get_record(listDict, ip)
+                curr_num += 1
+                # Checks if the specified IP is NOT defined in the list of dictionaries.
+                if not record:
+                    #print "\n" + "-" * 80
+                    #print subHeading(ip, 15)
+                    add_new_device(ip, total_num, curr_num)
+                    check_main(record, chg_log, total_num, curr_num)
+                # If the IP IS present, execute this...
+                else:
+                   check_main(record, chg_log, total_num, curr_num)
 
-    # Check the entire database
-    else:
-        total_num = len(listDict)
-        for record in listDict:
-            '''
-            # Check if record has "last_access_attempt", if it doesn't, add it.
-            if 'last_access_attempt' not in record:
-                stdout.write("\nLast Access Attempt var not detected - ")
-                change_record(record['ip'], 'UNDEFINED', 'last_access_attempt')
-                stdout.write("Record Changed!\n")
-            # Check if record has "last_access_success", if it doesn't, add it.
-            if 'last_access_success' not in record:
-                stdout.write("\nLast Access Success var not detected - ")
-                change_record(record['ip'], 'UNDEFINED', 'last_access_success')
-                stdout.write("Record Changed!\n")
-            # Checks if record has 'last_access', if it does, delete it.
-            if 'last_access' in record:
-                delete_record_key(record['ip'], 'last_access')
-                stdout.write("Record Changed!\n")
-            '''
-            curr_num += 1
-            check_main(record, chg_log, total_num, curr_num)
+        # Check the entire database
+        else:
+            total_num = len(listDict)
+            for record in listDict:
+                curr_num += 1
+                check_main(record, chg_log, total_num, curr_num)
+    except KeyboardInterrupt:
+        print "\n --- Process has been interrupted ---"
+    except Exception as err:
+        print "\n --- An ERROR has been encountered: {0} ---".format(err)
     # End of processing
     print "\n\n" + "=" * 80
     print "Device Processsing Ends: {0}\n\n".format(get_now_time())
