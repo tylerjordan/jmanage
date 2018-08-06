@@ -277,20 +277,25 @@ def line_list(filepath):
         return linelist
 
 def remove_template_file(hostname):
-    """ Purpose: Remove the template of the corresponding device.
+    """ Purpose: Remove the template(s) of the corresponding device.
 
         :param record:      -   The dictionary information of the device.
         :return:            -   True/False
     """
     file_start = "Template_Deviation_"
     device_dir = os.path.join(config_dir, getSiteCode(hostname), hostname)
+    # Check if the specified directory exists
     if os.path.exists(device_dir):
+        # Loop over the files in the directory
         for file in getFileList(device_dir):
+            # Find a file that starts with the "file_start" string
             if file.startswith(file_start):
                 try:
                     os.remove(os.path.join(device_dir, file))
+                    #print "Removed: {0}".format(file)
                 except Exception as err:
                     print "Problem removing file: {0} ERROR: {1}".format(file, err)
+                    return False
         return True
     else:
         print "Directory does not exist: {0}".format(device_dir)
@@ -388,22 +393,6 @@ def save_config_file(myconfig, record):
     # If this is executed, the myconfig variable was empty. Fetch did not work.
     else:
         return False
-
-def getSiteCode(hostname):
-    """ Purpose: Get the site code from the Hostname. Use "MISC" if it doesn't match the two regular expressions.
-
-    :param record:      -   Dictionary of the parameters of the device in question
-    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
-    """
-    if re.match(r'SW[A-Z]{3}', hostname.upper()):
-        siteObj = re.match(r'SW[A-Z]{3}', hostname.upper())
-    elif re.match(r'S[A-Z]{3}', hostname.upper()):
-        siteObj = re.match(r'S[A-Z]{3}', hostname.upper())
-    else:
-        mydirect = "MISC"
-        return mydirect
-
-    return siteObj.group()[-3:]
 
 def sort_and_save_csv(log_name, list_name, key_list, sort_column, new_first=True, delimiter=";"):
     """ Purpose: Adds new data to and sorts a csv log file.
@@ -1428,7 +1417,7 @@ def fetch_config(dev, ver):
 #-----------------------------------------------------------------
 # TEMPLATE STUFF
 #-----------------------------------------------------------------
-def template_check(record):
+def template_check(record, force_refresh=False):
     """ Purpose: Runs the template function and creates log entries.
 
     :param record: A dictionary containing the device information from main_db
@@ -1440,7 +1429,7 @@ def template_check(record):
     # Delete existing template file(s)
 
     # Run template check
-    templ_results = template_scan(template_regex(record['model']), record)
+    templ_results = template_scan(template_regex(record['model']), record, force_refresh)
 
     # Check to see if a template run was even needed.
     #print "Result Code: {0}".format(templ_results[-1])
@@ -1475,7 +1464,7 @@ def template_check(record):
 
     return templ_results[-1]
 
-def template_scan(regtmpl_list, record):
+def template_scan(regtmpl_list, record, force_refresh):
     """ Purpose: Make sure a new template is needed. If it is, create deviation log, and return results.
 
     :param regtmpl_list:    -   List of template set commands with regex
@@ -1486,51 +1475,61 @@ def template_scan(regtmpl_list, record):
 
     # Template Results: 0 = Error, 1 = No Changes, 2 = Changes, 3 = No Template Needed
     newest_config_file = get_config_filename(record['hostname'], record['hostname'], newest=True)
-    if newest_config_file:
-        config_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_config_file)
-        #print "Config Time: {0}".format(config_time_obj.group(0))
-        newest_template_file = get_config_filename(record['hostname'], 'Template_Deviation', newest=True)
-        #print "Template File: {0}".format(newest_template_file)
-        if newest_template_file:
-            template_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_template_file)
-            #c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
-            now = datetime.datetime.now()
-            t_time = datetime.datetime.strptime(template_time_obj.group(0), "%Y-%m-%d_%H%M")
-            diff = now - t_time
-            #print "\nTemplate Time: {0}".format(t_time)
-            #print "Config Time - Template Time = Difference"
-            #print "{0} - {1} = {2}".format(now, t_time, diff)
-            #diff_minutes = (diff.days * 24 * 60) + (diff.seconds/60)
-            # If latest config is newer than the template
-            if (diff.days * 24) > 23:
-                remove_template_file(record['hostname'])
+    # Check if this is a forced refresh or just a standard scan
+    if force_refresh:
+        remove_template_file(record['hostname'])
+        results = template_results(record, regtmpl_list)
+        record.update({'last_temp_refresh': get_now_time()})
+        record.update({'last_temp_check': get_now_time()})
+        message = "Forced Refresh of Template"
+        stdout.write("\n\t\tTemplate Check: " + message)
+        return results
+    # Run this if this is a standard scan
+    else:
+        if newest_config_file:
+            config_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_config_file)
+            #print "Config Time: {0}".format(config_time_obj.group(0))
+            newest_template_file = get_config_filename(record['hostname'], 'Template_Deviation', newest=True)
+            #print "Template File: {0}".format(newest_template_file)
+            if newest_template_file:
+                template_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_template_file)
+                #c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
+                now = datetime.datetime.now()
+                t_time = datetime.datetime.strptime(template_time_obj.group(0), "%Y-%m-%d_%H%M")
+                diff = now - t_time
+                #print "\nTemplate Time: {0}".format(t_time)
+                #print "Config Time - Template Time = Difference"
+                #print "{0} - {1} = {2}".format(now, t_time, diff)
+                #diff_minutes = (diff.days * 24 * 60) + (diff.seconds/60)
+                # If latest config is newer than the template
+                if (diff.days * 24) > 23:
+                    remove_template_file(record['hostname'])
+                    results = template_results(record, regtmpl_list)
+                    record.update({'last_temp_refresh': get_now_time()})
+                    record.update({'last_temp_check': get_now_time()})
+                    message = "Successfully Refreshed Template"
+                    stdout.write("\n\t\tTemplate Check: " + message + " Diff: " + str(diff))
+                    return results
+                # The template file is current for the latest config file available, skip template function
+                else:
+                    message = "New Template Already Exists"
+                    stdout.write("\n\t\tTemplate Check: " + message + " Diff: " + str(diff))
+                    results.append(message)
+                    returncode = 3
+            # There is no template file, but there is a config file, try to compare and create a template
+            else:
                 results = template_results(record, regtmpl_list)
                 record.update({'last_temp_refresh': get_now_time()})
                 record.update({'last_temp_check': get_now_time()})
-                message = "Successfully Refreshed Template"
-                stdout.write("\n\t\tTemplate Check: " + message + " Diff: " + str(diff))
+                message = "No Existing Template ... Created It"
+                stdout.write("\n\t\tTemplate Check: " + message)
                 return results
-            # The template file is current for the latest config file available, skip template function
-            else:
-                message = "New Template Already Exists"
-                stdout.write("\n\t\tTemplate Check: " + message + " Diff: " + str(diff))
-                results.append(message)
-                returncode = 3
-        # There is no template file, but there is a config file, try to compare and create a template
+        # No config file, skip template function
         else:
-            #remove_template_file(record['hostname'])
-            results = template_results(record, regtmpl_list)
-            record.update({'last_temp_refresh': get_now_time()})
-            record.update({'last_temp_check': get_now_time()})
-            message = "No Existing Template ... Created It"
+            message = "No Valid Configuration Available"
             stdout.write("\n\t\tTemplate Check: " + message)
-            return results
-    # No config file, skip template function
-    else:
-        message = "No Valid Configuration Available"
-        stdout.write("\n\t\tTemplate Check: " + message)
-        results.append(message)
-        returncode = 0
+            results.append(message)
+            returncode = 0
     # Update template check timestamp
     record.update({'last_temp_check': get_now_time()})
 
@@ -2048,7 +2047,7 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
             elif addl_opt == "template":
                 stdout.write("Template | ")
                 sys.stdout.flush()
-                template_check(record)
+                template_check(record, True)
         try:
             dev.close()
         except:

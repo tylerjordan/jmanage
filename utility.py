@@ -317,6 +317,38 @@ def csv_to_dict_twoterm(filePathName, mydelim=","):
     else:
         return d
 
+# Gets the site code from the hostname. Use "MISC" if it doesn't match the two regular expressions.
+def getSiteCode(hostname):
+    """ Purpose: Get the site code from the Hostname. Use "MISC" if it doesn't match the two regular expressions.
+
+    :param record:      -   Dictionary of the parameters of the device in question
+    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
+    """
+    if re.match(r'SW[A-Z]{3}', hostname.upper()):
+        siteObj = re.match(r'SW[A-Z]{3}', hostname.upper())
+    elif re.match(r'S[A-Z]{3}', hostname.upper()):
+        siteObj = re.match(r'S[A-Z]{3}', hostname.upper())
+    else:
+        mydirect = "MISC"
+        return mydirect
+
+    return siteObj.group()[-3:]
+
+# This function removes the directory "d" and all files and directories recursively... real quick!
+def rm_rf(d):
+    try:
+        for path in (os.path.join(d,f) for f in os.listdir(d)):
+            if os.path.isdir(path):
+                rm_rf(path)
+            else:
+                os.unlink(path)
+        os.rmdir(d)
+    except Exception as err:
+        print "| Error: {0} | Issue removing dir structure: {1}".format(err, d)
+        return False
+    else:
+        return True
+
 # Removes a record from the specified list of dictionaries
 def remove_record(listDict, key, value):
     """ Purpose: Remove a record from the provided list of dictionaries. 
@@ -332,7 +364,12 @@ def remove_record(listDict, key, value):
         if record[key] == value:
             #print "Removing: {0}".format(listDict[i])
             listDict.remove(record)
-            print "| Device Removed!"
+            sys.stdout("| Device Removed! ")
+            # Remove directory
+            record_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
+            if os.path.isdir(record_dir):
+                if rm_rf(record_dir):
+                    print "| Device Directory Removed!"
             was_changed = True
     if was_changed:
         return listDict
