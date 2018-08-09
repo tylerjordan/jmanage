@@ -172,17 +172,21 @@ def deviation_search(list_dict):
     user_input = getOptionAnswer("Choose a deviation to search for", file_list)
     tmppath = os.path.join(temps_dir, user_input)
     tmp_lines = txt_to_list(tmppath)
+    #print "Config Dir: {0}".format(config_dir)
+    #print "Temps Dir: {0}".format(tmppath)
     print "Searching for template files with content..."
     # Search configs directory recursively for content
     for folder,dirs,files in os.walk(config_dir):
         for file in files:
             if file.startswith('Template_Deviation'):
+                #print "Found Template Deviation File..."
                 fullpath = os.path.join(folder, file)
                 hostname = os.path.split(folder)[1]
                 num_matches = 0
                 with open(fullpath, 'r') as f:
                     ### NEW CONTENT ###
                     for line in f:
+                        #print "Line: {0}".format(line)
                         subline = line.split('> ', 1)[-1].rstrip()
                         if subline in tmp_lines:
                             #print "Matched Subline: {0}".format(subline)

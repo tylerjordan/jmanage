@@ -259,6 +259,7 @@ def line_list(filepath):
         :param dev:         -   The PyEZ SSH netconf connection to the device.
         :return linelist:   -   A list of Strings from the file.
     """
+    #print "IP List File: {0}".format(filepath)
     linelist = []
     try:
         f = open(filepath, 'r')
@@ -860,38 +861,39 @@ def check_params(record, dev):
             #print "\t- Check parameters:"
 
             for item in facts_list:
-                #print "Check Item: {0}".format(item)
-                #print "Remote Item: {0}".format(remoteDict[item])
-                #print "Record Item: {0}".format(record[item])
-                # This captures any undefined parameters and processes and error message
-                if remoteDict[item] == "UNDEFINED":
-                    message = "Unable to collect " + item.upper() + " from device."
-                    stdout.write("\n\t\tParameter Check: ERROR: " + message)
-                    results.append(message)
-                    returncode = 0
-                # This will check any properly formatted attributes, to see if they changed
-                else:
-                    if not record[item].upper() == remoteDict[item].upper():
-                        message = item.upper() + " changed from " + record[item] + " to " + remoteDict[item]
-                        stdout.write("\n\t\tParameter Check: " + message)
+                if item in record.keys():
+                    #print "Check Item: {0}".format(item)
+                    #print "Remote Item: {0}".format(remoteDict[item])
+                    #print "Record Item: {0}".format(record[item])
+                    # This captures any undefined parameters and processes and error message
+                    if remoteDict[item] == "UNDEFINED":
+                        message = "Unable to collect " + item.upper() + " from device."
+                        stdout.write("\n\t\tParameter Check: ERROR: " + message)
                         results.append(message)
-                        #print "Check Params function"
-                        old_hostname = record[item]
-                        change_record(record['ip'], remoteDict[item].upper(), key=item)
-                        returncode = 2
-                        # print "Changed!"
-                        # Check if HOSTNAME has changed, if yes, change the directory name
-                        if item.upper() == 'HOSTNAME' and returncode == 2:
-                            old_path = os.path.join(config_dir, getSiteCode(record[item]), old_hostname)
-                            new_path = os.path.join(config_dir, getSiteCode(record[item]), remoteDict[item])
-                            #print "Old Path: {0}".format(old_path)
-                            #print "New Path: {0}".format(new_path)
-                            try:
-                                os.rename(old_path, new_path)
-                            except Exception as err:
-                                stdout.write("\n\t\tParameter Check: ERROR: Unable to change path: {0}".format(err))
-                            else:
-                                stdout.write("\n\t\tParameter Check: Changed directory path from "  + old_path + " to " + new_path)
+                        returncode = 0
+                    # This will check any properly formatted attributes, to see if they changed
+                    else:
+                        if not record[item].upper() == remoteDict[item].upper():
+                            message = item.upper() + " changed from " + record[item] + " to " + remoteDict[item]
+                            stdout.write("\n\t\tParameter Check: " + message)
+                            results.append(message)
+                            #print "Check Params function"
+                            old_hostname = record[item]
+                            change_record(record['ip'], remoteDict[item].upper(), key=item)
+                            returncode = 2
+                            # print "Changed!"
+                            # Check if HOSTNAME has changed, if yes, change the directory name
+                            if item.upper() == 'HOSTNAME' and returncode == 2:
+                                old_path = os.path.join(config_dir, getSiteCode(record[item]), old_hostname)
+                                new_path = os.path.join(config_dir, getSiteCode(record[item]), remoteDict[item])
+                                #print "Old Path: {0}".format(old_path)
+                                #print "New Path: {0}".format(new_path)
+                                try:
+                                    os.rename(old_path, new_path)
+                                except Exception as err:
+                                    stdout.write("\n\t\tParameter Check: ERROR: Unable to change path: {0}".format(err))
+                                else:
+                                    stdout.write("\n\t\tParameter Check: Changed directory path from "  + old_path + " to " + new_path)
                     # Check for VC specifically
                     '''
                     if not record['vc'].upper() == remoteDict['vc'].upper():
@@ -901,6 +903,13 @@ def check_params(record, dev):
                         change_record(record['ip'], remoteDict['vc'].upper(), key='vc')
                         returncode = 2
                     '''
+                # If the key does not exist, create it using the current value
+                else:
+                    change_record(record['ip'], remoteDict[item].upper(), key=item)
+                    message = "'{0}' does not exist in record, creating using current value".format(item)
+                    stdout.write("\n\t\tParameter Check: " + message)
+                    results.append(message)
+                    returncode = 2
         else:
             message = "Unable to collect parameters from database."
             stdout.write("\n\t\tParameter Check: ERROR: " + message)
@@ -1953,7 +1962,7 @@ def check_loop(subsetlist):
     # Create a single change log for all changes
     now = get_now_time()
     if addl_opt == "config" or "param" or "inet" or "all":
-        chg_log_name = "Change_Log|" + now + "|.log"
+        chg_log_name = "Change_Log~" + now + "~.log"
         chg_log = os.path.join(log_dir, chg_log_name)
 
     # Begin processing all the devices
@@ -1961,37 +1970,37 @@ def check_loop(subsetlist):
     print "\nDevice Processsing Begins: {0}".format(get_now_time())
     print "=" * 80
     # Check if the subsetlist is defined
-    try:
-        if subsetlist:
-            temp_list = []
-            for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
-                temp_list.append(ip_addr.strip())
-            # Total number of devices in this loop
-            total_num = len(temp_list)
-            # Loop through IPs in the provided list
-            for ip in temp_list:
-                record = get_record(listDict, ip)
-                curr_num += 1
-                # Checks if the specified IP is NOT defined in the list of dictionaries.
-                if not record:
-                    #print "\n" + "-" * 80
-                    #print subHeading(ip, 15)
-                    add_new_device(ip, total_num, curr_num)
-                    check_main(record, chg_log, total_num, curr_num)
-                # If the IP IS present, execute this...
-                else:
-                   check_main(record, chg_log, total_num, curr_num)
-
-        # Check the entire database
-        else:
-            total_num = len(listDict)
-            for record in listDict:
-                curr_num += 1
+    #try:
+    if subsetlist:
+        temp_list = []
+        for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
+            temp_list.append(ip_addr.strip())
+        # Total number of devices in this loop
+        total_num = len(temp_list)
+        # Loop through IPs in the provided list
+        for ip in temp_list:
+            record = get_record(listDict, ip)
+            curr_num += 1
+            # Checks if the specified IP is NOT defined in the list of dictionaries.
+            if not record:
+                #print "\n" + "-" * 80
+                #print subHeading(ip, 15)
+                add_new_device(ip, total_num, curr_num)
                 check_main(record, chg_log, total_num, curr_num)
-    except KeyboardInterrupt:
-        print "\n --- Process has been interrupted ---"
-    except Exception as err:
-        print "\n --- An ERROR has been encountered: {0} ---".format(err)
+            # If the IP IS present, execute this...
+            else:
+               check_main(record, chg_log, total_num, curr_num)
+
+    # Check the entire database
+    else:
+        total_num = len(listDict)
+        for record in listDict:
+            curr_num += 1
+            check_main(record, chg_log, total_num, curr_num)
+    #except KeyboardInterrupt:
+    #    print "\n --- Process has been interrupted ---"
+    #except Exception as err:
+    #    print "\n --- An ERROR has been encountered: {0} ---".format(err)
     # End of processing
     print "\n\n" + "=" * 80
     print "Device Processsing Ends: {0}\n\n".format(get_now_time())
@@ -2024,7 +2033,6 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
             sys.stdout.flush()
             param_check(record, chg_log, dev)
             config_check(record, chg_log, dev)
-            #param_check(record, chg_log, dev)
             inet_check(record, chg_log, dev)
             template_check(record)
         else:

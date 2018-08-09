@@ -8,3 +8,4 @@ CITY;[A-Z][A-Z|a-z|\s]+
 STATE;[A-Z]{2}
 REV;\d{1,2}\.\d{1,2}
 TEXT;.*
+DIGITS;\d+
