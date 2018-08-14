@@ -73,7 +73,8 @@ template_all = ''
 template_els = ''
 template_nonels = ''
 
-template_csv = ''
+template_regex_csv = ''
+template_map_csv = ''
 iplistfile = ''
 access_error_log = ''
 access_error_list = []
@@ -137,7 +138,8 @@ def detect_env():
     global template_all
     global template_els
     global template_nonels
-    global template_csv
+    global template_regex_csv
+    global template_map_csv
     global access_error_log
     global ops_error_log
     global new_devices_log
@@ -168,7 +170,8 @@ def detect_env():
     # Statically defined files and logs
     main_list_dict = os.path.join(dir_path, "main_db.json")
     intf_list_dict = os.path.join(dir_path, "intf_db.csv")
-    template_csv = os.path.join(dir_path, template_dir, "template_regex.csv")
+    template_regex_csv = os.path.join(dir_path, template_dir, "template_regex.csv")
+    template_map_csv = os.path.join(dir_path, template_dir, "template_regex_map.csv")
     template_all = os.path.join(dir_path, template_dir, "template_all.conf")
     template_els = os.path.join(dir_path, template_dir, "template_els.conf")
     template_nonels = os.path.join(dir_path, template_dir, "template_nonels.conf")
@@ -1557,7 +1560,20 @@ def template_results(record, regtmpl_list):
     returncode = 1
 
     config_list = get_config_list(record['hostname'], newest=True)
-    regex_map = csv_to_dict_twoterm(template_csv, ";")
+    regex_terms = csv_to_dict_twoterm(template_regex_csv, ";")    # CSV with regex strings
+    regex_mapping = csv_to_dict_twoterm(template_map_csv, ";")    # CSV with variable to regex string mappings
+
+    # Create the mapping translation
+    map_dict = {}
+    for key1, value1 in regex_mapping.iteritems():
+        for key2, value2 in regex_terms.iteritems():
+            if value1 == key2:
+                map_dict[key1] = value2
+                print "\nName: {0} | Value: {1}".format(key1, value2)
+            else:
+                stdout.write(".")
+
+    # Loop over the configuration content
     for regline in regtmpl_list:
         #print "Using Regline: {0}".format(regline)
         matched = False
@@ -1584,7 +1600,7 @@ def template_results(record, regtmpl_list):
                 nice_output = ""
                 nomatch = False
                 first_pass = True
-                for key, value in regex_map.iteritems():
+                for key, value in map_dict.iteritems():
                     if value in regline:
                         if first_pass:
                             nice_output = regline
@@ -1611,6 +1627,7 @@ def template_results(record, regtmpl_list):
     results.append(returncode)
     return results
 
+# This function scans the string and
 def template_str_parse(str):
     tline = ""
     openbracket = False
@@ -1618,14 +1635,12 @@ def template_str_parse(str):
     onvar = False
     varstr = ""
     textstr = ""
-
     # Put the template regex into a dictionary
-    d = csv_to_dict_twoterm(template_csv, ";")
-
+    d = csv_to_dict_twoterm(template_regex_csv, ";")
     # Loop over each character in the string
-    for c in str:
+    for char in str:
         # If this character is an open bracket
-        if c == "{":
+        if char == "{":
             if openbracket:
                 onvar = True
                 openbracket = False
@@ -1636,7 +1651,7 @@ def template_str_parse(str):
                 # Clear the textstr
                 textstr = ""
         # If this character is a close bracket
-        elif c == "}":
+        elif char == "}":
             if closebracket:
                 onvar = False
                 closebracket = False
@@ -1649,16 +1664,15 @@ def template_str_parse(str):
         # If this character if part of a regex variable
         elif onvar:
             # Append this character to the variable string
-            varstr += c
+            varstr += char
         # If this character is a regular character
         else:
             # Append this character to the text string
-            textstr += c
+            textstr += char
 
     # Add any remaining text, might happen if string ends on a close bracket
     tline += re.escape(textstr)
     #print "TLINE:{0}".format(tline)
-
     return tline
 
 def template_regex(model):

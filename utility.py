@@ -1,6 +1,5 @@
 # File: utility.py
 # Author: Tyler Jordan
-# Modified: 2/23/2018
 # Purpose: Assist CBP engineers with Juniper configuration tasks
 
 import re, os, csv
@@ -28,9 +27,9 @@ from ncclient import manager  # https://github.com/ncclient/ncclient
 from ncclient.transport import errors
 from sys import stdout
 
-# --------------------------------------
-# ANSWER METHODS
-#--------------------------------------
+####################
+# ANSWER FUNCTIONS #
+####################
 # Method for asking a question that has a single answer, returns answer
 def getOptionAnswer(question, options):
     answer = ""
@@ -152,181 +151,10 @@ def getTFAnswer(question):
         else:
             print "Bad Selection"
 
-# Method for creating a log file
-def createLogFile(path_and_file, columns, delimiter=","):
-    try:
-        with open(path_and_file, 'w+') as fh:
-            header_line = ''
-            # Loops over all column headers in list, except for the last one
-            for column in columns[:-1]:
-                header_line += column + delimiter
-            # Add the last header without a delimiter
-            header_line += columns[-1]
-            # Write header to file
-            fh.write(header_line)
-    except Exception as err:
-        print "Error opening/writing to file -> ERROR: {0}".format(err)
-        return False
-    else:
-        return True
 
-# Return list of files from a directory with an optional extension filter
-def getFileList(mypath, ext_filter=False):
-    fileList = []
-    if exists(mypath):
-        tmpList = []
-        if ext_filter:
-            ext_file = '*.' + ext_filter
-            pattern = os.path.join(mypath, ext_file)
-            # Sorts the files by modification time
-            tmpList = sorted([x for x in glob.glob(pattern)], key=os.path.getmtime, reverse=True)
-        else:
-            wild_file = '*'
-            pattern = os.path.join(mypath, wild_file)
-            tmpList = sorted([x for x in glob.glob(pattern)], key=os.path.getmtime, reverse=True)
-        # except Exception as err:
-        #    print "Error accessing files {0} - ERROR: {1}".format(mypath, err)
-        for file in tmpList:
-            fileList.append(os.path.split(file)[1])
-    else:
-        print "Path: {0} does not exist!".format(mypath)
-    return fileList
-
-# Method for requesting IP address target
-def getTarget():
-    print 64*"="
-    print "= Scan Menu" + 52*" " + "="
-    print 64*"="
-    # Loop through the IPs from the file "ipsitelist.txt"
-    loop = 0
-    list = {};
-    for line in fileinput.input('ipsitelist.txt'):
-        # Print out all the IPs/SITEs
-        loop += 1
-        ip,site = line.split(",")
-        list[str(loop)] = ip;
-        print '[' + str(loop) + '] ' + ip + ' -> ' + site.strip('\n')
-
-    print "[c] Custom IP"
-    print "[x] Exit"
-    print "\n"
-
-    response = ""
-    while not response:
-        response = raw_input("Please select an option: ")
-        if response >= "1" and response <= str(loop):
-            return list[response]
-        elif response == "c":
-            capturedIp = ""
-            while not capturedIp:
-                capturedIp = raw_input("Please enter an IP: ")
-                return capturedIp
-        elif response == "x":
-            response = "exit"
-            return response
-        else:
-            print "Bad Selection"
-
-# This function creates a list of IPs from the IP
-def extract_ips(ip):
-    iplist = []
-    ip_mask_regex = re.compile("^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)"
-                               "([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)"
-                               "([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)"
-                               "([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])"
-                               "/([8]|[9]|1[0-9]|2[0-9]|3[0-1])$")
-    ip_only_regex = re.compile("^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)"
-                               "([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)"
-                               "([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)"
-                               "([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])$")
-    if ip_mask_regex.match(ip):
-        try:
-            n1 = ipaddress.ip_network(ip)
-        except ValueError as err:
-            print "Invalid IP address - skipping {0}".format(ip)
-            return iplist
-        else:
-            for one_ip in n1.hosts():
-                print "Adding IP: {0}".format(one_ip)
-                iplist.append(str(one_ip))
-    elif ip_only_regex.match(ip):
-        print "Adding single IP: {0}".format(ip)
-        iplist.append(ip)
-    else:
-        print "Invalid IP Format: {0} ... Ignoring".format(ip)
-
-    return iplist
-
-# Common method for accessing multiple routers
-def chooseDevices(list_dir):
-    # Define the routers to deploy the config to (file/cli)
-    # list_dir: The path to list file to use.
-
-    # IP Formats to recognize...
-    #   - 10.10.10.X        // A single IP address
-    #   - 10.10.10.X/XX     // A masked IP, probably network
-    ip_list = []
-    looping = True
-
-    while looping:
-        method_resp = getOptionAnswer('How would you like to define the devices by IP', ['file', 'manual'])
-        # Choose a file from a list of options
-        if method_resp == "file":
-            path = list_dir + "*.ips"
-            files=glob.glob(path)
-            if files:
-                file_resp = getOptionAnswer('Choose a file to use', files)
-                # Print out all the IPs/SITEs
-                if file_resp != 'Quit':
-                    for line in fileinput.input(file_resp):
-                        line = line.rstrip()
-                        if line != '':
-                            ip_list += extract_ips(line)
-                        looping = False
-            else:
-                print "No valid files in {0}".format(path)
-        # Define one or more IPs individually
-        elif method_resp == "manual":
-            print 'Provide IPs - Correct format: X.X.X.X or X.X.X.X/X:'
-            answer = ""
-            while( answer != 'x' ):
-                answer = getInputAnswer('Enter an ip address (x) to exit')
-                if( answer != 'x'):
-                    ip_list += extract_ips(answer)
-            looping = False
-        else:
-            print "Exiting menu..."
-            return False
-
-    # Print the IPs that will be used
-    if ip_list:
-        checked_sorted_list = check_sort(ip_list)
-        print "\n" + " " * 10 + "IPs Selected"
-        print "-" * 50
-        for ip in checked_sorted_list:
-            print ' -> {0}'.format(ip)
-        print "-" * 50
-        print "Total IPs: {0}".format(len(checked_sorted_list))
-        return checked_sorted_list
-    else:
-        return ip_list
-
-# Removes duplicates and sorts IPs intelligently
-def check_sort(ip_list):
-    # First remove all duplicates
-    checked = []
-    for ip in ip_list:
-        if ip not in checked:
-            checked.append(ip)
-
-    # Sorting function
-    for i in range(len(checked)):
-        checked[i] = "%3s.%3s.%3s.%3s" % tuple(checked[i].split("."))
-    checked.sort()
-    for i in range(len(checked)):
-        checked[i] = checked[i].replace(" ", "")
-
-    return checked
+#####################################
+# LIST DICTIONARY AND CSV UTILITIES #
+#####################################
 
 # Sorts a list of dictionaries based on supplied key/value pair
 def list_dict_custom_sort(list_dict, sort_attrib, sort_list, exclusion_attrib, exclustion_list):
@@ -350,7 +178,7 @@ def list_dict_custom_sort(list_dict, sort_attrib, sort_list, exclusion_attrib, e
     return mylist
 
 # Creates a new CSV based on contents of listDict
-def listdict_to_csv(aListDict, csvPathName, myDelimiter, columnNames=[]):
+def listdict_to_csv(aListDict, csvPathName, myDelimiter=",", columnNames=[]):
     # If columnNames is empty, get the column names from the list dict
     if not columnNames:
         for mydict in aListDict:
@@ -370,6 +198,7 @@ def listdict_to_csv(aListDict, csvPathName, myDelimiter, columnNames=[]):
         return True
 
 # Converts listDict to CSV file
+'''
 def listDictCSV(myListDict, filePathName, keys):
     addKeys = True
     if (os.path.isfile(filePathName)):
@@ -395,9 +224,51 @@ def listDictCSV(myListDict, filePathName, keys):
             f.write("\n")
         f.close()
         #print "\nCompleted appending to CSV."
+'''
+
+# Converts CSV file to listDict
+'''
+def csv_to_listdict(filePathName):
+    emptyList = []
+    try:
+        with open(filePathName) as csvfile:
+            listDict = [{csvfile: v for csvfile, v in row.items()}
+                        for row in csv.DictReader(csvfile, skipinitialspace=True)]
+        return listDict
+    # Not really much of an error, but indicates that the file was not found
+    except IOError as err:
+        #print "Database file not found: Using empty database."
+        return emptyList
+
+    except Exception as err:
+        print "Non-IOError problem with: {0} ERROR: {1}".format(filePathName, err)
+        return emptyList
+'''
+
+# Converts CSV file to listDict. First line is considered column headers.
+def csv_to_listdict(fileName, keys=''):
+    myListDict = []
+    try:
+        with open(fileName) as myfile:
+            firstline = True
+            for line in myfile:
+                if firstline:
+                    if not keys:
+                        keys = (line.strip()).split(',')
+                    firstline = False
+                else:
+                    # print "Line: {0}".format(line)
+                    values = (line.strip()).split(',')
+                    # print "Values: {0}".format(values)
+                    myListDict.append({keys[n]: values[n] for n in range(0, len(keys))})
+    except Exception as err:
+        print "Failure converting CSV to listDict - ERROR: {0}".format(err)
+    else:
+        print "File Import Complete!"
+    return myListDict
 
 # Adds a dictionary to a CSV file
-def dictCSV(myDict, filePathName, keys):
+def dict_to_csv(myDict, filePathName, keys):
     addKeys = True
     if (os.path.isfile(filePathName)):
         addKeys = False
@@ -420,45 +291,6 @@ def dictCSV(myDict, filePathName, keys):
         f.write("\n")
         f.close()
         #print "\nCompleted appending to CSV."
-
-# Converts CSV file to listDict
-def csv_to_listdict(filePathName):
-    emptyList = []
-    try:
-        with open(filePathName) as csvfile:
-            listDict = [{csvfile: v for csvfile, v in row.items()}
-                        for row in csv.DictReader(csvfile, skipinitialspace=True)]
-        return listDict
-    # Not really much of an error, but indicates that the file was not found
-    except IOError as err:
-        #print "Database file not found: Using empty database."
-        return emptyList
-
-    except Exception as err:
-        print "Non-IOError problem with: {0} ERROR: {1}".format(filePathName, err)
-        return emptyList
-
-# Converts CSV file to listDict. First line is considered column headers.
-def csvListDict(fileName, keys=''):
-    myListDict = []
-    try:
-        with open(fileName) as myfile:
-            firstline = True
-            for line in myfile:
-                if firstline:
-                    if not keys:
-                        keys = (line.strip()).split(',')
-                    firstline = False
-                else:
-                    #print "Line: {0}".format(line)
-                    values = (line.strip()).split(',')
-                    #print "Values: {0}".format(values)
-                    myListDict.append({keys[n]:values[n] for n in range(0,len(keys))})
-    except Exception as err:
-        print "Failure converting CSV to listDict - ERROR: {0}".format(err)
-    else:
-        print "File Import Complete!"
-    return myListDict
 
 # Converts CSV file to Dictionary
 def csv_to_dict(filePathName, mydelim=","):
@@ -522,6 +354,146 @@ def csv_write_sort(list_dict, csv_file, sort_column, reverse_sort=False, column_
         print "ERROR: Unable to perform sort.".format(csv_file)
         return False
 
+# Creates list from a text file
+def txt_to_list(txt_file):
+    command_list = []
+    try:
+        with open(txt_file) as f:
+            command_list = f.read().splitlines()
+    except Exception as err:
+        print "Error turning file into list. ERROR: {0}".format(err)
+        return False
+    else:
+        # Returns only lines that have content
+        return [x for x in command_list if x]
+
+# Creates text file from a list
+def list_to_txt(dest_file, src_list):
+    text_config = ""
+    try:
+        # Overwrites an existing file, if there is one
+        with open(dest_file, 'w') as text_config:
+            for line in src_list:
+                text_config.write("{0}\n".format(line))
+    except Exception as err:
+        print "Error writing list to file. ERROR: {0}".format(err)
+        return False
+    else:
+        return True
+
+# Creates a string from a text file
+def txt_to_string(src_file):
+    # Create a string of the configuration file
+    command_file = ""
+    try:
+        with open(src_file) as f:
+            command_file = f.read()
+    except Exception as err:
+        print "Problems extracting commands from file. ERROR: {0}".format(err)
+        return False
+    else:
+        return command_file
+
+# Write database to JSON
+def write_to_json(list_dict, main_list_dict):
+    try:
+        with open(main_list_dict, 'w') as fout:
+            json.dump(list_dict, fout)
+    except Exception as err:
+        print "Problem opening or writing to JSON file from database -> ERROR: {0}".format(err)
+        return False
+    else:
+        return True
+
+# Write JSON formtted file to a list dictionary
+def json_to_listdict(json_file):
+    list_data = []
+    if not os.path.exists(json_file):
+        return list_data
+    else:
+        try:
+            with open(json_file) as fin:
+                list_data = json.load(fin)
+        except Exception as err:
+            print "Problem opening or reading from JSON to database -> ERROR: {0}".format(err)
+            return False
+        else:
+            return list_data
+
+
+##########################
+# MISCELLAEOUS FUNCTIONS #
+##########################
+
+# Removes a record from the specified list of dictionaries
+def remove_record(listDict, key, value):
+    """ Purpose: Remove a record from the provided list of dictionaries. 
+    NOTE: Removes only the first record found with the specified value.
+
+    :param key:         -   The key to search for
+    :param value:       -   The value to search for
+    :return:            -   Returns True/False
+    """
+    was_changed = False
+    for record in listDict:
+        # print "Provided: {0} -> Comparing to Key: {1} | Value: {2} --> ".format(listDict[i][key], key, value)
+        if record[key] == value:
+            # print "Removing: {0}".format(listDict[i])
+            listDict.remove(record)
+            sys.stdout("| Device Removed! ")
+            # Remove directory
+            record_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
+            if os.path.isdir(record_dir):
+                if rm_rf(record_dir):
+                    print "| Device Directory Removed!"
+            was_changed = True
+    if was_changed:
+        return listDict
+    else:
+        return False
+
+# Gets a record
+def get_record(listDict, ip='', hostname='', sn='', code=''):
+    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
+                three different methods to return the data.
+
+        :param ip:          -   String of the IP of the device
+        :param hostname:    -   String of the device hostname
+        :parma sn:          -   String of the device chassis serial number
+        :param code:        -   String of the JunOS code version
+        :returns:           -   Dictionary of device attributes
+    """
+    has_record = False
+    # Make sure listDict has contents
+    if listDict:
+        if ip:
+            for record in listDict:
+                # Make sure this info exists, it may have failed
+                if 'inet_intf' in record:
+                    for inet_intf in record['inet_intf']:
+                        if inet_intf['ipaddr'] == ip:
+                            return record
+                # If it did, just search the 'ip" attribute
+                else:
+                    if record['ip'] == ip:
+                        return record
+        elif hostname:
+            for record in listDict:
+                if record['hostname'] == hostname:
+                    return record
+        elif sn:
+            for record in listDict:
+                if record['serialnumber'] == sn:
+                    return record
+        elif code:
+            for record in listDict:
+                if record['version'] == code:
+                    return record
+        else:
+            return has_record
+    else:
+        return has_record
+
 # Gets the site code from the hostname. Use "MISC" if it doesn't match the two regular expressions.
 def getSiteCode(hostname):
     """ Purpose: Get the site code from the Hostname. Use "MISC" if it doesn't match the two regular expressions.
@@ -574,35 +546,219 @@ def getCode(device, mypath):
 
     return tar_code
 
-# Get fact
-def get_fact(ip, username, password, fact):
-    """ Purpose: For collecting a single fact from the target system. The 'fact' must be one of the predefined ones.
-        Examples:
-            model, version, hostname, serialnumber,
-            switch_style, last_reboot_reason, uptime,
-            personality
-        Parameters:
+# Return a specifically formatted timestamp
+def get_now_time():
+    """ Purpose: Create a formatted timestamp
+
+    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
     """
-    myfact = ""
-    dev = Device(ip, user=username, password=password)
-    try:
-        dev.open()
-    except Exception as err:
-        print("Unable to open connection to: {0} | ERROR: {1}").format(ip, err)
-        return False
+    now = datetime.datetime.now()
+    return now.strftime("%Y-%m-%d_%H%M")
+
+# Accetps a masked or unmasked IP and returns the IP and mask in a list
+def get_ip_mask(masked_ip):
+
+    ip_mask_list = []
+    if "/" in masked_ip:
+        ip_mask_list = masked_ip.split("/")
     else:
-        try:
-            myfact = dev.facts[fact]
-        except Exception as err:
-            print("Reachability Issues... Standby: {0} | ERROR: {1}").format(ip, err)
-            dev.close()
-            return False
-        else:
-            dev.close()
-            if myfact:
-                return myfact
+        ip_mask_list.append(masked_ip)
+        ip_mask_list.append('32')
+
+    return ip_mask_list
+
+# Analyze listDict and create statistics (Upgrade)
+def tabulateUpgradeResults(listDict):
+    statusDict = {'success_rebooted': [],'success_not_rebooted': [], 'connect_fails': [], 'software_install_fails': [], 'total_devices': 0}
+
+    for mydict in listDict:
+        if mydict['Connected'] == 'Y' and mydict['OS_installed'] == 'Y':
+            if mydict['Rebooted'] == 'Y':
+                statusDict['success_rebooted'].append(mydict['IP'])
             else:
-                return False
+                statusDict['success_not_rebooted'].append(mydict['IP'])
+        elif mydict['Connected'] == 'Y' and mydict['OS_installed'] == 'N':
+            statusDict['software_install_fails'].append(mydict['IP'])
+        elif mydict['Connected'] == 'N':
+            statusDict['connect_fails'].append(mydict['IP'])
+        else:
+            print("Error: Uncaptured Result")
+        # Every device increments this total
+        statusDict['total_devices'] += 1
+
+    return statusDict
+
+# Analyze listDict and create statistics (Reboot)
+def tabulateRebootResults(listDict):
+    statusDict = {'rebooted': [], 'not_rebooted': [], 'connect_fails': [], 'total_devices': 0}
+
+    for mydict in listDict:
+        if mydict['Connected'] == 'Y':
+            if mydict['Rebooted'] == 'Y':
+                statusDict['rebooted'].append(mydict['IP'])
+            else:
+                statusDict['not_rebooted'].append(mydict['IP'])
+        elif mydict['Connected'] == 'N':
+            statusDict['connect_fails'].append(mydict['IP'])
+        else:
+            print("Error: Uncaptured Result")
+        # Every device increments this total
+        statusDict['total_devices'] += 1
+
+    return statusDict
+
+# Takes a specifically formatted timestamp and returns the time difference by days
+def day_difference(timestamp):
+    # Create the appropriate format to compare times
+    c_time = datetime.datetime.strptime(timestamp, "%Y-%m-%d_%H%M")
+    # Get the current time
+    now_time = datetime.datetime.now()
+    #print "\nNow: {0}".format(now_time)
+    #print "Timestamp: {0}".format(c_time)
+    diff = now_time - c_time
+    # Return the value in days
+    return diff.days
+
+# Removes duplicates and sorts IPs intelligently
+def check_sort(ip_list):
+    # First remove all duplicates
+    checked = []
+    for ip in ip_list:
+        if ip not in checked:
+            checked.append(ip)
+
+    # Sorting function
+    for i in range(len(checked)):
+        checked[i] = "%3s.%3s.%3s.%3s" % tuple(checked[i].split("."))
+    checked.sort()
+    for i in range(len(checked)):
+        checked[i] = checked[i].replace(" ", "")
+
+    return checked
+
+# This function creates a list of IPs from the IP
+def extract_ips(ip):
+    iplist = []
+    ip_mask_regex = re.compile("^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)"
+                               "([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)"
+                               "([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)"
+                               "([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])"
+                               "/([8]|[9]|1[0-9]|2[0-9]|3[0-1])$")
+    ip_only_regex = re.compile("^([1][0-9][0-9].|^[2][5][0-5].|^[2][0-4][0-9].|^[1][0-9][0-9].|^[0-9][0-9].|^[0-9].)"
+                               "([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)"
+                               "([1][0-9][0-9].|[2][5][0-5].|[2][0-4][0-9].|[1][0-9][0-9].|[0-9][0-9].|[0-9].)"
+                               "([1][0-9][0-9]|[2][5][0-5]|[2][0-4][0-9]|[1][0-9][0-9]|[0-9][0-9]|[0-9])$")
+    if ip_mask_regex.match(ip):
+        try:
+            n1 = ipaddress.ip_network(ip)
+        except ValueError as err:
+            print "Invalid IP address - skipping {0}".format(ip)
+            return iplist
+        else:
+            for one_ip in n1.hosts():
+                print "Adding IP: {0}".format(one_ip)
+                iplist.append(str(one_ip))
+    elif ip_only_regex.match(ip):
+        print "Adding single IP: {0}".format(ip)
+        iplist.append(ip)
+    else:
+        print "Invalid IP Format: {0} ... Ignoring".format(ip)
+
+    return iplist
+
+# Method for requesting IP address target
+def getTarget():
+    print 64*"="
+    print "= Scan Menu" + 52*" " + "="
+    print 64*"="
+    # Loop through the IPs from the file "ipsitelist.txt"
+    loop = 0
+    list = {};
+    for line in fileinput.input('ipsitelist.txt'):
+        # Print out all the IPs/SITEs
+        loop += 1
+        ip,site = line.split(",")
+        list[str(loop)] = ip;
+        print '[' + str(loop) + '] ' + ip + ' -> ' + site.strip('\n')
+
+    print "[c] Custom IP"
+    print "[x] Exit"
+    print "\n"
+
+    response = ""
+    while not response:
+        response = raw_input("Please select an option: ")
+        if response >= "1" and response <= str(loop):
+            return list[response]
+        elif response == "c":
+            capturedIp = ""
+            while not capturedIp:
+                capturedIp = raw_input("Please enter an IP: ")
+                return capturedIp
+        elif response == "x":
+            response = "exit"
+            return response
+        else:
+            print "Bad Selection"
+
+# Common method for accessing multiple routers
+def chooseDevices(list_dir):
+    # Define the routers to deploy the config to (file/cli)
+    # list_dir: The path to list file to use.
+
+    # IP Formats to recognize...
+    #   - 10.10.10.X        // A single IP address
+    #   - 10.10.10.X/XX     // A masked IP, probably network
+    ip_list = []
+    looping = True
+
+    while looping:
+        method_resp = getOptionAnswer('How would you like to define the devices by IP', ['file', 'manual'])
+        # Choose a file from a list of options
+        if method_resp == "file":
+            path = list_dir + "*.ips"
+            files=glob.glob(path)
+            if files:
+                file_resp = getOptionAnswer('Choose a file to use', files)
+                # Print out all the IPs/SITEs
+                if file_resp != 'Quit':
+                    for line in fileinput.input(file_resp):
+                        line = line.rstrip()
+                        if line != '':
+                            ip_list += extract_ips(line)
+                        looping = False
+            else:
+                print "No valid files in {0}".format(path)
+        # Define one or more IPs individually
+        elif method_resp == "manual":
+            print 'Provide IPs - Correct format: X.X.X.X or X.X.X.X/X:'
+            answer = ""
+            while( answer != 'x' ):
+                answer = getInputAnswer('Enter an ip address (x) to exit')
+                if( answer != 'x'):
+                    ip_list += extract_ips(answer)
+            looping = False
+        else:
+            print "Exiting menu..."
+            return False
+
+    # Print the IPs that will be used
+    if ip_list:
+        checked_sorted_list = check_sort(ip_list)
+        print "\n" + " " * 10 + "IPs Selected"
+        print "-" * 50
+        for ip in checked_sorted_list:
+            print ' -> {0}'.format(ip)
+        print "-" * 50
+        print "Total IPs: {0}".format(len(checked_sorted_list))
+        return checked_sorted_list
+    else:
+        return ip_list
+
+
+########################
+# FORMATTING FUNCTIONS #
+########################
 
 # Takes a text string and creates a top level heading
 def topHeading(raw_text, margin):
@@ -641,6 +797,11 @@ def starHeading(raw_text, head_len):
     heading += "*" * head_len + "\n"
 
     return heading
+
+
+###########################
+# DEVICE ACCESS FUNCTIONS #
+###########################
 
 # Run a single non-edit command and get the output returned
 def op_command(ip, command, username, password, port=22):
@@ -888,6 +1049,60 @@ def load_with_pyez(dev, config_temp_dir, conf_file, output_log, ip, hostname, us
     screen_and_log("{0}: ({1}): Completed Push!\n".format(ip, hostname), output_log)
     return err_message
 
+# Pings the provided IP and returns True/False, works on Windows or Linux/Mac
+def ping(ip):
+    """ Purpose: Determine if an IP is pingable
+    :param ip: IP address of host to ping
+    :return: True if ping successful
+    """
+    with open(os.devnull, 'w') as DEVNULL:
+        try:
+            # Check for Windows or Linux/MAC
+            ping_param = "-n" if platform.system().lower() == "windows" else "-c"
+            subprocess.check_call(
+                ['ping', ping_param, '3', ip],
+                stdout=DEVNULL,
+                stderr=DEVNULL
+            )
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
+# Get fact
+def get_fact(ip, username, password, fact):
+    """ Purpose: For collecting a single fact from the target system. The 'fact' must be one of the predefined ones.
+        Examples:
+            model, version, hostname, serialnumber,
+            switch_style, last_reboot_reason, uptime,
+            personality
+        Parameters:
+    """
+    myfact = ""
+    dev = Device(ip, user=username, password=password)
+    try:
+        dev.open()
+    except Exception as err:
+        print("Unable to open connection to: {0} | ERROR: {1}").format(ip, err)
+        return False
+    else:
+        try:
+            myfact = dev.facts[fact]
+        except Exception as err:
+            print("Reachability Issues... Standby: {0} | ERROR: {1}").format(ip, err)
+            dev.close()
+            return False
+        else:
+            dev.close()
+            if myfact:
+                return myfact
+            else:
+                return False
+
+
+#############################
+# FILE OPERATIONS FUNCTIONS #
+#############################
+
 # Breaks up a large configuration file into multiple configuration files
 def split_large_file(conf_file, dest_path, ip):
     lc = len(open(conf_file).readlines())
@@ -923,6 +1138,7 @@ def split_large_file(conf_file, dest_path, ip):
         file_list.append(conf_file)
         return file_list
 
+# Creates a small configuration file
 def create_conf_file(file_num, line_list, dest_path, ip):
     # Create a file template for small files
     smallfile = 'sf_{0}_{1}.txt'.format(ip, file_num)
@@ -935,26 +1151,50 @@ def create_conf_file(file_num, line_list, dest_path, ip):
     else:
         return smallfile_fp
 
-# Return a specifically formatted timestamp
-def get_now_time():
-    """ Purpose: Create a formatted timestamp
-
-    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
-    """
-    now = datetime.datetime.now()
-    return now.strftime("%Y-%m-%d_%H%M")
-
-# Accetps a masked or unmasked IP and returns the IP and mask in a list
-def get_ip_mask(masked_ip):
-
-    ip_mask_list = []
-    if "/" in masked_ip:
-        ip_mask_list = masked_ip.split("/")
+# Return list of files from a directory with an optional extension filter
+def getFileList(mypath, ext_filter=False):
+    fileList = []
+    if exists(mypath):
+        tmpList = []
+        if ext_filter:
+            ext_file = '*.' + ext_filter
+            pattern = os.path.join(mypath, ext_file)
+            # Sorts the files by modification time
+            tmpList = sorted([x for x in glob.glob(pattern)], key=os.path.getmtime, reverse=True)
+        else:
+            wild_file = '*'
+            pattern = os.path.join(mypath, wild_file)
+            tmpList = sorted([x for x in glob.glob(pattern)], key=os.path.getmtime, reverse=True)
+        # except Exception as err:
+        #    print "Error accessing files {0} - ERROR: {1}".format(mypath, err)
+        for file in tmpList:
+            fileList.append(os.path.split(file)[1])
     else:
-        ip_mask_list.append(masked_ip)
-        ip_mask_list.append('32')
+        print "Path: {0} does not exist!".format(mypath)
+    return fileList
 
-    return ip_mask_list
+
+#####################
+# LOGGING FUNCTIONS #
+#####################
+
+# Method for creating a log file
+def createLogFile(path_and_file, columns, delimiter=","):
+    try:
+        with open(path_and_file, 'w+') as fh:
+            header_line = ''
+            # Loops over all column headers in list, except for the last one
+            for column in columns[:-1]:
+                header_line += column + delimiter
+            # Add the last header without a delimiter
+            header_line += columns[-1]
+            # Write header to file
+            fh.write(header_line)
+    except Exception as err:
+        print "Error opening/writing to file -> ERROR: {0}".format(err)
+        return False
+    else:
+        return True
 
 # Print output to the screen and a log file (either a list or string)
 def screen_and_log(statement, file_list):
@@ -1014,211 +1254,3 @@ def print_file(statement, myfile):
     else:
         myobj.write(statement)
         myobj.close()
-
-# Creates list from a text file
-def txt_to_list(txt_file):
-    command_list = []
-    try:
-        with open(txt_file) as f:
-            command_list = f.read().splitlines()
-    except Exception as err:
-        print "Error turning file into list. ERROR: {0}".format(err)
-        return False
-    else:
-        # Returns only lines that have content
-        return [x for x in command_list if x]
-
-# Creates text file from a list
-def list_to_txt(dest_file, src_list):
-    text_config = ""
-    try:
-        # Overwrites an existing file, if there is one
-        with open(dest_file, 'w') as text_config:
-            for line in src_list:
-                text_config.write("{0}\n".format(line))
-    except Exception as err:
-        print "Error writing list to file. ERROR: {0}".format(err)
-        return False
-    else:
-        return True
-
-# Creates a string from a text file
-def txt_to_string(src_file):
-    # Create a string of the configuration file
-    command_file = ""
-    try:
-        with open(src_file) as f:
-            command_file = f.read()
-    except Exception as err:
-        print "Problems extracting commands from file. ERROR: {0}".format(err)
-        return False
-    else:
-        return command_file
-
-# Pings the provided IP and returns True/False, works on Windows or Linux/Mac
-def ping(ip):
-    """ Purpose: Determine if an IP is pingable
-    :param ip: IP address of host to ping
-    :return: True if ping successful
-    """
-    with open(os.devnull, 'w') as DEVNULL:
-        try:
-            # Check for Windows or Linux/MAC
-            ping_param = "-n" if platform.system().lower() == "windows" else "-c"
-            subprocess.check_call(
-                ['ping', ping_param, '3', ip],
-                stdout=DEVNULL,
-                stderr=DEVNULL
-            )
-            return True
-        except subprocess.CalledProcessError:
-            return False
-
-# Removes a record from the specified list of dictionaries
-def remove_record(listDict, key, value):
-    """ Purpose: Remove a record from the provided list of dictionaries. 
-    NOTE: Removes only the first record found with the specified value.
-
-    :param key:         -   The key to search for
-    :param value:       -   The value to search for
-    :return:            -   Returns True/False
-    """
-    was_changed = False
-    for record in listDict:
-        # print "Provided: {0} -> Comparing to Key: {1} | Value: {2} --> ".format(listDict[i][key], key, value)
-        if record[key] == value:
-            # print "Removing: {0}".format(listDict[i])
-            listDict.remove(record)
-            sys.stdout("| Device Removed! ")
-            # Remove directory
-            record_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
-            if os.path.isdir(record_dir):
-                if rm_rf(record_dir):
-                    print "| Device Directory Removed!"
-            was_changed = True
-    if was_changed:
-        return listDict
-    else:
-        return False
-
-# Gets a record
-def get_record(listDict, ip='', hostname='', sn='', code=''):
-    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
-                three different methods to return the data.
-
-        :param ip:          -   String of the IP of the device
-        :param hostname:    -   String of the device hostname
-        :parma sn:          -   String of the device chassis serial number
-        :param code:        -   String of the JunOS code version
-        :returns:           -   Dictionary of device attributes
-    """
-    has_record = False
-    # Make sure listDict has contents
-    if listDict:
-        if ip:
-            for record in listDict:
-                # Make sure this info exists, it may have failed
-                if 'inet_intf' in record:
-                    for inet_intf in record['inet_intf']:
-                        if inet_intf['ipaddr'] == ip:
-                            return record
-                # If it did, just search the 'ip" attribute
-                else:
-                    if record['ip'] == ip:
-                        return record
-        elif hostname:
-            for record in listDict:
-                if record['hostname'] == hostname:
-                    return record
-        elif sn:
-            for record in listDict:
-                if record['serialnumber'] == sn:
-                    return record
-        elif code:
-            for record in listDict:
-                if record['version'] == code:
-                    return record
-        else:
-            return has_record
-    else:
-        return has_record
-
-# Write database to JSON
-def write_to_json(list_dict, main_list_dict):
-    try:
-        with open(main_list_dict, 'w') as fout:
-            json.dump(list_dict, fout)
-    except Exception as err:
-        print "Problem opening or writing to JSON file from database -> ERROR: {0}".format(err)
-        return False
-    else:
-        return True
-
-# Import variables into config file
-
-# Write JSON formtted file to a list dictionary
-def json_to_listdict(json_file):
-    list_data = []
-    if not os.path.exists(json_file):
-        return list_data
-    else:
-        try:
-            with open(json_file) as fin:
-                list_data = json.load(fin)
-        except Exception as err:
-            print "Problem opening or reading from JSON to database -> ERROR: {0}".format(err)
-            return False
-        else:
-            return list_data
-
-# Analyze listDict and create statistics (Upgrade)
-def tabulateUpgradeResults(listDict):
-    statusDict = {'success_rebooted': [],'success_not_rebooted': [], 'connect_fails': [], 'software_install_fails': [], 'total_devices': 0}
-
-    for mydict in listDict:
-        if mydict['Connected'] == 'Y' and mydict['OS_installed'] == 'Y':
-            if mydict['Rebooted'] == 'Y':
-                statusDict['success_rebooted'].append(mydict['IP'])
-            else:
-                statusDict['success_not_rebooted'].append(mydict['IP'])
-        elif mydict['Connected'] == 'Y' and mydict['OS_installed'] == 'N':
-            statusDict['software_install_fails'].append(mydict['IP'])
-        elif mydict['Connected'] == 'N':
-            statusDict['connect_fails'].append(mydict['IP'])
-        else:
-            print("Error: Uncaptured Result")
-        # Every device increments this total
-        statusDict['total_devices'] += 1
-
-    return statusDict
-
-# Analyze listDict and create statistics (Reboot)
-def tabulateRebootResults(listDict):
-    statusDict = {'rebooted': [], 'not_rebooted': [], 'connect_fails': [], 'total_devices': 0}
-
-    for mydict in listDict:
-        if mydict['Connected'] == 'Y':
-            if mydict['Rebooted'] == 'Y':
-                statusDict['rebooted'].append(mydict['IP'])
-            else:
-                statusDict['not_rebooted'].append(mydict['IP'])
-        elif mydict['Connected'] == 'N':
-            statusDict['connect_fails'].append(mydict['IP'])
-        else:
-            print("Error: Uncaptured Result")
-        # Every device increments this total
-        statusDict['total_devices'] += 1
-
-    return statusDict
-
-# Takes a specifically formatted timestamp and returns the time difference by days
-def day_difference(timestamp):
-    # Create the appropriate format to compare times
-    c_time = datetime.datetime.strptime(timestamp, "%Y-%m-%d_%H%M")
-    # Get the current time
-    now_time = datetime.datetime.now()
-    #print "\nNow: {0}".format(now_time)
-    #print "Timestamp: {0}".format(c_time)
-    diff = now_time - c_time
-    # Return the value in days
-    return diff.days

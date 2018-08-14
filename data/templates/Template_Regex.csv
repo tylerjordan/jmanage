@@ -2,10 +2,12 @@ VERSION;\d{1,2}\.\d{1,2}[A-Z]\d{1,2}-[A-Z]\d{1,2}\.\d{1,2}
 HOSTNAME;SW?[A-Z]{3}\d{3}[A-Z]\d{2}[A-Z]{1,2}
 ENCPASS;"\$1\$[A-Z|a-z|\.|\$|\/|\-|\d]{31}"
 SECRET;"\$[8,9]\$[A-Z|a-z|\.|\$|\/|\-|\d]{18,200}"
-MASK;/[0-9]{1,2}
 IPV4;(?:[0-9]{1,3}\.){3}[0-9]{1,3}
 CITY;[A-Z][A-Z|a-z|\s]+
 STATE;[A-Z]{2}
-REV;\d{1,2}\.\d{1,2}
+REVISION;\d{1,2}\.\d{1,2}
+SITE_CODE;[A-Z]{3}
+CONTACT_NAME;.*
+CONTACT_PHONE;\d{3}[\-|\.]\d{3}[\-|\.]\d{4}
 TEXT;.*
 DIGITS;\d+

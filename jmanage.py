@@ -58,6 +58,7 @@ def detect_env():
     global config_dir
     global template_dir
     global temps_dir
+    global maps_dir
     global log_dir
     global csvs_dir
     global dir_path
@@ -74,6 +75,7 @@ def detect_env():
         config_dir = os.path.join(dir_path, "data\\configs")
         template_dir = os.path.join(dir_path, "data\\templates")
         temps_dir = os.path.join(dir_path, "data\\templates\\temps")
+        maps_dir = os.path.join(dir_path, "data\\templates\\maps")
         log_dir = os.path.join(dir_path, "data\\logs")
         csvs_dir = os.path.join(dir_path, "data\\templates\\csvs")
 
@@ -83,6 +85,7 @@ def detect_env():
         config_dir = os.path.join(dir_path, "data/configs")
         template_dir = os.path.join(dir_path, "data/templates")
         temps_dir = os.path.join(dir_path, "data/templates/temps")
+        maps_dir = os.path.join(dir_path, "data/templates/maps")
         log_dir = os.path.join(dir_path, "data/logs")
         csvs_dir = os.path.join(dir_path, "data/templates/csvs")
 
@@ -168,10 +171,15 @@ def deviation_search(list_dict):
     tmp_lines = []
     hosts = []
     #print "Temps Dir: {0}".format(temps_dir)
+    # Get the
     file_list = getFileList(temps_dir, ext_filter='conf')
-    user_input = getOptionAnswer("Choose a deviation to search for", file_list)
-    tmppath = os.path.join(temps_dir, user_input)
+    deviation_selection = getOptionAnswer("Choose a deviation to search for", file_list)
+    tmppath = os.path.join(temps_dir, deviation_selection)
     tmp_lines = txt_to_list(tmppath)
+
+    file_list = getFileList(maps_dir, ext_filter='conf')
+
+
     #print "Config Dir: {0}".format(config_dir)
     #print "Temps Dir: {0}".format(tmppath)
     print "Searching for template files with content..."
@@ -180,16 +188,20 @@ def deviation_search(list_dict):
         for file in files:
             if file.startswith('Template_Deviation'):
                 #print "Found Template Deviation File..."
+                command_list = []
                 fullpath = os.path.join(folder, file)
                 hostname = os.path.split(folder)[1]
                 num_matches = 0
                 with open(fullpath, 'r') as f:
                     ### NEW CONTENT ###
+                    command_list = []
                     for line in f:
                         #print "Line: {0}".format(line)
                         subline = line.split('> ', 1)[-1].rstrip()
                         if subline in tmp_lines:
                             #print "Matched Subline: {0}".format(subline)
+                            # Append the commands to a list
+                            command_list.append(subline)
                             num_matches += 1
                 if num_matches > 0:
                     if hostname not in hosts:
@@ -199,6 +211,8 @@ def deviation_search(list_dict):
                             if device['hostname'] == hostname:
                                 ip = device['ip']
                         print "Found {0} lines ... appending: {1} ({2}) to file".format(num_matches, hostname, ip)
+                        for command in command_list:
+                            print "Command: {0}".format(command)
                     else:
                         print "Hostname {0} already listed?".format(hostname)
     # Create a dictionary with the IP and Hostname
@@ -215,7 +229,7 @@ def deviation_search(list_dict):
     # Add dictionary contents to a CSV file
     now = get_now_time()
     csvpath = os.path.join(csvs_dir, user_input.rsplit('.')[0] + "_" + now + ".csv")
-    if listdict_to_csv(combined, csvpath, myDelimiter=",", columnNames=['mgmt_ip', 'hostname']):
+    if listdict_to_csv(combined, csvpath, columnNames=['mgmt_ip', 'hostname']):
         print "Successfully converted list dictionary to CSV: {0}".format(csvpath)
     else:
         print "Failed converting list dictionary to CSV: {0}".format(csvpath)
