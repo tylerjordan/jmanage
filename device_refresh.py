@@ -1476,6 +1476,23 @@ def template_check(record, force_refresh=False):
 
     return templ_results[-1]
 
+# Creates a dictionary of the variables and their corresponding regex
+def create_template_mapping():
+    regex_terms = csv_to_dict_twoterm(template_regex_csv, ";")    # CSV with regex strings
+    regex_mapping = csv_to_dict_twoterm(template_map_csv, ";")    # CSV with variable to regex string mappings
+
+    # Create the mapping translation
+    map_dict = {}
+    for key1, value1 in regex_mapping.iteritems():
+        for key2, value2 in regex_terms.iteritems():
+            if value1 == key2:
+                map_dict[key1] = value2
+                #print "\nName: {0} | Value: {1}".format(key1, value2)
+    #print "MAP DICT:"
+    #print map_dict
+    #exit()
+    return map_dict
+
 def template_scan(regtmpl_list, record, force_refresh):
     """ Purpose: Make sure a new template is needed. If it is, create deviation log, and return results.
 
@@ -1560,18 +1577,9 @@ def template_results(record, regtmpl_list):
     returncode = 1
 
     config_list = get_config_list(record['hostname'], newest=True)
-    regex_terms = csv_to_dict_twoterm(template_regex_csv, ";")    # CSV with regex strings
-    regex_mapping = csv_to_dict_twoterm(template_map_csv, ";")    # CSV with variable to regex string mappings
 
-    # Create the mapping translation
-    map_dict = {}
-    for key1, value1 in regex_mapping.iteritems():
-        for key2, value2 in regex_terms.iteritems():
-            if value1 == key2:
-                map_dict[key1] = value2
-                print "\nName: {0} | Value: {1}".format(key1, value2)
-            else:
-                stdout.write(".")
+    # PUT THE MAPPING DICTIONARY IN THIS AREA #
+    map_dict = create_template_mapping()
 
     # Loop over the configuration content
     for regline in regtmpl_list:
@@ -1636,7 +1644,7 @@ def template_str_parse(str):
     varstr = ""
     textstr = ""
     # Put the template regex into a dictionary
-    d = csv_to_dict_twoterm(template_regex_csv, ";")
+    map_dict = create_template_mapping()
     # Loop over each character in the string
     for char in str:
         # If this character is an open bracket
@@ -1658,7 +1666,7 @@ def template_str_parse(str):
             else:
                 closebracket = True
                 # Add the corresponding regex expression
-                tline += d[varstr]
+                tline += map_dict[varstr]
                 # Clear the varstr
                 varstr = ""
         # If this character if part of a regex variable
