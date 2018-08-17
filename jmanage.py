@@ -177,9 +177,6 @@ def deviation_search(list_dict):
     tmppath = os.path.join(temps_dir, deviation_selection)
     tmp_lines = txt_to_list(tmppath)
 
-    file_list = getFileList(maps_dir, ext_filter='conf')
-
-
     #print "Config Dir: {0}".format(config_dir)
     #print "Temps Dir: {0}".format(tmppath)
     print "Searching for template files with content..."
@@ -212,7 +209,7 @@ def deviation_search(list_dict):
                                 ip = device['ip']
                         print "Found {0} lines ... appending: {1} ({2}) to file".format(num_matches, hostname, ip)
                         for command in command_list:
-                            print "Command: {0}".format(command)
+                            print "\tCommand: {0}".format(command)
                     else:
                         print "Hostname {0} already listed?".format(hostname)
     # Create a dictionary with the IP and Hostname
@@ -221,15 +218,15 @@ def deviation_search(list_dict):
         found = False
         for device in list_dict:
             if device['hostname'] == host:
-                combined.append({'mgmt_ip': device['ip'], 'hostname': host})
+                combined.append({'MGMT_IP': device['ip'], 'HOSTNAME': host, 'MODEL': device['model'], 'SITE_CODE': getSiteCode(host)})
                 found = True
         # If they are not found in the database, they are likely no longer valid hosts
         if not found:
             print "Unable to find {0} in jmanage database!".format(host)
     # Add dictionary contents to a CSV file
     now = get_now_time()
-    csvpath = os.path.join(csvs_dir, user_input.rsplit('.')[0] + "_" + now + ".csv")
-    if listdict_to_csv(combined, csvpath, columnNames=['mgmt_ip', 'hostname']):
+    csvpath = os.path.join(csvs_dir, deviation_selection.rsplit('.')[0] + "_" + now + ".csv")
+    if listdict_to_csv(combined, csvpath, columnNames=['MGMT_IP', 'HOSTNAME', 'MODEL', 'SITE_CODE']):
         print "Successfully converted list dictionary to CSV: {0}".format(csvpath)
     else:
         print "Failed converting list dictionary to CSV: {0}".format(csvpath)

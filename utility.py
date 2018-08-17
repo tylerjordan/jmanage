@@ -197,54 +197,6 @@ def listdict_to_csv(aListDict, csvPathName, myDelimiter=",", columnNames=[]):
     else:
         return True
 
-# Converts listDict to CSV file
-'''
-def listDictCSV(myListDict, filePathName, keys):
-    addKeys = True
-    if (os.path.isfile(filePathName)):
-        addKeys = False
-    try:
-        f = open(filePathName, 'a')
-    except Exception as err:
-        print "Failure opening file in append mode - ERROR: {0}".format(err)
-        print "Be sure {0} isn't open in another program.".format(filePathName)
-    else:
-        if addKeys:
-            #Write all the headings in the CSV
-            for akey in keys[:-1]:							# Runs for every element, except the last
-                f.write(akey + ",")							# Writes most elements
-            f.write(keys[-1])								# Writes last element
-            f.write("\n")
-
-        for part in myListDict:
-            for bkey in keys[:-1]:
-                #print "BKey: " + bkey + "  Value: " + part[bkey]
-                f.write(str(part[bkey]) + ",")
-            f.write(str(part[keys[-1]]))
-            f.write("\n")
-        f.close()
-        #print "\nCompleted appending to CSV."
-'''
-
-# Converts CSV file to listDict
-'''
-def csv_to_listdict(filePathName):
-    emptyList = []
-    try:
-        with open(filePathName) as csvfile:
-            listDict = [{csvfile: v for csvfile, v in row.items()}
-                        for row in csv.DictReader(csvfile, skipinitialspace=True)]
-        return listDict
-    # Not really much of an error, but indicates that the file was not found
-    except IOError as err:
-        #print "Database file not found: Using empty database."
-        return emptyList
-
-    except Exception as err:
-        print "Non-IOError problem with: {0} ERROR: {1}".format(filePathName, err)
-        return emptyList
-'''
-
 # Converts CSV file to listDict. First line is considered column headers.
 def csv_to_listdict(fileName, keys=''):
     myListDict = []

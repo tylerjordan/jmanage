@@ -112,10 +112,6 @@ def create_timestamped_log(prefix, extension):
 ######################
 # TEMPLATE FUNCTIONS #
 ######################
-def populate_commands(command_list, device_params):
-
-
-
 # Adds device specific content to a template file.
 def populate_template(template_file, device=[]):
     command_list = txt_to_list(template_file)
@@ -171,6 +167,13 @@ def populate_template(template_file, device=[]):
     else:
         return temp_conf
 
+# A function to push the CSV based templates
+def deviation_template_push():
+    print "*" * 50 + "\n" + " " * 10 + "DEVIATION TEMPLATE FUNCTION\n" + "*" * 50
+    filelist = getFileList(config_dir, 'csv')
+    template_config = getOptionAnswer("Choose a template command (.csv) file", filelist)
+    pass
+
 # Template function for bulk set command deployment
 def template_commands():
     keys = []
@@ -222,8 +225,8 @@ def template_commands():
                 answer = getInputAnswer('Enter an ip address (x) to exit')
                 if( answer != 'x'):
                     #print get_fact(answer, username, password, 'ip')
-                    dev_vars_ld.append({'mgmt_ip': answer})
-                    keys = ['mgmt_ip']
+                    dev_vars_ld.append({'MGMT_IP': answer})
+                    keys = ['MGMT_IP']
             looping = False
         elif method_resp == False:
             print "Quit Template Menu"
@@ -233,15 +236,15 @@ def template_commands():
 
     # Sort headers with mgmt_ip being the first key
     sorted_keys = []
-    if 'mgmt_ip' in keys:
-        sorted_keys.append('mgmt_ip')
+    if 'MGMT_IP' in keys:
+        sorted_keys.append('MGMT_IP')
         for one_key in keys:
-            if one_key != 'mgmt_ip':
+            if one_key != 'MGMT_IP':
                 sorted_keys.append(one_key)
         # Print the CSV file and the
         for device in dev_vars_ld:
             for key in sorted_keys:
-                if key == 'mgmt_ip':
+                if key == 'MGMT_IP':
                     print " -> {0}".format(device[key])
                 else:
                     print " ---> {0}: {1}".format(key, device[key])
