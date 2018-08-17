@@ -159,7 +159,6 @@ def detect_env():
         config_dir = os.path.join(dir_path, "data\\configs")
         template_dir = os.path.join(dir_path, "data\\templates")
         log_dir = os.path.join(dir_path, "data\\logs")
-
     else:
         #print "Environment Linux/MAC!"
         iplist_dir = os.path.join(dir_path, "data/iplists")
