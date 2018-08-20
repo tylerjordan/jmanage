@@ -198,7 +198,7 @@ def listdict_to_csv(aListDict, csvPathName, myDelimiter=",", columnNames=[]):
         return True
 
 # Converts CSV file to listDict. First line is considered column headers.
-def csv_to_listdict(fileName, keys=''):
+def csv_to_listdict(fileName, mydelim=",", keys=''):
     myListDict = []
     try:
         with open(fileName) as myfile:
@@ -206,11 +206,11 @@ def csv_to_listdict(fileName, keys=''):
             for line in myfile:
                 if firstline:
                     if not keys:
-                        keys = (line.strip()).split(',')
+                        keys = (line.strip()).split(mydelim)
                     firstline = False
                 else:
                     # print "Line: {0}".format(line)
-                    values = (line.strip()).split(',')
+                    values = (line.strip()).split(mydelim)
                     # print "Values: {0}".format(values)
                     myListDict.append({keys[n]: values[n] for n in range(0, len(keys))})
     except Exception as err:
@@ -464,14 +464,18 @@ def getSiteCode(hostname):
     return siteObj.group()[-3:]
 
 # This function removes the directory "d" and all files and directories recursively... real quick!
-def rm_rf(d):
+# If you don't want to remove the top level directory, set the "remove_top_dir" to False
+def rm_rf(d, remove_top_dir=True):
     try:
+        # Remove all directories and files within directory "d"
         for path in (os.path.join(d,f) for f in os.listdir(d)):
             if os.path.isdir(path):
                 rm_rf(path)
             else:
                 os.unlink(path)
-        os.rmdir(d)
+        # Remove directory "d"
+        if remove_top_dir:
+            os.rmdir(d)
     except Exception as err:
         print "| Error: {0} | Issue removing dir structure: {1}".format(err, d)
         return False

@@ -27,10 +27,20 @@ from multiprocessing import Pool
 # Global Variables
 ssh_port = 22
 
+# File Vars
+main_list_dict = ''
+common_content_csv = ''
+specific_content_csv = ''
+
+# Directory Vars
 iplist_dir = ""
 log_dir = ""
 config_dir = ""
+data_configs_dir = ""
 config_temp_dir = ""
+temp_config_dir = ""
+temp_dev_dir = ""
+template_dir = ""
 temp_dir = ""
 csv_dir = ""
 inv_dir = ""
@@ -47,7 +57,11 @@ def detect_env():
     """ Purpose: Detect OS and create appropriate path variables. """
     global iplist_dir
     global config_dir
+    global data_configs_dir
     global config_temp_dir
+    global temp_config_dir
+    global temp_dev_dir
+    global template_dir
     global log_dir
     global csv_dir
     global inv_dir
@@ -58,12 +72,17 @@ def detect_env():
     global ssh_port
     global dir_path
 
+    global main_list_dict
+    global specific_content_csv
+    global common_content_csv
+
     dir_path = os.path.dirname(os.path.abspath(__file__))
     if platform.system().lower() == "windows":
         #print "Environment Windows!"
         iplist_dir = ".\\iplists\\"
         config_dir = ".\\configs\\"
-        config_temp_dir = ".\\configs\\temp_dir\\"
+        data_configs_dir = ".\\data\\configs\\"
+        template_dir = ".\\data\\templates\\"
         log_dir = ".\\logs\\"
         csv_dir = ".\\csv\\"
         inv_dir = ".\\csv\\inventory\\"
@@ -75,13 +94,22 @@ def detect_env():
         #print "Environment Linux/MAC!"
         iplist_dir = "./iplists/"
         config_dir = "./configs/"
-        config_temp_dir = "./configs/temp_dir/"
+        data_configs_dir = "./data/configs/"
+        template_dir = "./data/tempaltes/"
         log_dir = "./logs/"
         csv_dir = "./csv/"
         inv_dir = "./csv/inventory/"
         upgrade_dir = "./upgrade/"
         images_dir = "./images/"
         temp_dir = "./temp/"
+
+    temp_dev_dir = os.path.join(dir_path, template_dir, "deviation_templates")
+    temp_config_dir = os.path.join(dir_path, template_dir, "template_configs")
+    config_temp_dir = os.path.join(dir_path, config_dir, "temp_dir")
+
+    main_list_dict = os.path.join(dir_path, "main_db.json")
+    common_content_csv = os.path.join(dir_path, template_dir, "common_content.csv")
+    specific_content_csv = os.path.join(dir_path, template_dir, "specific_content.csv")
 
 # Handles arguments provided at the command line
 def getargs(argv):
@@ -112,16 +140,8 @@ def create_timestamped_log(prefix, extension):
 ######################
 # TEMPLATE FUNCTIONS #
 ######################
-# Adds device specific content to a template file.
-def populate_template(template_file, device=[]):
-    command_list = txt_to_list(template_file)
-    temp_conf = ''
-    # Check if device was provided, if yes, then we need to create templates for each device
-    if device:
-        temp_conf = os.path.join(dir_path, temp_dir, "temp_" + device['mgmt_ip'].replace(".","") + ".conf")
-    else:
-        temp_conf = os.path.join(dir_path, temp_dir, "temp_" + get_now_time() + ".conf")
-    #
+# Replaces template variables with defined terms
+def template_populate(command_list, host_dict):
     new_command_list = []
     if command_list:
         # Loop over commands
@@ -132,7 +152,7 @@ def populate_template(template_file, device=[]):
             # Check if this is an empty line, if it is, skip it
             if not re.match(r'^\s*$', command) or re.match(r'^#.*$', command):
                 # Continue searching this string for variables...
-                if device:
+                if host_dict:
                     while re.match(r'.*\{\{.*\}\}.*', command):
                         #print "-----------------------------------------"
                         #print("String: {0}").format(command)
@@ -144,9 +164,9 @@ def populate_template(template_file, device=[]):
                             term = match[2:-2]
                             vareg = r"{{" + term + "}}"
                             #print "Pattern: {0}".format(vareg)
-                            #print "Replace: {0}".format(device[term])
+                            #print "Replace: {0}".format(host_dict[term])
                             try:
-                                command = re.sub(vareg, device[term], command)
+                                command = re.sub(vareg, host_dict[term], command)
                             except KeyError as err:
                                 print "ERROR: Detected a missing key: {0} - Exiting Process".format(err)
                                 return ''
@@ -161,13 +181,138 @@ def populate_template(template_file, device=[]):
             else:
                 pass
                 #print "Skipping a blank line..."
+    return new_command_list
+
+# Adds device specific content to a template file.
+def populate_template(template_file, device=[]):
+    command_list = txt_to_list(template_file)
+    temp_conf = ''
+    # Check if device was provided, if yes, then we need to create templates for each device
+    if device:
+        temp_conf = os.path.join(dir_path, temp_dir, "temp_" + device['mgmt_ip'].replace(".","") + ".conf")
+    else:
+        temp_conf = os.path.join(dir_path, temp_dir, "temp_" + get_now_time() + ".conf")
+
+    # Perform the replacement of any variables in these commands
+    new_command_list = template_populate(command_list, device)
+
     # Convert list to a file
     if list_to_txt(temp_conf, new_command_list):
         return temp_conf
     else:
         return temp_conf
 
-# A function to push the CSV based templates
+
+# Searches all records for missing commands defined by the provided deviation template
+# If there are records, a directory is created to hold the records
+# The missing commands are collected into files, any variables are populated based on master CSV
+# The commands can be optionally pushed to devices
+def deviation_search(list_dict):
+    tmp_lines = []
+    hosts = []
+    # print "Temps Dir: {0}".format(temps_dir)
+    # Choose a series of commands to search for
+    file_list = getFileList(temp_dev_dir, ext_filter='conf')
+    deviation_selection = getOptionAnswer("Choose a deviation to search for", file_list)
+    tmppath = os.path.join(temp_dev_dir, deviation_selection)
+    tmp_lines = txt_to_list(tmppath)
+
+    # Merge the host content and common content to an ld
+    new_ld = []
+    common_dict = csv_to_dict_twoterm(common_content_csv, ";")
+    content_ld = csv_to_listdict(specific_content_csv, mydelim=";")
+    for host_dict in content_ld:
+        new_host_dict = host_dict.copy()
+        new_host_dict.update(common_dict)
+        new_ld.append(new_host_dict)
+    #print "NEW_LD:"
+    #print new_ld
+
+    # print "Config Dir: {0}".format(config_dir)
+    # print "Temps Dir: {0}".format(tmppath)
+    print "Searching for template files with content..."
+    # Clear out the directory "temp_config_dir"
+    rm_rf(temp_config_dir, False)
+    # Search configs directory recursively for content
+    for folder, dirs, files in os.walk(data_configs_dir):
+        for file in files:
+            print "File Name: {0}".format(file)
+            command_list = []
+            hostname = ""
+            if file.startswith('Template_Deviation'):
+                print "\tFound Template Deviation File..."
+                fullpath = os.path.join(folder, file)
+                hostname = os.path.split(folder)[1]
+                num_matches = 0
+                with open(fullpath, 'r') as f:
+                    ### NEW CONTENT ###
+                    print "HOST: {0}".format(hostname)
+                    command_list = []
+                    for line in f:
+                        # print "Line: {0}".format(line)
+                        subline = line.split('> ', 1)[-1].rstrip()
+                        if subline in tmp_lines:
+                            #print "\tMatched Subline: {0}".format(subline)
+                            # Append the commands to a list
+                            command_list.append(subline)
+                            num_matches += 1
+                # Run this is matches are made
+                if num_matches > 0:
+                    if hostname not in hosts:
+                        hosts.append(hostname)
+                        ip = 'Unknown'
+                        for device in list_dict:
+                            if device['hostname'] == hostname:
+                                ip = device['ip']
+                        #print "Found {0} lines ... appending: {1} ({2}) to file".format(num_matches, hostname, ip)
+                        #for command in command_list:
+                        #    print "\tCommand: {0}".format(command)
+                    else:
+                        print "Hostname {0} already listed?".format(hostname)
+                    # Replace any variables in the command list
+                    for host_dict in new_ld:
+                        #print "Host Dict Content:"
+                        #print host_dict
+                        new_command_list = []
+                        #print "Host Dict: {0} checking with {1}".format(hostname, host_dict['HOSTNAME'])
+                        if hostname == host_dict['HOSTNAME']:
+                            new_command_list = template_populate(command_list, host_dict)
+                            print "HOST: {0}".format(hostname)
+                            for commands in new_command_list:
+                                print "\tLine: {0}".format(commands)
+                            # Save the command list to a text file
+                            temp_dev_name = hostname + "-" + deviation_selection + ".conf"
+                            temp_dev_file = os.path.join(temp_config_dir, temp_dev_name)
+                            try:
+                                list_to_txt(temp_dev_file, new_command_list)
+                            except Exception as err:
+                                print "Failed converting list to text file: {0}".format(err)
+                            else:
+                                print "Succeeded with creating file"
+            else:
+                print "\tSkipping the file..."
+
+# Template push
+def template_push():
+    ##### STANDARD PROCESSING #####
+    # Loop over all devices in list of dictionaries
+    results_list = []
+    loop = 0
+    for device in list_dict:
+        loop += 1
+        stdout.write("[{0} of {1}]: Connected to {2}!\n".format(loop, len(list_dict), device['mgmt_ip']))
+        dev_dict = push_commands_single(populate_template(template_file, device), output_log, device['mgmt_ip'])
+        screen_and_log("\n" + ("-" * 110) + "\n", output_log)
+
+        # Print to a CSV file
+        keys = ['HOSTNAME', 'IP', 'MODEL', 'JUNOS', 'REACHABLE', 'LOAD_SUCCESS', 'ERROR']
+        dict_to_csv(dev_dict, summary_csv, keys)
+        results_list.append(dev_dict)
+
+    return results_list
+    ##### STANDARD PROCESSING #####
+
+# A function to push the CSV based templates, this function checks the latest full chassis template
 def deviation_template_push():
     print "*" * 50 + "\n" + " " * 10 + "DEVIATION TEMPLATE FUNCTION\n" + "*" * 50
     filelist = getFileList(config_dir, 'csv')
@@ -1154,7 +1299,7 @@ if __name__ == "__main__":
     password = getpass(prompt="\nEnter your password: ")
 
     # Define menu options
-    my_options = ['Execute Operational Commands', 'Execute Set Commands', 'Execute Template Commands', 'Upgrade Junipers', 'Quit']
+    my_options = ['Execute Operational Commands', 'Execute Set Commands', 'Execute Template Commands', 'Deviation Template', 'Upgrade Junipers', 'Quit']
     my_ips = []
 
     # Get menu selection
@@ -1171,8 +1316,10 @@ if __name__ == "__main__":
             elif answer == "3":
                 template_commands()
             elif answer == "4":
-                upgrade_menu()
+                deviation_search(json_to_listdict(main_list_dict))
             elif answer == "5":
+                upgrade_menu()
+            elif answer == "6":
                 quit()
     except KeyboardInterrupt:
         print 'Exiting...'
