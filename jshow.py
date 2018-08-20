@@ -292,7 +292,7 @@ def deviation_search(list_dict):
             else:
                 print "\tSkipping the file..."
 
-# Template push
+# Template push (For new template function)
 def template_push():
     ##### STANDARD PROCESSING #####
     # Loop over all devices in list of dictionaries
