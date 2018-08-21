@@ -1129,6 +1129,23 @@ def getFileList(mypath, ext_filter=False):
         print "Path: {0} does not exist!".format(mypath)
     return fileList
 
+# Return the file with the full path that has the "match_str" in the filename
+def getFilename(mypath, match_str, ext_filter=False):
+    file_list = []
+    match_success = False
+    try:
+        file_list = getFileList(mypath, ext_filter)
+    except Exception as err:
+        print "Issue creating file list: {0}".format(err)
+        return False
+    else:
+        for filename in file_list:
+            if match_str in filename:
+                match_success = True
+                return os.path.join(mypath, filename)
+        if not match_success:
+            print "Filename with '{0}' in filename not found in '{0}'".format(match_str, mypath)
+            return False
 
 #####################
 # LOGGING FUNCTIONS #

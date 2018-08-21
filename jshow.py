@@ -26,6 +26,8 @@ from multiprocessing import Pool
 
 # Global Variables
 ssh_port = 22
+username = ''
+password = ''
 
 # File Vars
 main_list_dict = ''
@@ -136,7 +138,6 @@ def create_timestamped_log(prefix, extension):
     now = datetime.datetime.now()
     return log_dir + prefix + now.strftime("%Y%m%d-%H%M") + "." + extension
 
-
 ######################
 # TEMPLATE FUNCTIONS #
 ######################
@@ -219,6 +220,7 @@ def deviation_search(list_dict):
 
     # Merge the host content and common content to an ld
     new_ld = []
+    host_list = []
     common_dict = csv_to_dict_twoterm(common_content_csv, ";")
     content_ld = csv_to_listdict(specific_content_csv, mydelim=";")
     for host_dict in content_ld:
@@ -236,17 +238,18 @@ def deviation_search(list_dict):
     # Search configs directory recursively for content
     for folder, dirs, files in os.walk(data_configs_dir):
         for file in files:
-            print "File Name: {0}".format(file)
+            #print "File Name: {0}".format(file)
             command_list = []
             hostname = ""
             if file.startswith('Template_Deviation'):
-                print "\tFound Template Deviation File..."
+                #print "\tFound Template Deviation File: {0}".format(file)
+                #stdout.write("O")
                 fullpath = os.path.join(folder, file)
                 hostname = os.path.split(folder)[1]
                 num_matches = 0
                 with open(fullpath, 'r') as f:
                     ### NEW CONTENT ###
-                    print "HOST: {0}".format(hostname)
+                    #print "HOST: {0}".format(hostname)
                     command_list = []
                     for line in f:
                         # print "Line: {0}".format(line)
@@ -276,48 +279,49 @@ def deviation_search(list_dict):
                         new_command_list = []
                         #print "Host Dict: {0} checking with {1}".format(hostname, host_dict['HOSTNAME'])
                         if hostname == host_dict['HOSTNAME']:
+                            host_list.append({'MGMT_IP': host_dict['MGMT_IP'], 'HOSTNAME': hostname})
                             new_command_list = template_populate(command_list, host_dict)
-                            print "HOST: {0}".format(hostname)
+                            print "HOST: {0} --> Discrepancies Detected!".format(hostname)
                             for commands in new_command_list:
                                 print "\tLine: {0}".format(commands)
                             # Save the command list to a text file
-                            temp_dev_name = hostname + "-" + deviation_selection + ".conf"
+                            temp_dev_name = hostname + "-" + deviation_selection
                             temp_dev_file = os.path.join(temp_config_dir, temp_dev_name)
                             try:
                                 list_to_txt(temp_dev_file, new_command_list)
                             except Exception as err:
-                                print "Failed converting list to text file: {0}".format(err)
+                                print "\t---> Failed converting list to text file: {0}".format(err)
                             else:
-                                print "Succeeded with creating file"
+                                print "\t-- Succeessfully created template file: {0} --".format(temp_dev_name)
+                        else:
+                            print "HOST: {0} --> Passed Template Check".format(host_dict['HOSTNAME'])
+            # This
             else:
-                print "\tSkipping the file..."
+                pass
+                #print "\tSkipping the file..."
+    return host_list
 
 # Template push (For new template function)
-def template_push():
-    ##### STANDARD PROCESSING #####
+def template_push(host_list):
     # Loop over all devices in list of dictionaries
     results_list = []
+    output_log = create_timestamped_log("template_output_", "log")
+    summary_csv_name = "results_summary_" + get_now_time() + ".csv"
+    summary_csv_file = os.path.join(log_dir, summary_csv_name)
     loop = 0
-    for device in list_dict:
+    for host in host_list:
         loop += 1
-        stdout.write("[{0} of {1}]: Connected to {2}!\n".format(loop, len(list_dict), device['mgmt_ip']))
-        dev_dict = push_commands_single(populate_template(template_file, device), output_log, device['mgmt_ip'])
+        host_template_file = getFilename(temp_config_dir, host['HOSTNAME'], ext_filter="conf")
+        stdout.write("[{0} of {1}]: Connected to {2}!\n".format(loop, len(host_list), host['MGMT_IP']))
+        dev_dict = push_commands_single(host_template_file, output_log, host['MGMT_IP'])
         screen_and_log("\n" + ("-" * 110) + "\n", output_log)
-
+        #exit()
         # Print to a CSV file
-        keys = ['HOSTNAME', 'IP', 'MODEL', 'JUNOS', 'REACHABLE', 'LOAD_SUCCESS', 'ERROR']
-        dict_to_csv(dev_dict, summary_csv, keys)
+        keys = ['HOSTNAME', 'IP', 'MODEL', 'JUNOS', 'CONNECTED', 'LOAD_SUCCESS', 'ERROR']
+        dict_to_csv(dev_dict, summary_csv_file, keys)
         results_list.append(dev_dict)
 
     return results_list
-    ##### STANDARD PROCESSING #####
-
-# A function to push the CSV based templates, this function checks the latest full chassis template
-def deviation_template_push():
-    print "*" * 50 + "\n" + " " * 10 + "DEVIATION TEMPLATE FUNCTION\n" + "*" * 50
-    filelist = getFileList(config_dir, 'csv')
-    template_config = getOptionAnswer("Choose a template command (.csv) file", filelist)
-    pass
 
 # Template function for bulk set command deployment
 def template_commands():
@@ -626,11 +630,11 @@ def push_commands_multi(attr):
     # Return this to the calling function
     return dev_dict
 
-# Function to push commands to one device at a time
+# Function to push commands, via file, to one device at a time
 def push_commands_single(commands_fp, output_log, ip):
     dev_dict = {'IP': ip, 'HOSTNAME': 'Unknown', 'MODEL': 'Unknown', 'JUNOS': 'Unknown', 'CONNECTED': False,
                 'LOAD_SUCCESS': False, 'ERROR': ''}
-    dev, message = connect(ip)
+    dev, message = connect(ip, username, password)
     if dev:
         dev_dict['CONNECTED'] = True
         screen_and_log("{0}: Connected!\n".format(ip), output_log)
@@ -1316,7 +1320,14 @@ if __name__ == "__main__":
             elif answer == "3":
                 template_commands()
             elif answer == "4":
-                deviation_search(json_to_listdict(main_list_dict))
+                host_list = deviation_search(json_to_listdict(main_list_dict))
+                if host_list:
+                        if getTFAnswer("Would you like to push the changes"):
+                            template_push(host_list)
+                        else:
+                            print "No changes pushed. Returning to Main Menu..."
+                else:
+                    print "No changes needed!"
             elif answer == "5":
                 upgrade_menu()
             elif answer == "6":

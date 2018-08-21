@@ -323,6 +323,8 @@ def directory_check(record):
         :return:            -   True/False
     """
     # Check for site specific directory
+    #print "Hostname: {0}".format(record['hostname'])
+    #print "Site Name: {0}".format(getSiteCode(record['hostname']))
     if not os.path.isdir(os.path.join(config_dir, getSiteCode(record['hostname']))):
         try:
             os.mkdir(os.path.join(config_dir, getSiteCode(record['hostname'])))
@@ -1575,52 +1577,55 @@ def template_results(record, regtmpl_list):
     results = []
     returncode = 1
 
+    # Try to get the latest config file
     config_list = get_config_list(record['hostname'], newest=True)
 
     # PUT THE MAPPING DICTIONARY IN THIS AREA #
     map_dict = create_template_mapping()
 
-    # Loop over the configuration content
-    for regline in regtmpl_list:
-        #print "Using Regline: {0}".format(regline)
-        matched = False
-        if regline != "":
-            #print "\nRegLine: {0}".format(regline)
-            for compline in config_list:
-                compline = compline.strip()
-                if compline != "":
-                    if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
-                        #print "CompLine: {0}".format(compline)
-                        if re.search(regline, compline):
-                            #print "\tMatch RegLine: {0}".format(regline)
-                            #print "\tMatch CompLine: {0}".format(compline)
-                            matched = True
-                            break
+    # Check if the config_list contains content
+    if config_list:
+        # Loop over the configuration content
+        for regline in regtmpl_list:
+            #print "Using Regline: {0}".format(regline)
+            matched = False
+            if regline != "":
+                #print "\nRegLine: {0}".format(regline)
+                for compline in config_list:
+                    compline = compline.strip()
+                    if compline != "":
+                        if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
+                            #print "CompLine: {0}".format(compline)
+                            if re.search(regline, compline):
+                                #print "\tMatch RegLine: {0}".format(regline)
+                                #print "\tMatch CompLine: {0}".format(compline)
+                                matched = True
+                                break
+                        else:
+                            stdout.write("\n\t\tTemplate Check: ERROR: Unexpected string format")
+                            results.append(compline)
+                            returncode = 0
+                            results.append(returncode)
+                            return results
+                if not matched:
+                    # print "NO MATCH FOR: {0}".format(regline)
+                    nice_output = ""
+                    nomatch = False
+                    first_pass = True
+                    for key, value in map_dict.iteritems():
+                        if value in regline:
+                            if first_pass:
+                                nice_output = regline
+                            #print "Key: {0} | Value: {1}".format(key, value)
+                            nice_output = nice_output.replace(value, "{{" + key + "}}")
+                            #print "NEW OUTPUT: {0}".format(nice_output)
+                            first_pass = False
+                    if first_pass:
+                        regline = clear_extra_escapes(regline)
+                        results.append(regline)
                     else:
-                        stdout.write("\n\t\tTemplate Check: ERROR: Unexpected string format")
-                        results.append(compline)
-                        returncode = 0
-                        results.append(returncode)
-                        return results
-            if not matched:
-                # print "NO MATCH FOR: {0}".format(regline)
-                nice_output = ""
-                nomatch = False
-                first_pass = True
-                for key, value in map_dict.iteritems():
-                    if value in regline:
-                        if first_pass:
-                            nice_output = regline
-                        #print "Key: {0} | Value: {1}".format(key, value)
-                        nice_output = nice_output.replace(value, "{{" + key + "}}")
-                        #print "NEW OUTPUT: {0}".format(nice_output)
-                        first_pass = False
-                if first_pass:
-                    regline = clear_extra_escapes(regline)
-                    results.append(regline)
-                else:
-                    nice_output = clear_extra_escapes(nice_output)
-                    results.append(nice_output)
+                        nice_output = clear_extra_escapes(nice_output)
+                        results.append(nice_output)
 
     # If check is successful..
     if nomatch:
@@ -2007,7 +2012,9 @@ def check_loop(subsetlist):
                 #print "\n" + "-" * 80
                 #print subHeading(ip, 15)
                 add_new_device(ip, total_num, curr_num)
-                check_main(record, chg_log, total_num, curr_num)
+                record = get_record(listDict, ip)
+                if record:
+                    check_main(record, chg_log, total_num, curr_num)
             # If the IP IS present, execute this...
             else:
                check_main(record, chg_log, total_num, curr_num)
