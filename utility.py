@@ -392,7 +392,7 @@ def remove_record(listDict, key, value):
         if record[key] == value:
             # print "Removing: {0}".format(listDict[i])
             listDict.remove(record)
-            sys.stdout("| Device Removed! ")
+            stdout.write("| Device Removed! ")
             # Remove directory
             record_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
             if os.path.isdir(record_dir):
