@@ -468,7 +468,7 @@ if __name__ == '__main__':
     listDict = json_to_listdict(main_list_dict)
 
     # Main Program Loop
-    my_options = ['Display Database', 'Search Database', 'Display Device', 'IP Search', 'Delete Record', 'Deviation Search', 'Quit']
+    my_options = ['Display Database', 'Search Database', 'Display Device', 'IP Search', 'Delete Record', 'Quit']
 
     try:
         while True:
@@ -501,9 +501,6 @@ if __name__ == '__main__':
                 print "Run -> Delete Record"
                 delete_menu()
             elif answer == "6":
-                print "Run -> Deviation Search"
-                deviation_search(listDict)
-            elif answer == "7":
                 print "Goodbye!"
                 quit()
             else:

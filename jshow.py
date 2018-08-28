@@ -97,7 +97,7 @@ def detect_env():
         iplist_dir = "./iplists/"
         config_dir = "./configs/"
         data_configs_dir = "./data/configs/"
-        template_dir = "./data/tempaltes/"
+        template_dir = "./data/templates/"
         log_dir = "./logs/"
         csv_dir = "./csv/"
         inv_dir = "./csv/inventory/"
@@ -214,91 +214,101 @@ def deviation_search(list_dict):
     # print "Temps Dir: {0}".format(temps_dir)
     # Choose a series of commands to search for
     file_list = getFileList(temp_dev_dir, ext_filter='conf')
+
     deviation_selection = getOptionAnswer("Choose a deviation to search for", file_list)
-    tmppath = os.path.join(temp_dev_dir, deviation_selection)
-    tmp_lines = txt_to_list(tmppath)
+    # If a valid entry is selected
+    if deviation_selection:
+        tmppath = os.path.join(temp_dev_dir, deviation_selection)
+        tmp_lines = txt_to_list(tmppath)
 
-    # Merge the host content and common content to an ld
-    new_ld = []
-    host_list = []
-    common_dict = csv_to_dict_twoterm(common_content_csv, ";")
-    content_ld = csv_to_listdict(specific_content_csv, mydelim=";")
-    for host_dict in content_ld:
-        new_host_dict = host_dict.copy()
-        new_host_dict.update(common_dict)
-        new_ld.append(new_host_dict)
-    #print "NEW_LD:"
-    #print new_ld
+        # Merge the host content and common content to an ld
+        new_ld = []
+        host_list = []
+        common_dict = csv_to_dict_twoterm(common_content_csv, ";")
+        content_ld = csv_to_listdict(specific_content_csv, mydelim=";")
+        for host_dict in content_ld:
+            new_host_dict = host_dict.copy()
+            new_host_dict.update(common_dict)
+            new_ld.append(new_host_dict)
+        #print "NEW_LD:"
+        #print new_ld
 
-    # print "Config Dir: {0}".format(config_dir)
-    # print "Temps Dir: {0}".format(tmppath)
-    print "Searching for template files with content..."
-    # Clear out the directory "temp_config_dir"
-    rm_rf(temp_config_dir, False)
-    # Search configs directory recursively for content
-    for folder, dirs, files in os.walk(data_configs_dir):
-        for file in files:
-            #print "File Name: {0}".format(file)
-            command_list = []
-            hostname = ""
-            if file.startswith('Template_Deviation'):
-                #print "\tFound Template Deviation File: {0}".format(file)
-                #stdout.write("O")
-                fullpath = os.path.join(folder, file)
-                hostname = os.path.split(folder)[1]
-                num_matches = 0
-                with open(fullpath, 'r') as f:
-                    ### NEW CONTENT ###
-                    #print "HOST: {0}".format(hostname)
-                    command_list = []
-                    for line in f:
-                        # print "Line: {0}".format(line)
-                        subline = line.split('> ', 1)[-1].rstrip()
-                        if subline in tmp_lines:
-                            #print "\tMatched Subline: {0}".format(subline)
-                            # Append the commands to a list
-                            command_list.append(subline)
-                            num_matches += 1
-                # Run this is matches are made
-                if num_matches > 0:
-                    if hostname not in hosts:
-                        hosts.append(hostname)
-                        ip = 'Unknown'
-                        for device in list_dict:
-                            if device['hostname'] == hostname:
-                                ip = device['ip']
-                        #print "Found {0} lines ... appending: {1} ({2}) to file".format(num_matches, hostname, ip)
-                        #for command in command_list:
-                        #    print "\tCommand: {0}".format(command)
-                    else:
-                        print "Hostname {0} already listed?".format(hostname)
-                    # Replace any variables in the command list
-                    for host_dict in new_ld:
-                        #print "Host Dict Content:"
-                        #print host_dict
-                        new_command_list = []
-                        #print "Host Dict: {0} checking with {1}".format(hostname, host_dict['HOSTNAME'])
-                        if hostname == host_dict['HOSTNAME']:
-                            host_list.append({'MGMT_IP': host_dict['MGMT_IP'], 'HOSTNAME': hostname})
-                            new_command_list = template_populate(command_list, host_dict)
-                            print "HOST: {0} --> Discrepancies Detected!".format(hostname)
-                            for commands in new_command_list:
-                                print "\tLine: {0}".format(commands)
-                            # Save the command list to a text file
-                            temp_dev_name = hostname + "-" + deviation_selection
-                            temp_dev_file = os.path.join(temp_config_dir, temp_dev_name)
-                            try:
-                                list_to_txt(temp_dev_file, new_command_list)
-                            except Exception as err:
-                                print "\t---> Failed converting list to text file: {0}".format(err)
-                            else:
-                                print "\t-- Succeessfully created template file: {0} --".format(temp_dev_name)
+        # print "Config Dir: {0}".format(config_dir)
+        # print "Temps Dir: {0}".format(tmppath)
+        print "Searching for template files with content..."
+        # Clear out the directory "temp_config_dir"
+        rm_rf(temp_config_dir, False)
+        # Search configs directory recursively for content
+        for folder, dirs, files in os.walk(data_configs_dir):
+            for file in files:
+                #print "File Name: {0}".format(file)
+                command_list = []
+                hostname = ""
+                if file.startswith('Template_Deviation'):
+                    #print "\tFound Template Deviation File: {0}".format(file)
+                    #stdout.write("O")
+                    fullpath = os.path.join(folder, file)
+                    hostname = os.path.split(folder)[1]
+                    num_matches = 0
+                    with open(fullpath, 'r') as f:
+                        ### NEW CONTENT ###
+                        #print "HOST: {0}".format(hostname)
+                        command_list = []
+                        for line in f:
+                            # print "Line: {0}".format(line)
+                            subline = line.split('> ', 1)[-1].rstrip()
+                            if subline in tmp_lines:
+                                #print "\tMatched Subline: {0}".format(subline)
+                                # Append the commands to a list
+                                command_list.append(subline)
+                                num_matches += 1
+                    # Run this is matches are made
+                    if num_matches > 0:
+                        if hostname not in hosts:
+                            hosts.append(hostname)
+                            ip = 'Unknown'
+                            for device in list_dict:
+                                if device['hostname'] == hostname:
+                                    ip = device['ip']
+                            #print "Found {0} lines ... appending: {1} ({2}) to file".format(num_matches, hostname, ip)
+                            #for command in command_list:
+                            #    print "\tCommand: {0}".format(command)
                         else:
-                            print "HOST: {0} --> Passed Template Check".format(host_dict['HOSTNAME'])
-            # This
-            else:
-                pass
-                #print "\tSkipping the file..."
+                            print "Hostname {0} already listed?".format(hostname)
+                        # Replace any variables in the command list
+                        for host_dict in new_ld:
+                            #print "Host Dict Content:"
+                            #print host_dict
+                            new_command_list = []
+                            #print "Host Dict: {0} checking with {1}".format(hostname, host_dict['HOSTNAME'])
+                            if hostname == host_dict['HOSTNAME']:
+                                host_list.append({'MGMT_IP': host_dict['MGMT_IP'], 'HOSTNAME': hostname})
+                                new_command_list = template_populate(command_list, host_dict)
+                                print "HOST: {0} --> Discrepancies Detected!".format(hostname)
+                                for commands in new_command_list:
+                                    print "\tLine: {0}".format(commands)
+                                # Save the command list to a text file
+                                temp_dev_name = hostname + "-" + deviation_selection
+                                temp_dev_file = os.path.join(temp_config_dir, temp_dev_name)
+                                try:
+                                    list_to_txt(temp_dev_file, new_command_list)
+                                except Exception as err:
+                                    print "\t---> Failed converting list to text file: {0}".format(err)
+                                else:
+                                    print "\t---> Succeessfully created template file: {0} --".format(temp_dev_name)
+                            #else:
+                            #    print "HOST: {0} --> Passed Template Check".format(host_dict['HOSTNAME'])
+                        #print "\t---> No matching host found in database."
+                # This will hit any non-template files, we want to skip those
+                else:
+                    pass
+    # This will execute if there are valid files in the list
+    else:
+        if not file_list:
+            print "No valid .conf files found in {0}".format(temp_dev_dir)
+        else:
+            print "User quitted ..."
+    # Return the host_list
     return host_list
 
 # Template push (For new template function)
