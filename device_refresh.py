@@ -603,7 +603,7 @@ def fail_check(ip, indbase, contentList):
                     if int(days_exp) > attempt_limit:
                         # Remove record from main database
                         stdout.write(" Attempts Exceeded Limit - Removing from Database |")
-                        remove_record(listDict, 'ip', ip)
+                        remove_record(listDict, 'ip', ip, config_dir)
                         # Add record to Removed_Devices CSV
                         attribOrderRemove = ['ip', 'consec_days', 'date_removed']
                         remListDict = [{'ip': ip, 'consec_days': days_exp, 'date_removed': get_now_time()}]
@@ -2099,13 +2099,13 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
             # If last_temp_check is also not known, remove this record
             if tmp_chk == 'UNDEFINED':
                 #print "Both timestamps are Undefined"
-                remove_record(listDict, 'ip', record['ip'])
+                remove_record(listDict, 'ip', record['ip'], config_dir)
             else:
                 # Check if this device hasn't been reached for a month, using last_temp_check timestamp
                 day_diffs = day_difference(record['last_temp_check'])
                 if day_diffs > 30:
                     #print "Access_Success is UNDEF, Temp_Check diff is GT 30: {0}".format(day_diffs)
-                    remove_record(listDict, 'ip', record['ip'])
+                    remove_record(listDict, 'ip', record['ip'], config_dir)
                     #print "Record Removed!"
                 #else:
                 #    print "Access_Success is UNDEF, Temp_Check diff is LT 30: {0}".format(day_diffs)
@@ -2115,7 +2115,7 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
             day_diffs = day_difference(record['last_access_success'])
             if day_diffs > 30:
                 #print "Access_Success diff is GT 30: {0}".format(day_diffs)
-                remove_record(listDict, 'ip', record['ip'])
+                remove_record(listDict, 'ip', record['ip'], config_dir)
                 #print "Record Removed!"
             #else:
             #    print "Access_Success diff is LT 30: {0}".format(day_diffs)

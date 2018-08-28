@@ -378,7 +378,7 @@ def json_to_listdict(json_file):
 ##########################
 
 # Removes a record from the specified list of dictionaries
-def remove_record(listDict, key, value):
+def remove_record(listDict, key, value, config_dir):
     """ Purpose: Remove a record from the provided list of dictionaries. 
     NOTE: Removes only the first record found with the specified value.
 
