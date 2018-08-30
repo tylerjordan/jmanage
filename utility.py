@@ -461,7 +461,7 @@ def getSiteCode(hostname):
         mydirect = "MISC"
         return mydirect
 
-    return siteObj.group()[-3:]
+    return siteObj.group()[-3:].encode("ascii")
 
 # This function removes the directory "d" and all files and directories recursively... real quick!
 # If you don't want to remove the top level directory, set the "remove_top_dir" to False
@@ -1024,7 +1024,17 @@ def ping(ip):
         except subprocess.CalledProcessError:
             return False
 
-# Get fact
+# Get a fact from one of the database records, using the ip. Could be used for any list_dict.
+def get_db_fact(list_dict, ip, fact):
+    empty_str = ""
+    for record in list_dict:
+        if record['ip'] == ip:
+            if fact in record.keys():
+                return record[fact]
+            else:
+                return empty_str
+
+# Get a fact from the device directly
 def get_fact(ip, username, password, fact):
     """ Purpose: For collecting a single fact from the target system. The 'fact' must be one of the predefined ones.
         Examples:

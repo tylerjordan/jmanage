@@ -23,6 +23,7 @@ from getpass import getpass
 from prettytable import PrettyTable
 from sys import stdout
 from multiprocessing import Pool
+from shutil import copyfile
 
 # Global Variables
 ssh_port = 22
@@ -203,14 +204,60 @@ def populate_template(template_file, device=[]):
     else:
         return temp_conf
 
+# Function to create a specific content CSV with latest information.
+def update_content(list_dict):
+    content_ld = []
+    # Search through old content file to get location and contact info, if available
+    old_content = csv_to_listdict(specific_content_csv, mydelim=";")
+    # Loop over master list dictionary
+    stdout.write("Running content update ... ")
+    for record in list_dict:
+        new_rec = {}
+        new_rec['MGMT_IP'] = record['ip']
+        new_rec['HOSTNAME'] = record['hostname']
+        new_rec['MODEL'] = record['model']
+        new_rec['SITE_CODE'] = getSiteCode(record['hostname'])
+        matched = False
+        # Loop over the old CSV
+        for old_record in old_content:
+            # If a matching record is found, match both IP and HOSTNAME
+            if old_record['MGMT_IP'] == record['ip'] and old_record['HOSTNAME'] == record['hostname']:
+                matched = True
+                new_rec['CITY'] = old_record['CITY']
+                new_rec['STATE'] = old_record['STATE']
+                new_rec['COUNTRY'] = old_record['COUNTRY']
+                new_rec['CONTACT_NAME'] = old_record['CONTACT_NAME']
+                new_rec['CONTACT_PHONE'] = old_record['CONTACT_PHONE']
+        # If no record for this content was found, provide a placeholder
+        if not matched:
+            new_rec['CITY'] = 'UNDEFINED'
+            new_rec['STATE'] = 'UNDEFINED'
+            new_rec['COUNTRY'] = 'UNDEFINED'
+            new_rec['CONTACT_NAME'] = 'UNDEFINED'
+            new_rec['CONTACT_PHONE'] = 'UNDEFINED'
+        # Add dictionary to list
+        content_ld.append(new_rec)
+    # Finished looping over list dictionary
+    print "DONE!"
+    # Create CSV file
+    spec_file_old = os.path.join(dir_path, template_dir, "specific_content_old.csv")
+    spec_file = os.path.join(dir_path, template_dir, "specific_content.csv")
+    # Copy content to "old" file
+    copyfile(spec_file, spec_file_old)
+    # Converts the list dict to a CSV, this overwrites the existing file
+    if listdict_to_csv(content_ld, spec_file, myDelimiter=";"):
+        print "Successfully created new content file!"
 
 # Searches all records for missing commands defined by the provided deviation template
 # If there are records, a directory is created to hold the records
 # The missing commands are collected into files, any variables are populated based on master CSV
 # The commands can be optionally pushed to devices
 def deviation_search(list_dict):
+    # Update the specific_content file to latest possible version
+    update_content(list_dict)
     tmp_lines = []
     hosts = []
+    discrep_num = 0
     # print "Temps Dir: {0}".format(temps_dir)
     # Choose a series of commands to search for
     file_list = getFileList(temp_dev_dir, ext_filter='conf')
@@ -262,7 +309,7 @@ def deviation_search(list_dict):
                                 # Append the commands to a list
                                 command_list.append(subline)
                                 num_matches += 1
-                    # Run this is matches are made
+                    # Run this if matches are made
                     if num_matches > 0:
                         if hostname not in hosts:
                             hosts.append(hostname)
@@ -282,26 +329,43 @@ def deviation_search(list_dict):
                             new_command_list = []
                             #print "Host Dict: {0} checking with {1}".format(hostname, host_dict['HOSTNAME'])
                             if hostname == host_dict['HOSTNAME']:
-                                host_list.append({'MGMT_IP': host_dict['MGMT_IP'], 'HOSTNAME': hostname})
-                                new_command_list = template_populate(command_list, host_dict)
-                                print "HOST: {0} --> Discrepancies Detected!".format(hostname)
-                                for commands in new_command_list:
-                                    print "\tLine: {0}".format(commands)
-                                # Save the command list to a text file
-                                temp_dev_name = hostname + "-" + deviation_selection
-                                temp_dev_file = os.path.join(temp_config_dir, temp_dev_name)
-                                try:
-                                    list_to_txt(temp_dev_file, new_command_list)
-                                except Exception as err:
-                                    print "\t---> Failed converting list to text file: {0}".format(err)
+                                ip = host_dict['MGMT_IP']
+                                if ping(ip):
+                                    host_list.append({'MGMT_IP': ip, 'HOSTNAME': hostname})
+                                    # This populates the commands with any appropriate variables for this device
+                                    new_command_list = template_populate(command_list, host_dict)
+                                    if new_command_list:
+                                        # Get the latest template check date for this device
+                                        temp_check = get_db_fact(list_dict, ip, 'last_temp_check')
+                                        print "HOST: {0} ({1}) | *** Discrepancies Detected *** | Template Created: {2}".format(hostname, ip, temp_check)
+                                        # Increase discrepancy counter by one for display at the end
+                                        discrep_num += 1
+                                        # List the template commands that matched
+                                        for commands in new_command_list:
+                                            print "\tLine: {0}".format(commands)
+                                        # Save the command list to a text file
+                                        temp_dev_name = hostname + "-" + deviation_selection
+                                        temp_dev_file = os.path.join(temp_config_dir, temp_dev_name)
+                                        try:
+                                            list_to_txt(temp_dev_file, new_command_list)
+                                        except Exception as err:
+                                            print "\t---> Failed converting list to text file: {0}".format(err)
+                                        else:
+                                            print "\t---> Succeessfully created template file: {0} --".format(temp_dev_name)
+                                    else:
+                                        print "HOST: {0} ({1}) | ERROR: Failed to populate the template!".format(hostname, ip)
                                 else:
-                                    print "\t---> Succeessfully created template file: {0} --".format(temp_dev_name)
+                                    print "HOST: {0} ({1}) | Discrepancies Detected, but device not pingable!".format(hostname, ip)
                             #else:
                             #    print "HOST: {0} --> Passed Template Check".format(host_dict['HOSTNAME'])
                         #print "\t---> No matching host found in database."
                 # This will hit any non-template files, we want to skip those
                 else:
                     pass
+                    #print "Skipping {0} ...".format(file)
+        print "-"*50
+        print "Found {0} devices with discrepancies.".format(discrep_num)
+        print "-"*50
     # This will execute if there are valid files in the list
     else:
         if not file_list:
