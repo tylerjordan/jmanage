@@ -257,6 +257,7 @@ def deviation_search(list_dict):
     update_content(list_dict)
     tmp_lines = []
     hosts = []
+    ip_list = []
     discrep_num = 0
     # print "Temps Dir: {0}".format(temps_dir)
     # Choose a series of commands to search for
@@ -356,13 +357,16 @@ def deviation_search(list_dict):
                                         print "HOST: {0} ({1}) | ERROR: Failed to populate the template!".format(hostname, ip)
                                 else:
                                     print "HOST: {0} ({1}) | Discrepancies Detected, but device not pingable!".format(hostname, ip)
-                            #else:
-                            #    print "HOST: {0} --> Passed Template Check".format(host_dict['HOSTNAME'])
-                        #print "\t---> No matching host found in database."
+                                # Add ips to list
+                                ip_list.append(ip)
                 # This will hit any non-template files, we want to skip those
                 else:
                     pass
                     #print "Skipping {0} ...".format(file)
+        # IP list from these devices
+        ip_list_name = os.path.join(temp_config_dir, "ip_list.txt")
+        if not list_to_txt(ip_list_name, ip_list):
+            print "Failed to create ip list file."
         print "-"*50
         print "Found {0} devices with discrepancies.".format(discrep_num)
         print "-"*50
