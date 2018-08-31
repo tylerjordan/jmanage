@@ -463,6 +463,23 @@ def getSiteCode(hostname):
 
     return siteObj.group()[-3:].encode("ascii")
 
+def getSpecSiteCode(hostname):
+    """ Purpose: Get the site code from the Hostname. Use "MISC" if it doesn't match the two regular expressions.
+
+    :param record:      -   Dictionary of the parameters of the device in question
+    :return:            -   String of the timestamp in "YYYY-MM-DD_HHMM" format
+    """
+    if re.match(r'SW[A-Z]{3}\d{3}[A-Z]{1}', hostname.upper()):
+        siteObj = re.match(r'SW[A-Z]{3}\d{3}[A-Z]{1}', hostname.upper())
+    elif re.match(r'S[A-Z]{3}\d{3}[A-Z]{1}', hostname.upper()):
+        siteObj = re.match(r'S[A-Z]{3}\d{3}[A-Z]{1}', hostname.upper())
+    else:
+        mydirect = "MISC"
+        return mydirect
+
+    return siteObj.group()[-7:].encode("ascii")
+
+
 # This function removes the directory "d" and all files and directories recursively... real quick!
 # If you don't want to remove the top level directory, set the "remove_top_dir" to False
 def rm_rf(d, remove_top_dir=True):

@@ -40,6 +40,7 @@ iplist_dir = ""
 log_dir = ""
 config_dir = ""
 data_configs_dir = ""
+data_iplists_dir = ""
 config_temp_dir = ""
 temp_config_dir = ""
 temp_dev_dir = ""
@@ -61,6 +62,7 @@ def detect_env():
     global iplist_dir
     global config_dir
     global data_configs_dir
+    global data_iplists_dir
     global config_temp_dir
     global temp_config_dir
     global temp_dev_dir
@@ -86,6 +88,7 @@ def detect_env():
         config_dir = ".\\configs\\"
         data_configs_dir = ".\\data\\configs\\"
         template_dir = ".\\data\\templates\\"
+        data_iplists_dir = ".\\data\\iplists\\"
         log_dir = ".\\logs\\"
         csv_dir = ".\\csv\\"
         inv_dir = ".\\csv\\inventory\\"
@@ -99,6 +102,7 @@ def detect_env():
         config_dir = "./configs/"
         data_configs_dir = "./data/configs/"
         template_dir = "./data/templates/"
+        data_iplists_dir = "./data/iplists/"
         log_dir = "./logs/"
         csv_dir = "./csv/"
         inv_dir = "./csv/inventory/"
@@ -216,7 +220,7 @@ def update_content(list_dict):
         new_rec['MGMT_IP'] = record['ip']
         new_rec['HOSTNAME'] = record['hostname']
         new_rec['MODEL'] = record['model']
-        new_rec['SITE_CODE'] = getSiteCode(record['hostname'])
+        new_rec['SITE_CODE'] = getSpecSiteCode(record['hostname'])
         matched = False
         # Loop over the old CSV
         for old_record in old_content:
@@ -364,7 +368,7 @@ def deviation_search(list_dict):
                     pass
                     #print "Skipping {0} ...".format(file)
         # IP list from these devices
-        ip_list_name = os.path.join(temp_config_dir, "ip_list.txt")
+        ip_list_name = os.path.join(data_iplists_dir, "template_ip_list.txt")
         if not list_to_txt(ip_list_name, ip_list):
             print "Failed to create ip list file."
         print "-"*50

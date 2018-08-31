@@ -1517,33 +1517,33 @@ def template_scan(regtmpl_list, record, force_refresh):
     # Run this if this is a standard scan
     else:
         if newest_config_file:
-            config_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_config_file)
+
             #print "Config Time: {0}".format(config_time_obj.group(0))
             newest_template_file = get_config_filename(record['hostname'], 'Template_Deviation', newest=True)
             #print "Template File: {0}".format(newest_template_file)
             if newest_template_file:
                 template_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_template_file)
-                #c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
-                now = datetime.datetime.now()
                 t_time = datetime.datetime.strptime(template_time_obj.group(0), "%Y-%m-%d_%H%M")
-                diff = now - t_time
-                #print "\nTemplate Time: {0}".format(t_time)
-                #print "Config Time - Template Time = Difference"
-                #print "{0} - {1} = {2}".format(now, t_time, diff)
-                #diff_minutes = (diff.days * 24 * 60) + (diff.seconds/60)
-                # If latest config is newer than the template
-                if (diff.days * 24) > 23:
+                config_time_obj = re.search('\d{4}-\d{2}-\d{2}_\d{4}', newest_config_file)
+                c_time = datetime.datetime.strptime(config_time_obj.group(0), "%Y-%m-%d_%H%M")
+                # Compute the time difference between the config file and template file
+                diff = c_time - t_time
+                #print "\nC time: {0}".format(c_time)
+                #print "T time: {0}".format(t_time)
+                #print "Diff: {0}".format(diff)
+                # If the config file is newer than the template file...
+                if c_time > t_time:
                     remove_template_file(record['hostname'])
                     results = template_results(record, regtmpl_list)
                     record.update({'last_temp_refresh': get_now_time()})
                     record.update({'last_temp_check': get_now_time()})
-                    message = "Successfully Refreshed Template"
-                    stdout.write("\n\t\tTemplate Check: " + message + " Diff: " + str(diff))
+                    message = "Configuration File Newer Than Template"
+                    stdout.write("\n\t\tTemplate Check: " + message + " -> Successfully Refreshed Template")
                     return results
                 # The template file is current for the latest config file available, skip template function
                 else:
-                    message = "New Template Already Exists"
-                    stdout.write("\n\t\tTemplate Check: " + message + " Diff: " + str(diff))
+                    message = "Template Newer Than Configuration File"
+                    stdout.write("\n\t\tTemplate Check: " + message + " -> No Template Refresh Needed")
                     results.append(message)
                     returncode = 3
             # There is no template file, but there is a config file, try to compare and create a template
@@ -1551,8 +1551,8 @@ def template_scan(regtmpl_list, record, force_refresh):
                 results = template_results(record, regtmpl_list)
                 record.update({'last_temp_refresh': get_now_time()})
                 record.update({'last_temp_check': get_now_time()})
-                message = "No Existing Template ... Created It"
-                stdout.write("\n\t\tTemplate Check: " + message)
+                message = "No Template Found"
+                stdout.write("\n\t\tTemplate Check: " + message + " -> Successfully Created Template")
                 return results
         # No config file, skip template function
         else:
