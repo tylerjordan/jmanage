@@ -182,7 +182,8 @@ def template_populate(command_list, host_dict):
                             #print "New String: {0}".format(command)
                             #print "-----------------------------------------"
                 # Add this line to the list
-                new_command_list.append(command)
+                if "UNDEFINED" not in command:
+                    new_command_list.append(command)
             # This will execute if a blank line is found
             else:
                 pass
@@ -227,16 +228,12 @@ def update_content(list_dict):
             # If a matching record is found, match both IP and HOSTNAME
             if old_record['MGMT_IP'] == record['ip'] and old_record['HOSTNAME'] == record['hostname']:
                 matched = True
-                new_rec['CITY'] = old_record['CITY']
-                new_rec['STATE'] = old_record['STATE']
-                new_rec['COUNTRY'] = old_record['COUNTRY']
+                new_rec['LOCATION'] = old_record['LOCATION']
                 new_rec['CONTACT_NAME'] = old_record['CONTACT_NAME']
                 new_rec['CONTACT_PHONE'] = old_record['CONTACT_PHONE']
         # If no record for this content was found, provide a placeholder
         if not matched:
-            new_rec['CITY'] = 'UNDEFINED'
-            new_rec['STATE'] = 'UNDEFINED'
-            new_rec['COUNTRY'] = 'UNDEFINED'
+            new_rec['LOCATION'] = 'UNDEFINED'
             new_rec['CONTACT_NAME'] = 'UNDEFINED'
             new_rec['CONTACT_PHONE'] = 'UNDEFINED'
         # Add dictionary to list
