@@ -2064,26 +2064,21 @@ def check_main(record, chg_log, total_num=1, curr_num=1):
             inet_check(record, chg_log, dev)
             template_check(record)
         else:
+            # Print the selected checks
+            if run_param: stdout.write("| Param |")
+            if run_config: stdout.write("| Config |")
+            if run_inet: stdout.write("| Inet |")
+            if run_template: stdout.write("| Template |")
+            sys.stdout.flush()
+
+            # Run the selected checks
+            if run_param: param_check(record, chg_log, dev)
             # Running Config Check
-            if addl_opt == "config":
-                stdout.write("Config | ")
-                sys.stdout.flush()
-                config_check(record, chg_log, dev)
-            # Running Param Check
-            elif addl_opt == "param":
-                stdout.write("Param | ")
-                sys.stdout.flush()
-                param_check(record, chg_log, dev)
+            if run_config: config_check(record, chg_log, dev)
             # Running Inet Check
-            elif addl_opt == "inet":
-                stdout.write("Inet | ")
-                sys.stdout.flush()
-                inet_check(record, chg_log, dev)
+            if run_inet: inet_check(record, chg_log, dev)
             # Running Template Check
-            elif addl_opt == "template":
-                stdout.write("Template | ")
-                sys.stdout.flush()
-                template_check(record, True)
+            if run_template: template_check(record, True)
         try:
             dev.close()
         except:
@@ -2134,38 +2129,56 @@ def main(argv):
     """
     global credsCSV
     global iplistfile
-    global addl_opt
     global subsetlist
     global detail_ip
+    global run_param
+    global run_config
+    global run_inet
+    global run_template
+    # Set these params as not set, by default
+    run_param = False
+    run_config = False
+    run_inet = False
+    run_template = False
+
     try:
-        opts, args = getopt.getopt(argv, "hc:i:o:s:",["creds=","iplist=","funct=","subset="])
+        opts, args = getopt.getopt(argv, "hl:a:s:pcit",["login=","ipadd=","subset="])
     except getopt.GetoptError:
-        print "device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions>"
+        print "device_refresh -l <loginfile> -s <subsetlist> -a <ipaddfile> -p -c -i -t"
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'SYNTAX: device_refresh -c <credsfile> -s <subsetlist> -i <iplistfile> -o <functions>'
-            print '  -c : (REQUIRED) A CSV file in the root of the jmanage folder. It contains the username or hashid and password.'
+            print 'SYNTAX: device_refresh -l <loginfile> -s <subsetlist> -i <iplistfile> -p -c -i -t'
+            print '  -l : (REQUIRED) A CSV file in the root of the jmanage folder. It contains the username or hashid and password.'
             print '  -s : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IP addresses to scan.'
-            print '  -i : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the database.'
-            print '  -o : (OPTIONAL) Allows various options, provide one of the following three arguments:'
-            print '      - "config"   : Performs the configuration check.'
-            print '      - "param"    : Performs the parameter check.'
-            print '      - "template" : Performs the template scan.'
-            print '      - "all"      : Performs all the above checks.'
+            print '  -a : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the database.'
+            print '  -p : (OPTIONAL) Run the parameter check.'
+            print '  -c : (OPTIONAL) Run the configuration check.'
+            print '  -i : (OPTIONAL) Run the inet check.'
+            print '  -t : (OPTIONAL) Run the template scan.'
             sys.exit()
-        elif opt in ("-c", "--creds"):
+        elif opt in ("-l", "--login"):
             credsCSV = arg
         elif opt in ("-s", "--subset"):
             subsetlist = arg
-        elif opt in ("-i", "--iplist"):
+        elif opt in ("-a", "--ipadd"):
             iplistfile = arg
-        elif opt in ("-o", "--funct"):
-            addl_opt = arg
+        elif opt in ("-p", "--param"):
+            run_param = True
+        elif opt in ("-c", "--config"):
+            run_config = True
+        elif opt in ("-i", "--inet"):
+            run_inet = True
+        elif opt in ("-t", "--template"):
+            run_template = True
+
     print "Credentials file is: {0}".format(credsCSV)
     print "IP List file is: {0}".format(iplistfile)
-    print "Function Choice is: {0}".format(addl_opt)
     print "Subset List File is: {0}".format(subsetlist)
+    if run_param: print "Param Flag is set."
+    if run_config: print "Config Flag is set."
+    if run_inet: print "Inet Flag is set."
+    if run_template: print "Template Flag is set."
 
 # Main execution loop
 if __name__ == "__main__":
@@ -2221,7 +2234,7 @@ if __name__ == "__main__":
             print "\n >> No devices to add.\n"
 
         # Check Params/Config/Template Function if records exist
-        if addl_opt:
+        if run_param or run_config or run_inet or run_template:
             print " >> Running check_main..."
             print subHeading("CHECK FUNCTIONS", 15)
             # Run the check main process
