@@ -336,6 +336,9 @@ def deviation_search(list_dict):
                                     # This populates the commands with any appropriate variables for this device
                                     new_command_list = template_populate(command_list, host_dict)
                                     if new_command_list:
+                                        # Add ip to list for checking the devices after the push
+                                        ip_list.append(ip)
+                                        # Add this device to the host list
                                         host_list.append({'MGMT_IP': ip, 'HOSTNAME': hostname})
                                         # Get the latest template check date for this device
                                         temp_check = get_db_fact(list_dict, ip, 'last_temp_check')
@@ -358,8 +361,6 @@ def deviation_search(list_dict):
                                         print "HOST: {0} ({1}) | ERROR: Failed to populate the template!".format(hostname, ip)
                                 else:
                                     print "HOST: {0} ({1}) | Discrepancies Detected, but device not pingable!".format(hostname, ip)
-                                # Add ips to list
-                                ip_list.append(ip)
                 # This will hit any non-template files, we want to skip those
                 else:
                     pass
