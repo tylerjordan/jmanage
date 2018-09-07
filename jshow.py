@@ -302,7 +302,6 @@ def deviation_search(list_dict):
                     with open(fullpath, 'r') as f:
                         ### NEW CONTENT ###
                         #print "HOST: {0}".format(hostname)
-                        command_list = []
                         for line in f:
                             # print "Line: {0}".format(line)
                             subline = line.split('> ', 1)[-1].rstrip()
@@ -358,9 +357,11 @@ def deviation_search(list_dict):
                                         else:
                                             print "\t---> Succeessfully created template file: {0} --".format(temp_dev_name)
                                     else:
-                                        print "HOST: {0} ({1}) | ERROR: Failed to populate the template!".format(hostname, ip)
+                                        print "HOST: {0} ({1}) | ERROR: New Command List Problem".format(hostname, ip)
                                 else:
                                     print "HOST: {0} ({1}) | Discrepancies Detected, but device not pingable!".format(hostname, ip)
+                    else:
+                        print "HOST: {0} ({1}) | No Discrepancies Matched on this device!".format(hostname, ip)
                 # This will hit any non-template files, we want to skip those
                 else:
                     pass
