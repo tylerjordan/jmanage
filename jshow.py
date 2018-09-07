@@ -333,10 +333,10 @@ def deviation_search(list_dict):
                             if hostname == host_dict['HOSTNAME']:
                                 ip = host_dict['MGMT_IP']
                                 if ping(ip):
-                                    host_list.append({'MGMT_IP': ip, 'HOSTNAME': hostname})
                                     # This populates the commands with any appropriate variables for this device
                                     new_command_list = template_populate(command_list, host_dict)
                                     if new_command_list:
+                                        host_list.append({'MGMT_IP': ip, 'HOSTNAME': hostname})
                                         # Get the latest template check date for this device
                                         temp_check = get_db_fact(list_dict, ip, 'last_temp_check')
                                         print "HOST: {0} ({1}) | *** Discrepancies Detected *** | Template Created: {2}".format(hostname, ip, temp_check)
