@@ -2148,7 +2148,7 @@ def main(argv):
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'SYNTAX: device_refresh -l <loginfile> -s <subsetlist> -i <iplistfile> -p -c -i -t'
+            print 'SYNTAX: device_refresh -l <loginfile> -s <subsetlist> -a <iplistfile> -p -c -i -t'
             print '  -l : (REQUIRED) A CSV file in the root of the jmanage folder. It contains the username or hashid and password.'
             print '  -s : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IP addresses to scan.'
             print '  -a : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the database.'

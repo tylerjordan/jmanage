@@ -306,7 +306,7 @@ def deviation_search(list_dict):
                             # print "Line: {0}".format(line)
                             subline = line.split('> ', 1)[-1].rstrip()
                             if subline in tmp_lines:
-                                #print "\tMatched Subline: {0}".format(subline)
+                                #print "\tUnpopulated Line: {0}".format(subline)
                                 # Append the commands to a list
                                 command_list.append(subline)
                                 num_matches += 1
@@ -345,8 +345,8 @@ def deviation_search(list_dict):
                                         # Increase discrepancy counter by one for display at the end
                                         discrep_num += 1
                                         # List the template commands that matched
-                                        for commands in new_command_list:
-                                            print "\tLine: {0}".format(commands)
+                                        for command in new_command_list:
+                                            print "\tPopulated Command: {0}".format(command)
                                         # Save the command list to a text file
                                         temp_dev_name = hostname + "-" + deviation_selection
                                         temp_dev_file = os.path.join(temp_config_dir, temp_dev_name)
@@ -357,12 +357,16 @@ def deviation_search(list_dict):
                                         else:
                                             print "\t---> Succeessfully created template file: {0} --".format(temp_dev_name)
                                     else:
-                                        print "HOST: {0} ({1}) | ERROR: New Command List Problem".format(hostname, ip)
+                                        print "HOST: {0} ({1}) | ERROR: Discrepancies Detected, but missing necessary variables!".format(hostname, ip)
+                                        for command in command_list:
+                                            print "\tUncomplete Command: {0}".format(command)
                                 else:
-                                    print "HOST: {0} ({1}) | Discrepancies Detected, but device not pingable!".format(hostname, ip)
+                                    print "HOST: {0} ({1}) | ERROR: Discrepancies Detected, but device not pingable!".format(hostname, ip)
+                    # This will get devices that haven't matched the template commands
                     else:
-                        print "HOST: {0} ({1}) | No Discrepancies Matched on this device!".format(hostname, ip)
-                # This will hit any non-template files, we want to skip those
+                        pass
+                        #print "HOST: {0} | No Matches For This Device".format(hostname)
+                # This will get any non-template files, we want to skip those
                 else:
                     pass
                     #print "Skipping {0} ...".format(file)
