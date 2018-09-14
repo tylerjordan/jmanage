@@ -48,10 +48,10 @@ import re
 import jxmlease
 import difflib
 import datetime
+import pprint
 
 from operator import itemgetter
 from lxml import etree
-from prettytable import PrettyTable
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
@@ -1442,7 +1442,7 @@ def template_check(record, force_refresh=False):
     # Delete existing template file(s)
 
     # Run template check
-    templ_results = template_scan(template_regex(record['model']), record, force_refresh)
+    templ_results = template_results(template_regex(record['model']), record, force_refresh)
 
     # Check to see if a template run was even needed.
     #print "Result Code: {0}".format(templ_results[-1])
@@ -1494,7 +1494,7 @@ def create_template_mapping():
     #exit()
     return map_dict
 
-def template_scan(regtmpl_list, record, force_refresh):
+def template_results(regtmpl_list, record, force_refresh):
     """ Purpose: Make sure a new template is needed. If it is, create deviation log, and return results.
 
     :param regtmpl_list:    -   List of template set commands with regex
@@ -1508,7 +1508,7 @@ def template_scan(regtmpl_list, record, force_refresh):
     # Check if this is a forced refresh or just a standard scan
     if force_refresh:
         remove_template_file(record['hostname'])
-        results = template_results(record, regtmpl_list)
+        results = template_scan(record, regtmpl_list)
         record.update({'last_temp_refresh': get_now_time()})
         record.update({'last_temp_check': get_now_time()})
         message = "Forced Refresh of Template"
@@ -1534,7 +1534,7 @@ def template_scan(regtmpl_list, record, force_refresh):
                 # If the config file is newer than the template file...
                 if c_time > t_time:
                     remove_template_file(record['hostname'])
-                    results = template_results(record, regtmpl_list)
+                    results = template_scan(record, regtmpl_list)
                     record.update({'last_temp_refresh': get_now_time()})
                     record.update({'last_temp_check': get_now_time()})
                     message = "Configuration File Newer Than Template"
@@ -1548,7 +1548,7 @@ def template_scan(regtmpl_list, record, force_refresh):
                     returncode = 3
             # There is no template file, but there is a config file, try to compare and create a template
             else:
-                results = template_results(record, regtmpl_list)
+                results = template_scan(record, regtmpl_list)
                 record.update({'last_temp_refresh': get_now_time()})
                 record.update({'last_temp_check': get_now_time()})
                 message = "No Template Found"
@@ -1566,7 +1566,7 @@ def template_scan(regtmpl_list, record, force_refresh):
     results.append(returncode)
     return results
 
-def template_results(record, regtmpl_list):
+def template_scan(record, regtmpl_list):
     """ Purpose: Run the template against the record
 
     :param record:          -   A dictionary containing device attributes
@@ -1577,6 +1577,11 @@ def template_results(record, regtmpl_list):
     results = []
     returncode = 1
 
+    # Print the regex template list
+    print "Regex Template List:"
+    pprint.pprint(regtmpl_list)
+    exit()
+
     # Try to get the latest config file
     config_list = get_config_list(record['hostname'], newest=True)
 
@@ -1585,14 +1590,16 @@ def template_results(record, regtmpl_list):
 
     # Check if the config_list contains content
     if config_list:
-        # Loop over the configuration content
+        # Loop over the template regex
         for regline in regtmpl_list:
             #print "Using Regline: {0}".format(regline)
             matched = False
             if regline != "":
                 #print "\nRegLine: {0}".format(regline)
+                # Loop over the configuration lines
                 for compline in config_list:
                     compline = compline.strip()
+                    # Make sure this configuration line is not blank
                     if compline != "":
                         if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
                             #print "CompLine: {0}".format(compline)
@@ -1635,6 +1642,101 @@ def template_results(record, regtmpl_list):
         stdout.write("\n\t\tTemplate Check: Descrepancies Were Detected")
         returncode = 2
 
+    # Return the results
+    results.append(returncode)
+    return results
+
+def template_scan_opt(record, regtmpl_list):
+    """ Purpose: Run the template against the record
+
+    :param record:          -   A dictionary containing device attributes
+    :return results:        -   A list containing results of scan.
+    """
+    # Template Results: 0 = Error, 1 = No Changes, 2 = Changes
+    nomatch = True
+    results = []
+    returncode = 1
+
+    # Print the regex template list
+    #print "Regex Template List:"
+    #pprint.pprint(regtmpl_list)
+    #exit()
+
+    # Try to get the latest config file
+    config_list = get_config_list(record['hostname'], newest=True)
+
+    # PUT THE MAPPING DICTIONARY IN THIS AREA #
+    map_dict = create_template_mapping()
+    # Bool for determining if extra configuration was found
+    extra_present = False
+    all_regex_present = False
+    # Check if the config_list contains content
+    if config_list:
+        # Loop over the configuration content
+        for compline in config_list:
+            matched = False
+            compline = compline.strip()
+            # Make sure this configuration line is not blank
+            if compline != "":
+                # Make sure this line of configuration is valid
+                if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
+                    # Loop over the template regex lines
+                    for regline in regtmpl_list:
+                        # If we find a match...
+                        if re.search(regline, compline):
+                            matched = True
+                            # Remove the matched element from the list
+                            regtmpl_list.remove(regline)
+                            break
+                        # If we don't find a match with this regex...
+                        else:
+                            # This
+                            pass
+            # If we didn't find a match for this config line in the regex, this is extra configuration...
+            if not matched:
+                print "Extra Config: {0}".format(compline)
+                results.append("+" + compline)
+                extra_present = True
+        # If there are regex configuration left in the list...
+        if regtmpl_list:
+            # Loop over the remaining regex commands to create the missing list
+            for regline_matched in regtmpl_list:
+                nice_output = ""
+                nomatch = False
+                first_pass = True
+                for key, value in map_dict.iteritems():
+                    if value in regline_matched:
+                        if first_pass:
+                            nice_output = regline_matched
+                        # print "Key: {0} | Value: {1}".format(key, value)
+                        nice_output = nice_output.replace(value, "{{" + key + "}}")
+                        # print "NEW OUTPUT: {0}".format(nice_output)
+                        first_pass = False
+                if first_pass:
+                    regline_matched = clear_extra_escapes(regline_matched)
+                    results.append("-" + regline_matched)
+                else:
+                    nice_output = clear_extra_escapes(nice_output)
+                    results.append("-" + nice_output)
+        # If this executes, all template commands are in the config
+        else:
+            all_regex_present = True
+
+    # If check is successful..
+    if not extra_present and all_regex_present:
+        stdout.write("\n\t\tTemplate Check: No Missing Regex Configuration")
+        returncode = 1
+    elif extra_present and all_regex_present:
+        stdout.write("\n\t\tTemplate Check: No Missing Regex Configuration, Additional Configuration Present")
+        returncode = 2
+    elif not extra_present:
+        stdout.write("\n\t\tTemplate Check: Missing Regex Configuration, No Additional Configuration")
+        returncode = 3
+    elif extra_present:
+        stdout.write("\n\t\tTemplate Check: Missing Regex Configuration, Additional Configuration Present")
+        returncode = 4
+
+    exit()
     # Return the results
     results.append(returncode)
     return results
