@@ -70,6 +70,7 @@ main_list_dict = ''
 intf_list_dict = ''
 credsCSV = ''
 template_all = ''
+template_all_opt = ''
 template_els = ''
 template_nonels = ''
 
@@ -136,6 +137,7 @@ def detect_env():
     global log_dir
     global dir_path
     global template_all
+    global template_all_opt
     global template_els
     global template_nonels
     global template_regex_csv
@@ -172,6 +174,7 @@ def detect_env():
     template_regex_csv = os.path.join(dir_path, template_dir, "template_regex.csv")
     template_map_csv = os.path.join(dir_path, template_dir, "template_regex_map.csv")
     template_all = os.path.join(dir_path, template_dir, "template_all.conf")
+    template_all_opt = os.path.join(dir_path, template_dir, "template_all_opt.conf")
     template_els = os.path.join(dir_path, template_dir, "template_els.conf")
     template_nonels = os.path.join(dir_path, template_dir, "template_nonels.conf")
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
@@ -180,7 +183,6 @@ def detect_env():
     run_change_log = os.path.join(log_dir, "Run_Change_Log.csv")
     failing_devices_csv = os.path.join(log_dir, "Failing_Devices.csv")
     removed_devices_csv = os.path.join(log_dir, "Removed_Devices.csv")
-
 # -----------------------------------------------------------------
 # FILE OPERATIONS
 # -----------------------------------------------------------------
@@ -1446,7 +1448,7 @@ def template_check(record, force_refresh=False):
 
     # Check to see if a template run was even needed.
     #print "Result Code: {0}".format(templ_results[-1])
-    if templ_results[-1] != 3:
+    if templ_results[-1] != 0:
         # Create the template deviation log
         now = get_now_time()
         device_dir = os.path.join(config_dir, getSiteCode(record['hostname']), record['hostname'])
@@ -1459,13 +1461,7 @@ def template_check(record, force_refresh=False):
         print_log("Checked: {0}\n".format(get_now_time()), temp_dev_log)
 
         # Run this if we have missing configuration components reported
-        if templ_results[-1] == 2:
-            print_log("\nMissing Configuration:\n", temp_dev_log)
-            for result in templ_results[:-1]:
-                print_log("\t> {0}\n".format(result), temp_dev_log)
-            templ_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-        # Run this if we have not found any missing configuration
-        elif templ_results[-1] == 1:
+        if templ_results[-1] == 1:
             print_log("\t* Template Matches *\n", temp_dev_log)
         # Run this if an error was reported
         elif templ_results[-1] == 0:
@@ -1474,7 +1470,27 @@ def template_check(record, force_refresh=False):
             contentList = [record['ip'], message, templ_results[0], get_now_time()]
             ops_error_list.append(dict(zip(error_key_list, contentList)))
             templ_error_ips.append(record['hostname'] + " (" + record['ip'] + ")")
-
+        # Run this for any other report codes
+        else:
+            missing_conf = []
+            extra_conf = []
+            # Loop over configuration, sorting the config lines accordingly
+            for result in templ_results[:-1]:
+                if result.startswith("(-)"):
+                    missing_conf.append(result)
+                else:
+                    extra_conf.append(result)
+            # Assemble the template deviation check file
+            if missing_conf:
+                print_log("\nMissing Configuration:\n", temp_dev_log)
+                for line in missing_conf:
+                    print_log("\t{0}\n".format(line), temp_dev_log)
+            if extra_conf:
+                print_log("\nExtra Configuration:\n", temp_dev_log)
+                for line in extra_conf:
+                    print_log("\t{0}\n".format(line), temp_dev_log)
+            templ_change_ips.append(record['hostname'] + " (" + record['ip'] + ")")
+    # Return the result code of the template report
     return templ_results[-1]
 
 # Creates a dictionary of the variables and their corresponding regex
@@ -1508,7 +1524,7 @@ def template_results(regtmpl_list, record, force_refresh):
     # Check if this is a forced refresh or just a standard scan
     if force_refresh:
         remove_template_file(record['hostname'])
-        results = template_scan(record, regtmpl_list)
+        results = template_scan_opt(record, regtmpl_list)
         record.update({'last_temp_refresh': get_now_time()})
         record.update({'last_temp_check': get_now_time()})
         message = "Forced Refresh of Template"
@@ -1534,7 +1550,7 @@ def template_results(regtmpl_list, record, force_refresh):
                 # If the config file is newer than the template file...
                 if c_time > t_time:
                     remove_template_file(record['hostname'])
-                    results = template_scan(record, regtmpl_list)
+                    results = template_scan_opt(record, regtmpl_list)
                     record.update({'last_temp_refresh': get_now_time()})
                     record.update({'last_temp_check': get_now_time()})
                     message = "Configuration File Newer Than Template"
@@ -1548,7 +1564,7 @@ def template_results(regtmpl_list, record, force_refresh):
                     returncode = 3
             # There is no template file, but there is a config file, try to compare and create a template
             else:
-                results = template_scan(record, regtmpl_list)
+                results = template_scan_opt(record, regtmpl_list)
                 record.update({'last_temp_refresh': get_now_time()})
                 record.update({'last_temp_check': get_now_time()})
                 message = "No Template Found"
@@ -1667,6 +1683,18 @@ def template_scan_opt(record, regtmpl_list):
 
     # PUT THE MAPPING DICTIONARY IN THIS AREA #
     map_dict = create_template_mapping()
+
+    # Create optional configuration list
+    regtmplopt_list = []
+    opt_tmpl_list = line_list(template_all_opt)
+    # Loop over each line of the template
+    if opt_tmpl_list:
+        # print "Printing TLINE"
+        for tline in opt_tmpl_list:
+            if tline != "":
+                # Correctly format the string for matching
+                regtmplopt_list.append(template_str_parse(tline).strip('\n\t'))
+
     # Bool for determining if extra configuration was found
     extra_present = False
     all_regex_present = False
@@ -1688,15 +1716,20 @@ def template_scan_opt(record, regtmpl_list):
                             # Remove the matched element from the list
                             regtmpl_list.remove(regline)
                             break
-                        # If we don't find a match with this regex...
-                        else:
-                            # This
-                            pass
             # If we didn't find a match for this config line in the regex, this is extra configuration...
             if not matched:
-                print "Extra Config: {0}".format(compline)
-                results.append("+" + compline)
-                extra_present = True
+                opt_matched = False
+                # Check if this line matches the optional configuration template
+                #########################
+                for optline in regtmplopt_list:
+                    if re.search(optline, compline):
+                        #print "Omitting Config: {0}".format(compline)
+                        opt_matched = True
+                        break
+                if not opt_matched:
+                    #print "Extra Config: {0}".format(compline)
+                    results.append("(+) " + compline)
+                    extra_present = True
         # If there are regex configuration left in the list...
         if regtmpl_list:
             # Loop over the remaining regex commands to create the missing list
@@ -1714,10 +1747,10 @@ def template_scan_opt(record, regtmpl_list):
                         first_pass = False
                 if first_pass:
                     regline_matched = clear_extra_escapes(regline_matched)
-                    results.append("-" + regline_matched)
+                    results.append("(-) " + regline_matched)
                 else:
                     nice_output = clear_extra_escapes(nice_output)
-                    results.append("-" + nice_output)
+                    results.append("(-) " + nice_output)
         # If this executes, all template commands are in the config
         else:
             all_regex_present = True
@@ -1736,7 +1769,6 @@ def template_scan_opt(record, regtmpl_list):
         stdout.write("\n\t\tTemplate Check: Missing Regex Configuration, Additional Configuration Present")
         returncode = 4
 
-    exit()
     # Return the results
     results.append(returncode)
     return results
