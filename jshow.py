@@ -304,7 +304,7 @@ def deviation_search(list_dict):
                         #print "HOST: {0}".format(hostname)
                         for line in f:
                             # print "Line: {0}".format(line)
-                            subline = line.split('> ', 1)[-1].rstrip()
+                            subline = line.split('(-) ', 1)[-1].rstrip()
                             if subline in tmp_lines:
                                 #print "\tUnpopulated Line: {0}".format(subline)
                                 # Append the commands to a list
