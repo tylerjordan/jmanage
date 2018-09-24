@@ -739,13 +739,13 @@ def push_commands_single(commands_fp, output_log, ip):
             dev_dict['LOAD_SUCCESS'] = True
         else:
             dev_dict['ERROR'] = "Issue Loading Configuration: " + results
+        # Close connection to the device
+        dev.close()
     # If there were errors connecting to device...
     else:
         dev_dict['ERROR'] = "Unable to Connect! : {0}\n".format(message)
         screen_and_log("{0}: Unable to Connect: {1}\n".format(ip, message), output_log)
 
-    # Close connection to the device
-    dev.close()
     # Return this to the calling function
     return dev_dict
 
