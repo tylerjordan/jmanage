@@ -2276,13 +2276,13 @@ def main(argv):
     run_template = False
 
     try:
-        opts, args = getopt.getopt(argv, "hl:a:s:pcit",["login=","ipadd=","subset="])
+        opts, args = getopt.getopt(argv, "hl:a:s:pcitA",["login=","ipadd=","subset="])
     except getopt.GetoptError:
-        print "device_refresh -l <loginfile> -s <subsetlist> -a <ipaddfile> -p -c -i -t"
+        print "device_refresh -l <loginfile> -s <subsetlist> -a <ipaddfile> -p -c -i -t -A"
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
-            print 'SYNTAX: device_refresh -l <loginfile> -s <subsetlist> -a <iplistfile> -p -c -i -t'
+            print 'SYNTAX: device_refresh -l <loginfile> -s <subsetlist> -a <iplistfile> -p -c -i -t -A'
             print '  -l : (REQUIRED) A CSV file in the root of the jmanage folder. It contains the username or hashid and password.'
             print '  -s : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IP addresses to scan.'
             print '  -a : (OPTIONAL) A TXT file in the "iplists" directory that contains a list of IPs to add to the database.'
@@ -2290,6 +2290,7 @@ def main(argv):
             print '  -c : (OPTIONAL) Run the configuration check.'
             print '  -i : (OPTIONAL) Run the inet check.'
             print '  -t : (OPTIONAL) Run the template scan.'
+            print '  -A : (OPTIONAL) Run all the scans'
             sys.exit()
         elif opt in ("-l", "--login"):
             credsCSV = arg
@@ -2304,6 +2305,11 @@ def main(argv):
         elif opt in ("-i", "--inet"):
             run_inet = True
         elif opt in ("-t", "--template"):
+            run_template = True
+        elif opt in ("-A", "--all"):
+            run_param = True
+            run_config = True
+            run_inet = True
             run_template = True
 
     print "Credentials file is: {0}".format(credsCSV)
