@@ -117,20 +117,33 @@ def search_menu():
         Return: Search criteria
     """
     myoptions = ['Alphabetical', "Reverse"]
-    search_key = "placeholder"
+    first_pass = True
+    add_search = 'N'
     search_dict = {}
 
-    while search_key:
+    while first_pass or add_search:
         print "*" * 25
         search_key = getOptionAnswer("What key would you like to search for", dbase_order)
-        if search_key:
+        #print "Search Key: {0}".format(search_key)
+        if search_key == "Quit":
+            #print "False!"
+            return False
+        elif search_key:
             print "*" * 25
             search_val = getInputAnswer("What value for \"" + search_key + "\" would you like to search for")
             search_dict[search_key] = search_val
+        first_pass = False
+        add_search = getTFAnswer("Add another key to search for")
+
     print "*" * 25
     search_sort_on = getOptionAnswer("What would you like to sort the results on", dbase_order)
+    if search_sort_on == "Quit":
+        return False
+
     print "*" * 25
     search_sort_type = getOptionAnswer("How would you like to sort", myoptions)
+    if search_sort_type == "Quit":
+        return False
 
     # First filter the database based on search criteria
     filtered_list_dict = search_dict_multi(search_dict)

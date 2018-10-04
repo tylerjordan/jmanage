@@ -33,28 +33,31 @@ from sys import stdout
 # Method for asking a question that has a single answer, returns answer
 def getOptionAnswer(question, options):
     answer = ""
-    loop = 0
+    # Add a "quit" option to this list
+    options.append('Quit')
     while not answer:
+        loop = 0
         print "\n" + question + ':\n'
-        options.append('Quit')
+        # Loop over the provided options
         for option in options:
             loop += 1
             print '[' + str(loop) + '] -> ' + option
         answer = raw_input('\nYour Selection: ')
         print "*" * 50
+        # Check if the selection is valid
         try:
             if int(answer) >= 1 and int(answer) <= loop:
                 index = int(answer) - 1
-                if options[index] == 'Quit':
-                    return False
-                else:
-                    return options[index]
+                return options[index]
+            else:
+                print "Invalid Selection!"
+                # Reset answer to loop back through
+                answer = ""
+        # This will execute if the answer is not a number
         except Exception as err:
-            print "Invalid Entry - ERROR: {0}".format(err)
-        else:
-            print "Bad Selection"
-        answer = ""
-        loop = 0
+            print "Use a number!"
+            answer = ""
+
 
 # Method for asking a question that can have multiple answers, returns list of answers
 def getOptionMultiAnswer(question, options):
