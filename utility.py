@@ -30,16 +30,24 @@ from sys import stdout
 ####################
 # ANSWER FUNCTIONS #
 ####################
-# Method for asking a question that has a single answer, returns answer
+# Method for asking a question that has a single answer
+# Returns the string of answer or False if selecting Quit
 def getOptionAnswer(question, options):
     answer = ""
     # Add a "quit" option to this list
-    options.append('Quit')
+    my_options = []
+
+    # Assign dbase catagories to a local list
+    for option in options:
+        my_options.append(option)
+    my_options.append('Quit')
+
+    # Get a valid answer
     while not answer:
         loop = 0
         print "\n" + question + ':\n'
         # Loop over the provided options
-        for option in options:
+        for option in my_options:
             loop += 1
             print '[' + str(loop) + '] -> ' + option
         answer = raw_input('\nYour Selection: ')
@@ -48,7 +56,10 @@ def getOptionAnswer(question, options):
         try:
             if int(answer) >= 1 and int(answer) <= loop:
                 index = int(answer) - 1
-                return options[index]
+                if my_options[index] == "Quit":
+                    return False
+                else:
+                    return my_options[index]
             else:
                 print "Invalid Selection!"
                 # Reset answer to loop back through

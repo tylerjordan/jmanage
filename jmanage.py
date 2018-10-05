@@ -95,20 +95,27 @@ def detect_env():
     template_csv = os.path.join(dir_path, template_dir, "Template_Regex.csv")
     template_file = os.path.join(dir_path, template_dir, "Template.conf")
 
-def search_dict_multi(search_dict):
+def search_dict_multi(search_dict, not_match=False):
     """ Purpose: Searches the main record dictionary based on defined criteria.
         Returns: A filtered list dictionary of records
     """
     filtered_list_dict = []
 
+    # Standard Match
     for d in listDict:
         bad_match = False
         for s_key, s_val in search_dict.iteritems():
             #print "Key: {0} | Search Val: {1} | DB Val: {2} ".format(s_key, s_val, d[s_key])
             if s_val.upper() not in d[s_key]:
                 bad_match = True
-        if not bad_match:
-            filtered_list_dict.append(d)
+        # If this is a "NOT" match search, all criteria MUST NOT match
+        if not_match:
+            if bad_match:
+                filtered_list_dict.append(d)
+        # If this is a standard match search, all criteria MUST match
+        else:
+            if not bad_match:
+                filtered_list_dict.append(d)
 
     return filtered_list_dict
 
@@ -122,31 +129,34 @@ def search_menu():
     search_dict = {}
 
     while first_pass or add_search:
-        print "*" * 25
+        print "*" * 50
         search_key = getOptionAnswer("What key would you like to search for", dbase_order)
         #print "Search Key: {0}".format(search_key)
-        if search_key == "Quit":
+        if not search_key:
             #print "False!"
             return False
         elif search_key:
-            print "*" * 25
+            print "*" * 50
             search_val = getInputAnswer("What value for \"" + search_key + "\" would you like to search for")
             search_dict[search_key] = search_val
         first_pass = False
         add_search = getTFAnswer("Add another key to search for")
 
-    print "*" * 25
+    print "*" * 50
+    search_not = getTFAnswer("Is this a 'NOT' search")
+
+    print "*" * 50
     search_sort_on = getOptionAnswer("What would you like to sort the results on", dbase_order)
-    if search_sort_on == "Quit":
+    if not search_sort_on:
         return False
 
-    print "*" * 25
+    print "*" * 50
     search_sort_type = getOptionAnswer("How would you like to sort", myoptions)
-    if search_sort_type == "Quit":
+    if not search_sort_type:
         return False
 
     # First filter the database based on search criteria
-    filtered_list_dict = search_dict_multi(search_dict)
+    filtered_list_dict = search_dict_multi(search_dict, search_not)
 
     # Now sort the filtered list dict
     sort_type = False
@@ -385,7 +395,6 @@ def delete_menu():
                     print "Removed: {0}".format(hostname)
                 else:
                     print "Removal Failed: {0}".format(hostname)
-            # csv_write_sort(listDict, main_list_dict, sort_column=0, column_names=dbase_order)
             stdout.write("Applying database changes (" + main_list_dict + "): ")
             if write_to_json(listDict, main_list_dict):
                 print "Successful!"
