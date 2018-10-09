@@ -1708,14 +1708,18 @@ def template_scan_opt(record, regtmpl_list):
             if compline != "":
                 # Make sure this line of configuration is valid
                 if re.match('^(set|activate|deactivate|delete)\s.*$', compline):
+                    #print "-" * 50
+                    #print "Test Line: {0}".format(compline)
                     # Loop over the template regex lines
                     for regline in regtmpl_list:
                         # If we find a match...
                         if re.search(regline, compline):
+                            #print "Regex Match: {0}".format(regline)
                             matched = True
                             # Remove the matched element from the list
                             regtmpl_list.remove(regline)
                             break
+                    #print "-" * 50
             # If we didn't find a match for this config line in the regex, this is extra configuration...
             if not matched:
                 opt_matched = False
@@ -1730,6 +1734,7 @@ def template_scan_opt(record, regtmpl_list):
                     #print "Extra Config: {0}".format(compline)
                     results.append("(+) " + compline)
                     extra_present = True
+        #print "Regtmpl_list: {0}".format(regtmpl_list)
         # If there are regex configuration left in the list...
         if regtmpl_list:
             # Loop over the remaining regex commands to create the missing list
