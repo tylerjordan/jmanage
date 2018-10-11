@@ -130,7 +130,7 @@ def getMultiInputAnswer(question):
     while answer:
         answer = raw_input(question + ': ')
         if answer:
-            answer_list.append(answer)
+            answer_list.append(answer.rstrip())
     return answer_list
 
 # Method for asking a Y/N question

@@ -8,6 +8,7 @@ import json
 import os
 import netaddr
 import jxmlease
+import glob
 
 from jnpr.junos import *
 from jnpr.junos.exception import *
@@ -360,6 +361,54 @@ def show_devices(list_dict):
     print t
     print "Device Total: {0}".format(len(list_dict))
 
+# 1. User provides a configuration statement in the "set" format.
+# 2. Function scans all configurations for the provided statement
+# 3. Regex Options: ANY,
+def search_configs():
+    # Capture commands to search for
+    set_command_list = getMultiInputAnswer("Enter a command to search for")
+
+    # Search configs directory recursively for content
+    for folder, dirs, files in os.walk(config_dir):
+        firstpass = True
+        best_timestamp = ""
+        best_filepath = ""
+        hostname = ""
+
+        # Loop over files and get the newest configuration file
+        for file in files:
+            #print "File: {0}".format(file)
+            if re.match(".*\d{4}-\d{2}-\d{2}_\d{4}.conf", file):
+                file_time = re.search("\d{4}-\d{2}-\d{2}_\d{4}", file)
+                text_ext = file[file_time.start():file_time.end()]
+                hostname = os.path.split(folder)[1]
+
+                #print "Time: {0}".format(text_ext)
+                curr_timestamp = datetime.datetime.strptime(text_ext, "%Y-%m-%d_%H%M")
+                if firstpass:
+                    best_timestamp = curr_timestamp
+                    best_filepath = os.path.join(folder, file)
+                    firstpass = False
+                else:
+                    if curr_timestamp > best_timestamp:
+                        best_filepath = os.path.join(folder, file)
+                        best_timestamp = curr_timestamp
+        #print "Best File: {0} Timestamp: {1}".format(best_filepath, best_timestamp)
+        if best_filepath:
+            print "Hostname: {0}".format(hostname)
+            print "\tBest File: {0}".format(best_filepath)
+            print "\tExtracted Time: {0}".format(best_timestamp)
+
+            with open(best_filepath, 'r') as f:
+                ### NEW CONTENT ###
+                # print "HOST: {0}".format(hostname)
+                for line in f:
+                    #set_command_list = ['set system host-name', 'set interfaces lo0']
+                    for set_command in set_command_list:
+                        if set_command in line:
+                            print "\t\t- {0}".format(line.rstrip())
+
+
 def delete_menu():
     """ Purpose: Menu for selecting a record to delete.
         Returns: T/F
@@ -490,7 +539,7 @@ if __name__ == '__main__':
     listDict = json_to_listdict(main_list_dict)
 
     # Main Program Loop
-    my_options = ['Display Database', 'Search Database', 'Display Device', 'IP Search', 'Delete Record', 'Quit']
+    my_options = ['Display Database', 'Search Database', 'Search Configurations', 'Display Device', 'IP Search', 'Delete Record', 'Quit']
 
     try:
         while True:
@@ -506,6 +555,9 @@ if __name__ == '__main__':
                 print "Run -> Search Database"
                 search_menu()
             elif answer == "3":
+                print "Run -> Search Configurations"
+                search_configs()
+            elif answer == "4":
                 if listDict:
                     loop = True
                     while (loop):
@@ -516,13 +568,13 @@ if __name__ == '__main__':
                             display_device_info(answer)
                 else:
                     print "No Records in Database!"
-            elif answer == "4":
+            elif answer == "5":
                 print "Run -> IP Search"
                 ip_search_menu(listDict)
-            elif answer == "5":
+            elif answer == "6":
                 print "Run -> Delete Record"
                 delete_menu()
-            elif answer == "6":
+            elif answer == "7":
                 print "Goodbye!"
                 quit()
             else:
