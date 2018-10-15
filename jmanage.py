@@ -364,15 +364,25 @@ def show_devices(list_dict):
 # 1. User provides a configuration statement in the "set" format.
 # 2. Function scans all configurations for the provided statement
 # 3. Regex Options: ANY,
-def search_configs():
+def search_configs(list_dict):
     # Capture commands to search for
     set_command_list = getMultiInputAnswer("Enter a command to search for")
+
+    # Ask user if all commands must be matched (if more than one command is provided)
+    and_tf = False
+    if len(set_command_list) > 1:
+        and_tf = getTFAnswer("Is this an 'AND'")
+
+    # Counter for the number of matches found
+    dev_count = 0
+    ip_list = []
 
     # Search configs directory recursively for content
     for folder, dirs, files in os.walk(config_dir):
         firstpass = True
         best_timestamp = ""
         best_filepath = ""
+        best_filename = ""
         hostname = ""
 
         # Loop over files and get the newest configuration file
@@ -388,26 +398,57 @@ def search_configs():
                 if firstpass:
                     best_timestamp = curr_timestamp
                     best_filepath = os.path.join(folder, file)
+                    best_filename = file
                     firstpass = False
                 else:
                     if curr_timestamp > best_timestamp:
                         best_filepath = os.path.join(folder, file)
+                        best_filename = file
                         best_timestamp = curr_timestamp
         #print "Best File: {0} Timestamp: {1}".format(best_filepath, best_timestamp)
         if best_filepath:
-            print "Hostname: {0}".format(hostname)
-            print "\tBest File: {0}".format(best_filepath)
-            print "\tExtracted Time: {0}".format(best_timestamp)
-
-            with open(best_filepath, 'r') as f:
-                ### NEW CONTENT ###
-                # print "HOST: {0}".format(hostname)
-                for line in f:
-                    #set_command_list = ['set system host-name', 'set interfaces lo0']
-                    for set_command in set_command_list:
+            cap_list = []
+            # Loop over the commands we are looking for
+            for set_command in set_command_list:
+                # Open the configuration file
+                with open(best_filepath, 'r') as file:
+                    matched = False
+                    # Assign a line to the 'line' variable
+                    for line in file:
+                        # Check if the command is in this line
                         if set_command in line:
-                            print "\t\t- {0}".format(line.rstrip())
+                            matched = True
+                            cap_list.append("\t\t- " + line.rstrip())
+                            break   # Leave the for loop, we've found a match
+                # Check if we need to clear this (assuming this is an AND)
+                if and_tf and not matched:
+                    cap_list = []
+                    matched = False
+                    break
 
+            # If we matched something, print to the screen
+            if cap_list:
+                dev_count += 1
+                dev_rec = get_record(list_dict, hostname=hostname)
+                if dev_rec:
+                    print "Hostname: {0} {1}".format(hostname, dev_rec['ip'])
+                    ip_list.append(dev_rec['ip'])
+                else:
+                    print "Hostname: {0} (IP Unknown)".format(hostname)
+                print "\tBest File: {0}".format(best_filename)
+                print "\tExtracted Time: {0}".format(best_timestamp)
+                for cap in cap_list:
+                    print cap
+                print ""
+                # print "HOST: {0}".format(hostname)
+    # IP list from these devices
+    ip_list_name = os.path.join(iplist_dir, "search_ip_list.txt")
+    if not list_to_txt(ip_list_name, ip_list):
+        print "Failed to create ip list file."
+    else:
+        print "Successfully created ip list: {0}".format(ip_list_name)
+    # Print the count
+    print "Total Devices Matched: {0}".format(int(dev_count))
 
 def delete_menu():
     """ Purpose: Menu for selecting a record to delete.
@@ -556,7 +597,7 @@ if __name__ == '__main__':
                 search_menu()
             elif answer == "3":
                 print "Run -> Search Configurations"
-                search_configs()
+                search_configs(listDict)
             elif answer == "4":
                 if listDict:
                     loop = True

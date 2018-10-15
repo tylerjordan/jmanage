@@ -420,7 +420,7 @@ def remove_record(listDict, key, value, config_dir):
 
 # Gets a record
 def get_record(listDict, ip='', hostname='', sn='', code=''):
-    """ Purpose: Returns a record from the listDict containing hostname, ip, model, version, serial number. Providing
+    """ Purpose: Returns a record (dictionary) from the listDict containing hostname, ip, model, version, serial number. Providing
                 three different methods to return the data.
 
         :param ip:          -   String of the IP of the device
