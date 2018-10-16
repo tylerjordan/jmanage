@@ -419,7 +419,7 @@ def search_configs(list_dict):
                         if set_command in line:
                             matched = True
                             cap_list.append("\t\t- " + line.rstrip())
-                            break   # Leave the for loop, we've found a match
+                            #break   # Leave the for loop, we've found a match
                 # Check if we need to clear this (assuming this is an AND)
                 if and_tf and not matched:
                     cap_list = []
