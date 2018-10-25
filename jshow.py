@@ -196,7 +196,7 @@ def populate_template(template_file, device=[]):
     temp_conf = ''
     # Check if device was provided, if yes, then we need to create templates for each device
     if device:
-        temp_conf = os.path.join(dir_path, temp_dir, "temp_" + device['mgmt_ip'].replace(".","") + ".conf")
+        temp_conf = os.path.join(dir_path, temp_dir, "temp_" + device['MGMT_IP'].replace(".","") + ".conf")
     else:
         temp_conf = os.path.join(dir_path, temp_dir, "temp_" + get_now_time() + ".conf")
 
@@ -568,14 +568,17 @@ def template_commands(list_dict):
         else:
             print "Invalid selection!"
 
-    # Sort headers with mgmt_ip being the first key
+    # List with MGMT_IP being the first key
     sorted_keys = []
+    # Make sure one of the columns has MGMT_IP, a mandatory column
     if 'MGMT_IP' in keys:
+        # If it exists in the list, add MGMT_IP to the sorted list
         sorted_keys.append('MGMT_IP')
+        # Loop over all the keys and add if they are NOT MGMT_IP
         for one_key in keys:
             if one_key != 'MGMT_IP':
                 sorted_keys.append(one_key)
-        # Print the CSV file and the
+        # Print the CSV file parameters
         for device in dev_vars_ld:
             for key in sorted_keys:
                 if key == 'MGMT_IP':
@@ -646,7 +649,7 @@ def template_commands(list_dict):
             print "\n!!! Configuration deployment aborted... No changes made !!!\n"
             return False
     else:
-        print "Unable to find mandatory 'mgmt_ip' column in {0}. Please check the column headers.".format(csv_file)
+        print "Unable to find mandatory 'MGMT_IP' column in {0}. Please check the column headers.".format(csv_file)
         return False
 
 # Function for capturing output and initiaing push function
