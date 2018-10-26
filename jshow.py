@@ -13,6 +13,7 @@ import logging
 import netaddr
 import platform
 import sys
+import random
 
 from jnpr.junos import Device
 from jnpr.junos.utils.sw import SW
@@ -275,7 +276,29 @@ def deviation_search(list_dict):
         # Merge the host content and common content to an ld
         # This is the content to populate variables
         new_ld = []
-        common_dict = csv_to_dict_twoterm(common_content_csv, ";")
+
+        # Process common_content CSV to choose one value
+        csv_lines = txt_to_list(common_content_csv)
+        new_lines = []
+        for line in csv_lines:
+            elements = line.split(";")
+            print "Elements: {0}".format(elements)
+            if len(elements) > 2:
+                print "Enter If..."
+                key = elements.pop(0)
+                chosen = random.choice(elements)
+                new_lines.append(key + ";" + chosen)
+                print "Key: {0} Attrib: {1}".format(key, chosen)
+            else:
+                new_lines.append(line)
+        print "New Lines:"
+        print new_lines
+        # Make sure the parse worked
+        if list_to_txt(common_content_csv, new_lines):
+            common_dict = csv_to_dict_twoterm(common_content_csv, ";")
+        else:
+            print "Common dict parse failed"
+
         content_ld = csv_to_listdict(specific_content_csv, mydelim=";")
         for host_dict in content_ld:
             new_host_dict = host_dict.copy()
