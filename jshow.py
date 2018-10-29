@@ -14,6 +14,7 @@ import netaddr
 import platform
 import sys
 import random
+import pprint
 
 from jnpr.junos import Device
 from jnpr.junos.utils.sw import SW
@@ -170,10 +171,17 @@ def template_populate(command_list, host_dict):
                             #print "Match: {0}".format(match)
                             term = match[2:-2]
                             vareg = r"{{" + term + "}}"
-                            #print "Pattern: {0}".format(vareg)
-                            #print "Replace: {0}".format(host_dict[term])
+
+                            # If mutiple choices exist, randomly choose one
+                            #print "Host Dict: {0}".format(host_dict[term])
+                            if type(host_dict[term]) == list:
+                                chosen = random.choice(host_dict[term])
+                            else:
+                                chosen = host_dict[term]
+
+                            # Try to do the substitution...
                             try:
-                                command = re.sub(vareg, host_dict[term], command)
+                                command = re.sub(vareg, chosen, command)
                             except KeyError as err:
                                 print "ERROR: Detected a missing key: {0} - Exiting Process".format(err)
                                 return ''
@@ -276,34 +284,36 @@ def deviation_search(list_dict):
         # Merge the host content and common content to an ld
         # This is the content to populate variables
         new_ld = []
+        common_dict = {}
 
         # Process common_content CSV to choose one value
         csv_lines = txt_to_list(common_content_csv)
         new_lines = []
         for line in csv_lines:
             elements = line.split(";")
-            print "Elements: {0}".format(elements)
+            #print "Elements: {0}".format(elements)
+            # If this key contains more than one possible value, adds a list...
             if len(elements) > 2:
-                print "Enter If..."
                 key = elements.pop(0)
-                chosen = random.choice(elements)
-                new_lines.append(key + ";" + chosen)
-                print "Key: {0} Attrib: {1}".format(key, chosen)
+                common_dict[key] = elements
+            # If this key contains only one value...
             else:
-                new_lines.append(line)
-        print "New Lines:"
-        print new_lines
-        # Make sure the parse worked
-        if list_to_txt(common_content_csv, new_lines):
-            common_dict = csv_to_dict_twoterm(common_content_csv, ";")
-        else:
-            print "Common dict parse failed"
+                common_dict[elements[0]] = elements[1]
 
+        #print "Common Dict:"
+        #print common_dict
+
+        # Combine the device specific and common parameters
         content_ld = csv_to_listdict(specific_content_csv, mydelim=";")
         for host_dict in content_ld:
             new_host_dict = host_dict.copy()
             new_host_dict.update(common_dict)
             new_ld.append(new_host_dict)
+
+        #print "New LD:"
+        #pp = pprint.PrettyPrinter(indent=4)
+        #pp.pprint(new_ld)
+        #exit()
 
         # If user chooses a standard template scan
         if standard_scan == "y":
