@@ -69,7 +69,6 @@ def getOptionAnswer(question, options):
             print "Use a number!"
             answer = ""
 
-
 # Method for asking a question that can have multiple answers, returns list of answers
 def getOptionMultiAnswer(question, options):
     answer_str = ""
@@ -1055,11 +1054,15 @@ def ping(ip):
         except subprocess.CalledProcessError:
             return False
 
-# Get a fact from one of the database records, using the ip. Could be used for any list_dict.
-def get_db_fact(list_dict, ip, fact):
+# Get a fact from one of the database records, using t. Could be used for any list_dict.
+# list_dict: database
+# fact: target value
+# src_val: value of fact to use to get target
+# src_key: key of fact to use to get target
+def get_db_fact(list_dict, fact, src_val, src_key='ip'):
     empty_str = ""
     for record in list_dict:
-        if record['ip'] == ip:
+        if record[src_key] == src_val:
             if fact in record.keys():
                 return record[fact]
             else:
