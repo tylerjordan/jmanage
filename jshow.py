@@ -420,15 +420,16 @@ def deviation_search(list_dict):
     # If this is a non-standard scan
     elif standard_scan == "n":
         # Get user to supply an IP list or to scan all devices
+        scan_ip_list = []
         scan_all = getYNAnswer("Scan ALL devices in database")
         if scan_all == 'y':
             for device in list_dict:
-                ip_list.append(device['ip'])
+                scan_ip_list.append(device['ip'])
         else:
             file_list = getFileList(data_iplists_dir)
             ip_list_file = getOptionAnswer("Choose an ip list to use", file_list)
             ip_list_fp = os.path.join(data_iplists_dir, ip_list_file)
-            ip_list = txt_to_list(ip_list_fp)
+            scan_ip_list = txt_to_list(ip_list_fp)
 
         # Check if user wants to filter based on top level heirarchy
         check_filter = getYNAnswer("Add a filter")
@@ -446,7 +447,7 @@ def deviation_search(list_dict):
         for folder, dirs, files in os.walk(data_configs_dir):
             hostname = os.path.split(folder)[1]
             test_ip = get_db_fact(list_dict, 'ip', hostname, 'hostname')
-            if test_ip in ip_list:
+            if test_ip in scan_ip_list:
                 for file in files:
                     #print "File Name: {0}".format(file)
                     command_list = []
@@ -498,7 +499,8 @@ def deviation_search(list_dict):
                                     hostname, ip)
                         # If no discrepancies are found in this template
                         else:
-                            print "HOST: {0} ({1}) | No Discrepancies Detected!".format(hostname, ip)
+                            pass
+                            #print "HOST: {0} ({1}) | No Discrepancies Detected!".format(hostname, ip)
         # IP list from these devices
         ip_list_name = os.path.join(data_iplists_dir, "template_ip_list.txt")
         if not list_to_txt(ip_list_name, ip_list):

@@ -481,7 +481,7 @@ def delete_menu():
         host_answer_list = getOptionMultiAnswer("Which devices would you like to delete", host_list)
         if host_answer_list:
             for hostname in host_answer_list:
-                if remove_record(listDict, 'hostname', hostname):
+                if remove_record(listDict, 'hostname', hostname, config_dir):
                     print "Removed: {0}".format(hostname)
                 else:
                     print "Removal Failed: {0}".format(hostname)
