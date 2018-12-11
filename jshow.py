@@ -284,6 +284,8 @@ def deviation_search(list_dict):
             deviation_selection = getOptionAnswer("Choose a deviation to search for", file_list)
             tmppath = os.path.join(temp_dev_dir, deviation_selection)
             tmp_lines = txt_to_list(tmppath)
+            #print "Dev File:"
+            #print tmp_lines
 
             # Merge the host content and common content to an ld
             # This is the content to populate variables
@@ -338,11 +340,11 @@ def deviation_search(list_dict):
                             ### NEW CONTENT ###
                             #print "HOST: {0}".format(hostname)
                             for line in f:
-                                # print "Line: {0}".format(line)
                                 if '(-)' in line:
                                     subline = line.split('(-) ', 1)[-1].rstrip()
+                                    #print "Formatted Line: {0}".format(subline)
                                     if subline in tmp_lines:
-                                        #print "\tUnpopulated Line: {0}".format(subline)
+                                        #print "Found Line: {0}\n".format(subline)
                                         # Append the commands to a list
                                         command_list.append(subline)
                                         num_matches += 1
@@ -356,7 +358,7 @@ def deviation_search(list_dict):
                                         ip = device['ip']
                                 #print "Found {0} lines ... appending: {1} ({2}) to file".format(num_matches, hostname, ip)
                                 #for command in command_list:
-                                #    print "\tCommand: {0}".format(command)
+                                #   print "\t# Command: {0}".format(command)
                             else:
                                 print "Hostname {0} already listed?".format(hostname)
                             # Replace any variables in the command list
@@ -391,7 +393,7 @@ def deviation_search(list_dict):
                                             except Exception as err:
                                                 print "\t---> Failed converting list to text file: {0}".format(err)
                                             else:
-                                                print "\t---> Succeessfully created template file: {0} --".format(temp_dev_name)
+                                                print "\t---> Succeessfully created template file: {0} <---\n".format(temp_dev_name)
                                         else:
                                             print "HOST: {0} ({1}) | ERROR: Discrepancies Detected, but missing necessary variables!".format(hostname, ip)
                                             for command in command_list:
@@ -492,8 +494,7 @@ def deviation_search(list_dict):
                                 except Exception as err:
                                     print "\t---> Failed converting list to text file: {0}".format(err)
                                 else:
-                                    print "\t---> Succeessfully created template file: {0} --".format(
-                                        temp_dev_name)
+                                    print "\t---> Succeessfully created template file: {0} <---\n".format(temp_dev_name)
                             else:
                                 print "HOST: {0} ({1}) | ERROR: Discrepancies Detected, but device not pingable!".format(
                                     hostname, ip)
@@ -728,7 +729,6 @@ def deploy_template_config(template_file, dev_vars_ld, output_log, summary_csv):
     #pp = pprint.PrettyPrinter(indent=4)
     #print "IP Pool:"
     #pp.pprint(ip_pool)
-
     p = Pool(queue_num)
     try:
         results = p.map(push_commands_multi, ip_pool)
