@@ -2162,12 +2162,20 @@ def check_loop(subsetlist):
 
     # Check the entire database
     else:
-        IP_LIST = []
+        # Record (ip, etc)
+        # list length
+        list_len = len(listDict)
+        list_seq = 1
+        # list sequence
+        IP_POOL = []
         for record in listDict:
-            IP_LIST.append(record['ip'])
+            #IP_POOL.append(record['ip'])
+            IP_RECORD = ([record, list_len, list_seq, chg_log], )
+            IP_POOL += IP_RECORD
+            list_seq += 1
         # New Multiprocessing Code
         process_pool = multiprocessing.Pool(processes=5)
-        process_pool.map(check_main_multi, IP_LIST)
+        process_pool.map(check_main_multi, IP_POOL)
         process_pool.close()
         process_pool.join()
         # Regular Code
@@ -2186,22 +2194,32 @@ def check_loop(subsetlist):
     print "Device Processsing Ends: {0}\n\n".format(get_now_time())
 
 
-def check_main_multi(ip, chg_log="deflog.log", total_num=1, curr_num=1):
+#def check_main_multi(ip, chg_log="deflog.log", total_num=1, curr_num=1):
+def check_main_multi(attr):
     """ Purpose: Performs the selected checks (Parameter/Config, Template, or All)
 
+    :attr[0] = record
+    :attr[1] = list length
+    :attr[2] = list sequence
+    :attr[3] = change log
     :param record: A dictionary containing the device information from main_db.
     :param total_num: Total number of devices in the current loop.
     :param curr_num: The number of the current device.
     :return: None
     """
-    # Get the record
-    record = get_record(listDict, ip)
+    # Assign Vars to Attributes
+    record_stuff = attr[0]
+    total_num = attr[1]
+    curr_num = attr[2]
+    chg_log = attr[3]
 
     # Make sure that a folder exists for this site
+    record = get_record(listDict, record_stuff['ip'])
     directory_check(record)
 
     # Print out the device and count information
-    stdout.write(record['hostname'] + " (" + record['ip'] + ") | Connecting ...\n")
+    stdout.write("\n" + "| " + str(curr_num) + " of " + str(total_num) + " | " + record['hostname'] + " (" + record['ip'] + ")\n")
+    #stdout.write(record['hostname'] + " (" + record['ip'] + ") | Connecting ...\n")
     sys.stdout.flush()
     # Update the 'last_access_attempt'
     record.update({'last_access_attempt': get_now_time()})
