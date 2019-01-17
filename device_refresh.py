@@ -2140,14 +2140,18 @@ def check_loop(subsetlist):
     #try:
     if subsetlist:
         temp_list = []
+        # Get the total number of IP addresses
         for ip_addr in line_list(os.path.join(iplist_dir, subsetlist)):
-            temp_list.append(ip_addr.strip())
-        # Total number of devices in this loop
+            raw_ip = ip_addr.strip()
+            temp_list.append(raw_ip)
+        # Total number of IPs in this list
         total_num = len(temp_list)
-        # Loop through IPs in the provided list
+
+        # Loop over the ip addresses provided
         for ip in temp_list:
-            record = get_record(listDict, ip)
+            # Increase count by 1...
             curr_num += 1
+            record = get_record(listDict, ip)
             # Checks if the specified IP is NOT defined in the list of dictionaries.
             if not record:
                 #print "\n" + "-" * 80
@@ -2160,31 +2164,15 @@ def check_loop(subsetlist):
             else:
                check_main(record, chg_log, total_num, curr_num)
 
+
     # Check the entire database
     else:
         # Record (ip, etc)
-        # list length
-        list_len = len(listDict)
-        list_seq = 1
-        # list sequence
-        IP_POOL = []
-        for record in listDict:
-            #IP_POOL.append(record['ip'])
-            IP_RECORD = ([record, list_len, list_seq, chg_log], )
-            IP_POOL += IP_RECORD
-            list_seq += 1
-        # New Multiprocessing Code
-        process_pool = multiprocessing.Pool(processes=5)
-        process_pool.map(check_main_multi, IP_POOL)
-        process_pool.close()
-        process_pool.join()
-        # Regular Code
-        """
         total_num = len(listDict)
         for record in listDict:
             curr_num += 1
             check_main(record, chg_log, total_num, curr_num)
-        """
+
     #except KeyboardInterrupt:
     #    print "\n --- Process has been interrupted ---"
     #except Exception as err:
@@ -2193,6 +2181,15 @@ def check_loop(subsetlist):
     print "\n\n" + "=" * 80
     print "Device Processsing Ends: {0}\n\n".format(get_now_time())
 
+# Update a record inside a list dictionary
+def update_ld(key, value, ip):
+    for record in listDict:
+        if record['ip'] == ip:
+            print "BEFORE:"
+            print record
+            record.update({key, value})
+            print "AFTER:"
+            print record
 
 #def check_main_multi(ip, chg_log="deflog.log", total_num=1, curr_num=1):
 def check_main_multi(attr):
@@ -2223,6 +2220,7 @@ def check_main_multi(attr):
     sys.stdout.flush()
     # Update the 'last_access_attempt'
     record.update({'last_access_attempt': get_now_time()})
+
     # Try to connect to the device
     dev = connect(record['ip'], hostname=record['hostname'], indbase=True)
     # If the connection was successfull, start checking device
@@ -2290,6 +2288,7 @@ def check_main_multi(attr):
                 # print "Record Removed!"
             # else:
             #    print "Access_Success diff is LT 30: {0}".format(day_diffs)
+    return record
 
 
 def check_main(record, chg_log="deflog.log", total_num=1, curr_num=1):
@@ -2304,12 +2303,13 @@ def check_main(record, chg_log="deflog.log", total_num=1, curr_num=1):
     directory_check(record)
 
     # Print out the device and count information
-    stdout.write("\n" + "| " + str(curr_num) + " of " + str(total_num) + " | " + record['hostname'] + " (" + record['ip'] + ") | ")
+    stdout.write("\n" + "| " + str(curr_num) + " of " + str(total_num) + " | ")
     sys.stdout.flush()
     # Update the 'last_access_attempt'
     record.update({'last_access_attempt': get_now_time()})
     # Try to connect to the device
-    dev = connect(record['ip'], indbase=True)
+    dev = connect(record['ip'], hostname=record['hostname'], indbase=True)
+
     # If the connection was successfull, start checking device
     if dev:
         record.update({'last_access_success': get_now_time()})
@@ -2327,7 +2327,7 @@ def check_main(record, chg_log="deflog.log", total_num=1, curr_num=1):
             if run_param: stdout.write("| Param |")
             if run_config: stdout.write("| Config |")
             if run_inet: stdout.write("| Inet |")
-            if run_template: stdout.write("| Template |")
+            if run_template: stdout.write("| Template |\n")
             sys.stdout.flush()
 
             # Run the selected checks

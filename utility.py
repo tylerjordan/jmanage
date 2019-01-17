@@ -492,7 +492,6 @@ def getSpecSiteCode(hostname):
 
     return siteObj.group()[-7:].encode("ascii")
 
-
 # This function removes the directory "d" and all files and directories recursively... real quick!
 # If you don't want to remove the top level directory, set the "remove_top_dir" to False
 def rm_rf(d, remove_top_dir=True):
