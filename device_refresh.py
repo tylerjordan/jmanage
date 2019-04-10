@@ -1306,10 +1306,10 @@ def config_compare(record, dev):
                     results.append(item)
                 # Try to save the new config file
                 if save_config_file(current_config, record):
-                    stdout.write(" | New config saved")
+                    stdout.write(" | New config saved\n")
                 else:
                     message = "Unable to save new config"
-                    stdout.write(" | ERROR: " + message)
+                    stdout.write(" | ERROR: " + message + "\n")
                     results.append(message)
                     returncode = 3
             # If change_list length is 0, there are no differences in config
