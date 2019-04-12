@@ -1059,7 +1059,7 @@ def get_chassis_inventory(dev, hostname):
     inv_file = hostname + "_inventory.csv"
     inv_csv = os.path.join(inv_dir, inv_file)
     listdict_to_csv(inventory_listdict, inv_csv, columnNames=item_key)
-    print "Done!"
+    print "Added Device Inventory to {0}!".format(inv_csv)
 
 # Function for running operational commands to multiple devices
 def oper_commands(my_ips):
