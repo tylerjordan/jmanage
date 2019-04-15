@@ -24,7 +24,6 @@ from utility import *
 from getpass import getpass
 from prettytable import PrettyTable
 from sys import stdout
-from multiprocessing import Pool
 from shutil import copyfile
 
 # Global Variables
@@ -533,7 +532,6 @@ def template_push(host_list):
         stdout.write("[{0} of {1}]: Connected to {2}!\n".format(loop, len(host_list), host['MGMT_IP']))
         dev_dict = push_commands_single(host_template_file, output_log, host['MGMT_IP'])
         screen_and_log("\n" + ("-" * 110) + "\n", output_log)
-        #exit()
         # Print to a CSV file
         keys = ['HOSTNAME', 'IP', 'MODEL', 'JUNOS', 'CONNECTED', 'LOAD_SUCCESS', 'ERROR']
         dict_to_csv(dev_dict, summary_csv_file, keys)
