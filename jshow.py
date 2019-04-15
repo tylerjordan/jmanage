@@ -1018,48 +1018,53 @@ def collect_attribs(dev_obj, hostname):
 # Grabs the devices chassis hardware info and places it in
 def get_chassis_inventory(dev, hostname):
     # Testing context
-    root = dev.rpc.get_chassis_inventory()
-    print "\t- Gathering chassis hardware information..."
-    inventory_listdict = []
-
-    # Check to see if chassis exists
-    if root.findtext('chassis'):
-        # Gather chassis attribs
-        for base in root.findall('chassis'):
-            item = collect_attribs(base, hostname)
-            if item:
-                inventory_listdict.append(item)
-            # Gather module attribs
-            if base.findtext('chassis-module'):
-                for module in base.findall('chassis-module'):
-                    item = collect_attribs(module, hostname)
-                    if item:
-                        inventory_listdict.append(item)
-                    # Gather attribs
-                    if module.findtext('chassis-sub-module'):
-                        for submodule in module.findall('chassis-sub-module'):
-                            item = collect_attribs(submodule, hostname)
-                            if item:
-                                inventory_listdict.append(item)
-                            # Gather attribs
-                            if submodule.findtext('chassis-sub-sub-module'):
-                                for subsubmodule in submodule.findall('chassis-sub-sub-module'):
-                                    item = collect_attribs(subsubmodule, hostname)
-                                    if item:
-                                        inventory_listdict.append(item)
-                                    # Gather attribs
-                                    if subsubmodule.findtext('chassis-sub-sub-sub-module'):
-                                        for subsubsubmodule in subsubmodule.findall('chassis-sub-sub-sub-module'):
-                                            item = collect_attribs(subsubsubmodule, hostname)
-                                            if item:
-                                                inventory_listdict.append(item)
-    # Add the content to the inventory CSV
-    stdout.write("\t- Adding to CSV...")
-    item_key = ['hostname', 'name', 'description', 'version', 'location', 'part-number', 'serial-number']
-    inv_file = hostname + "_inventory.csv"
-    inv_csv = os.path.join(inv_dir, inv_file)
-    listdict_to_csv(inventory_listdict, inv_csv, columnNames=item_key)
-    print "Added Device Inventory to {0}!".format(inv_csv)
+    try:
+        print "Attempting to capture inventory from {0}...".format(hostname)
+        root = dev.rpc.get_chassis_inventory()
+    except Exception as err:
+        print "ERROR: Inventory capture failed - {0}".format(err)
+        print "Exiting Inventory Function"
+    else:
+        print "Parsing hardware information..."
+        inventory_listdict = []
+        # Check to see if chassis exists
+        if root.findtext('chassis'):
+            # Gather chassis attribs
+            for base in root.findall('chassis'):
+                item = collect_attribs(base, hostname)
+                if item:
+                    inventory_listdict.append(item)
+                # Gather module attribs
+                if base.findtext('chassis-module'):
+                    for module in base.findall('chassis-module'):
+                        item = collect_attribs(module, hostname)
+                        if item:
+                            inventory_listdict.append(item)
+                        # Gather attribs
+                        if module.findtext('chassis-sub-module'):
+                            for submodule in module.findall('chassis-sub-module'):
+                                item = collect_attribs(submodule, hostname)
+                                if item:
+                                    inventory_listdict.append(item)
+                                # Gather attribs
+                                if submodule.findtext('chassis-sub-sub-module'):
+                                    for subsubmodule in submodule.findall('chassis-sub-sub-module'):
+                                        item = collect_attribs(subsubmodule, hostname)
+                                        if item:
+                                            inventory_listdict.append(item)
+                                        # Gather attribs
+                                        if subsubmodule.findtext('chassis-sub-sub-sub-module'):
+                                            for subsubsubmodule in subsubmodule.findall('chassis-sub-sub-sub-module'):
+                                                item = collect_attribs(subsubsubmodule, hostname)
+                                                if item:
+                                                    inventory_listdict.append(item)
+        # Add the content to the inventory CSV
+        stdout.write("\t- Adding to CSV...")
+        item_key = ['hostname', 'name', 'description', 'version', 'location', 'part-number', 'serial-number']
+        inv_file = hostname + "_inventory.csv"
+        inv_csv = os.path.join(inv_dir, inv_file)
+        listdict_to_csv(inventory_listdict, inv_csv, columnNames=item_key)
+        print "Added Device Inventory to {0}!".format(inv_csv)
 
 # Function for running operational commands to multiple devices
 def oper_commands(my_ips):
