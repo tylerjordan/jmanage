@@ -118,8 +118,7 @@ def getOptionAnswerIndex(question, options):
 # Method for asking a user input question
 def getInputAnswer(question):
     answer = ""
-    while not answer:
-        answer = raw_input(question + ': ')
+    answer = raw_input(question + ': ')
     return answer
 
 # Method for asking a user input question that can have multiple answers

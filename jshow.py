@@ -426,10 +426,26 @@ def deviation_search(list_dict):
     elif standard_scan == "n":
         # Get user to supply an IP list or to scan all devices
         scan_ip_list = []
+        omitted_ip_list = []
+        ip_added = "1"
         scan_all = getYNAnswer("Scan ALL devices in database")
         if scan_all == 'y':
+            # Check if any IPs should be excluded from the whole list
+            omit_any = getTFAnswer("Any devices to omit")
+            if omit_any:
+                while ip_added:
+                    ip_added = getInputAnswer("Enter an IP to omit")
+                    # Make sure the IP is valid and then add it, no IP means were done adding IPs
+                    if ip_added and netaddr.valid_ipv4(ip_added):
+                        omitted_ip_list.append(ip_added)
+                    elif ip_added:
+                        print "Invalid entry: {0}".format(ip_added)
+
             for device in list_dict:
-                scan_ip_list.append(device['ip'])
+                if device['ip'] not in omitted_ip_list:
+                    scan_ip_list.append(device['ip'])
+                else:
+                    print "Skipped {0}!".format(device['ip'])
         else:
             file_list = getFileList(data_iplists_dir)
             ip_list_file = getOptionAnswer("Choose an ip list to use", file_list)
@@ -437,12 +453,12 @@ def deviation_search(list_dict):
             scan_ip_list = txt_to_list(ip_list_fp)
 
         # Check if user wants to filter based on top level heirarchy
-        check_filter = getYNAnswer("Add a filter")
+        check_filter = getYNAnswer("Add filters")
         if check_filter == 'y':
             top_level_hier = ['system', 'snmp', 'policy-options', 'firewall', 'protocols', 'interfaces', 'forwarding-options', 'chassis']
-            filter_top_level = getOptionAnswer("Define a top level heirarchy", top_level_hier)
+            filter_top_level = getOptionMultiAnswer("Define one or more top level heirarchies ie. 1,2", top_level_hier)
         else:
-            filter_top_level = ''
+            filter_top_level = []
 
         # Scan the template files
         print "Searching for template files with additional content..."
@@ -469,13 +485,18 @@ def deviation_search(list_dict):
                             for line in f:
                                 # print "Line: {0}".format(line)
                                 if "(+)" in line:
-                                    tl_filter = r'\s*\(\+\) set ' + filter_top_level + '.*'
-                                    if re.match(tl_filter, line):
-                                        subline = line.split('(+) ', 1)[-1].rstrip()
-                                        mod_subline = re.sub('^set', 'delete', subline)
-                                        # Append the commands to a list
-                                        command_list.append(mod_subline)
-                                        num_matches += 1
+                                    filter_match = False
+                                    for aFilter in filter_top_level:
+                                        tl_filter = r'\s*\(\+\) set ' + aFilter + '.*'
+                                        if re.match(tl_filter, line):
+                                            filter_match = True
+                                            subline = line.split('(+) ', 1)[-1].rstrip()
+                                            mod_subline = re.sub('^set', 'delete', subline)
+                                            # Append the commands to a list
+                                            command_list.append(mod_subline)
+                                            num_matches += 1
+                                        if filter_match:
+                                            break
                         # Run this if matches were made
                         if num_matches > 0:
                             if ping(ip):
