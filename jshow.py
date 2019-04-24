@@ -307,20 +307,12 @@ def deviation_search(list_dict):
                     else:
                         common_dict[elements[0]] = elements[1]
 
-                #print "Common Dict:"
-                #print common_dict
-
                 # Combine the device specific and common parameters
                 content_ld = csv_to_listdict(specific_content_csv, mydelim=";")
                 for host_dict in content_ld:
                     new_host_dict = host_dict.copy()
                     new_host_dict.update(common_dict)
                     new_ld.append(new_host_dict)
-
-                #print "New LD:"
-                #pp = pprint.PrettyPrinter(indent=4)
-                #pp.pprint(new_ld)
-                #exit()
 
                 print "Searching for template files with content..."
                 # Clear out the directory "temp_config_dir"
