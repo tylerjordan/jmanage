@@ -144,9 +144,11 @@ def create_timestamped_log(prefix, extension):
     now = datetime.datetime.now()
     return log_dir + prefix + now.strftime("%Y%m%d-%H%M") + "." + extension
 
+
 ######################
 # TEMPLATE FUNCTIONS #
 ######################
+
 # Replaces template variables with defined terms
 def template_populate(command_list, host_dict):
     new_command_list = []
@@ -323,11 +325,13 @@ def deviation_search(list_dict):
                         #print "File Name: {0}".format(file)
                         command_list = []
                         hostname = ""
+                        # Check if this file is a template deviation one
                         if file.startswith('Template_Deviation'):
-                            #print "\tFound Template Deviation File: {0}".format(file)
-                            #stdout.write("O")
                             fullpath = os.path.join(folder, file)
                             hostname = os.path.split(folder)[1]
+
+                            #print "\tFound Template Deviation File: {0}".format(file)
+                            #stdout.write("O")
                             num_matches = 0
                             with open(fullpath, 'r') as f:
                                 ### NEW CONTENT ###
@@ -393,10 +397,9 @@ def deviation_search(list_dict):
                                                     print "\tUncomplete Command: {0}".format(command)
                                         else:
                                             print "HOST: {0} ({1}) | ERROR: Discrepancies Detected, but device not pingable!".format(hostname, ip)
-                            # This will get devices that haven't matched the template commands
+                            # This will match if no matches were found in the template
                             else:
                                 pass
-                                #print "HOST: {0} | No Matches For This Device".format(hostname)
                         # This will get any non-template files, we want to skip those
                         else:
                             pass
