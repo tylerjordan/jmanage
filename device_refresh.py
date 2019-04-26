@@ -74,6 +74,7 @@ template_all = ''
 template_all_opt = ''
 template_els = ''
 template_nonels = ''
+template_ospf = ''
 
 template_regex_csv = ''
 template_map_csv = ''
@@ -142,6 +143,7 @@ def detect_env():
     global template_all_opt
     global template_els
     global template_nonels
+    global template_ospf
     global template_regex_csv
     global template_map_csv
     global access_error_log
@@ -179,6 +181,7 @@ def detect_env():
     template_all_opt = os.path.join(dir_path, template_dir, "template_all_opt.conf")
     template_els = os.path.join(dir_path, template_dir, "template_els.conf")
     template_nonels = os.path.join(dir_path, template_dir, "template_nonels.conf")
+    template_ospf = os.path.join(dir_path, template_dir, "template_ospf.conf")
     access_error_log = os.path.join(log_dir, "Access_Error_Log.csv")
     ops_error_log = os.path.join(log_dir, "Ops_Error_Log.csv")
     new_devices_log = os.path.join(log_dir, "New_Devices_Log.csv")
@@ -1436,17 +1439,22 @@ def fetch_config(dev, ver):
 #-----------------------------------------------------------------
 def template_check(record, force_refresh=False):
     """ Purpose: Runs the template function and creates log entries.
-
     :param record: A dictionary containing the device information from main_db
     :param temp_dev_log: Filename/path for the template log.
     :return: None
     """
     # Check if template option was specified
     # Template Results: 0 = Error, 1 = No Deviations, 2 = Deviations, 3 = No New Template Needed
-    # Delete existing template file(s)
+
+    # Check for OSPF configuration, see if this is a route point
+    ospf_str = "set protocols ospf"
+    is_mdf = False
+    host_config = get_config_str(record['hostname'], True)
+    if ospf_str in host_config:
+        is_mdf = True
 
     # Run template check
-    templ_results = template_results(template_regex(record['model']), record, force_refresh)
+    templ_results = template_results(template_regex(record['model'], is_mdf), record, force_refresh)
 
     # Check to see if a template run was even needed.
     #print "Result Code: {0}".format(templ_results[-1])
@@ -1749,7 +1757,7 @@ def template_str_parse(str):
     #print "TLINE:{0}".format(tline)
     return tline
 
-def template_regex(model):
+def template_regex(model, is_mdf):
     """ Purpose: Creates the template regex using the template file and regex mapping document.
     :param: None
     :return regtmpl_list: A list containing regexs for template scanner. 
@@ -1772,7 +1780,12 @@ def template_regex(model):
     # Otherwise, it is non-ELS
     else:
         addl_list = line_list(template_nonels)
-    # Loop over each line with appropriate
+
+    # If OSPF configuration is present
+    if is_mdf:
+        addl_list = line_list(template_ospf)
+
+    # Loop over each line that contains text
     for tline in addl_list:
         if tline != "":
             # Correctly format the string for matching
