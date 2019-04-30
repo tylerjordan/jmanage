@@ -336,12 +336,13 @@ def deviation_search(list_dict):
                             with open(fullpath, 'r') as f:
                                 ### NEW CONTENT ###
                                 #print "HOST: {0}".format(hostname)
+                                #print tmp_lines
                                 for line in f:
                                     if '(-)' in line:
                                         subline = line.split('(-) ', 1)[-1].rstrip()
                                         #print "Formatted Line: {0}".format(subline)
                                         if subline in tmp_lines:
-                                            #print "Found Line: {0}\n".format(subline)
+                                            #print "\tFound Line: {0}\n".format(subline)
                                             # Append the commands to a list
                                             command_list.append(subline)
                                             num_matches += 1
