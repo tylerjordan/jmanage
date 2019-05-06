@@ -1131,7 +1131,7 @@ def oper_commands(my_ips):
                         if command_list:
                             stdout.write(hostname + ": Executing commands ")
                             for command in command_list:
-                                command_output += "\n" + hostname + ": Executing -> {0}\n".format(command)
+                                command_output += "\n" + hostname + " (" + ip + "): Executing -> {0}\n".format(command)
                                 #com = dev.cli_to_rpc_string(command)
                                 #print "Command: {0}\nRPC: {1}\n".format(command, com)
                                 #if com is None:
